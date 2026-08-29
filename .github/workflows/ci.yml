@@ -34,6 +34,9 @@ jobs:
       - name: "🔎 Lint"
         run: bun run lint
 
+      - name: "🧹 Knip"
+        run: bun run knip
+
       - name: "🧠 Type-check"
         run: bun run typecheck
 

@@ -41,6 +41,7 @@ bun run format      # Check formatting
 bun run format:fix  # Apply formatting
 bun run lint        # Run type-aware linting
 bun run lint:fix    # Apply safe lint fixes
+bun run knip        # Find unused files, exports, and dependencies
 bun run test        # Run tests once
 bun run typecheck   # Type-check TypeScript and TSRX
 ```
