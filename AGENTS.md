@@ -16,6 +16,15 @@
 - When adding shadcn components, generate the `.tsx` source only as a reference, port the owned component to `.tsrx`, and remove any same-basename `.tsx` sibling.
 - With TSRX MCP tools, run `inspect-project` before substantial work; use `format-tsrx`, `compile-tsrx`, and `analyze-tsrx` for generated code, and `validate-tsrx-file` for a read-only check of an existing file.
 
+## Effect
+
+- Before changing Effect code, read `node_modules/effect/AGENTS.md` completely and follow its relevant links.
+- Use `node_modules/effect/ai-docs` and `node_modules/effect/src` as read-only, version-matched references. Never import from them.
+- Prefer `Effect.gen` for workflows and named `Effect.fn` for reusable Effect functions.
+- Use `Schema` for external data and typed domain errors. Add `Context.Service` and `Layer` only for genuinely replaceable services.
+- Keep framework handlers thin and run composed Effects at application boundaries; use a shared `ManagedRuntime` when Layers are involved.
+- Treat Effect Language Service diagnostics as required feedback.
+
 ## Validation
 
 - Prefer the smallest relevant check while iterating, then run all appropriate checks: `bun run format`, `bun run lint`, `bun run typecheck`, `bun run test`, and `bun run build`.

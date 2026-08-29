@@ -17,7 +17,7 @@
     "lint:fix": "oxlint --type-aware --deny-warnings --fix .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "bun run cf-typegen && tsrx-tsc --noEmit"
+    "typecheck": "bun run cf-typegen && tsrx-tsc --noEmit && effect-language-service diagnostics --project tsconfig.json --strict"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
@@ -27,11 +27,13 @@
     "@tsrx/vite-plugin-react": "0.0.96",
     "class-variance-authority": "0.7.1",
     "cnfast": "0.1.0",
+    "effect": "4.0.0-rc.112",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.54.2",
+    "@effect/language-service": "0.87.2",
     "@tailwindcss/vite": "4.3.3",
     "@tsrx/oxc": "0.7.0",
     "@tsrx/typescript-plugin": "0.3.128",

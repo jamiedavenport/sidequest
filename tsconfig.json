@@ -20,6 +20,9 @@
     "plugins": [
       {
         "name": "@tsrx/typescript-plugin"
+      },
+      {
+        "name": "@effect/language-service"
       }
     ],
     "resolveJsonModule": true,
