@@ -1,7 +1,7 @@
 import { Ellipsis } from "lucide-react";
 
+import { ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
 import { Button } from "~/components/ui/button.tsrx";
-import { Kbd } from "~/components/ui/kbd.tsrx";
 
 function SearchGlyph() @{
   <span
@@ -26,7 +26,7 @@ export function AppHeader() @{
           <SearchGlyph />
         </span>
         <span className="hidden sm:inline">Search</span>
-        <Kbd className="hidden sm:inline-flex">⌘ K</Kbd>
+        <ShortcutLabel hotkey="Mod+K" />
       </Button>
       <Button size="icon" type="button" variant="ghost" aria-label="More options">
         <Ellipsis aria-hidden="true" />

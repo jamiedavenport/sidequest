@@ -1,6 +1,9 @@
 export type LaneKind = "inbox" | "today" | "project" | "life";
 export type LaneSymbolColour = "green" | "amber" | "blue" | "violet";
 export type LaneSymbolShape = "square" | "circle" | "diamond";
+export type VerticalDirection = "up" | "down";
+export type HorizontalDirection = "left" | "right";
+export type TaskDepth = 1 | 2;
 
 export type TaskLink = {
   label: string;
@@ -16,8 +19,7 @@ export type Task = {
   date?: string;
   recurrence?: string;
   subtaskProgress?: string;
-  depth?: 1 | 2;
-  selected?: boolean;
+  depth?: TaskDepth;
   link?: TaskLink;
 };
 
@@ -25,9 +27,14 @@ export type Lane = {
   id: string;
   title: string;
   caption: string;
-  count: number;
   kind: LaneKind;
   colour: LaneSymbolColour;
   shape: LaneSymbolShape;
   tasks: Task[];
+};
+
+export type BoardContext = {
+  lanes: Lane[];
+  selectedId: string | null;
+  addingLaneId: string | null;
 };

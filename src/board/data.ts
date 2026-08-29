@@ -1,21 +1,15 @@
-import type { Lane } from "~/components/board/types";
+import type { Lane } from "~/board/types";
 
 export const lanes: Lane[] = [
   {
     id: "inbox",
     title: "Inbox",
     caption: "Capture now. Decide later.",
-    count: 3,
     kind: "inbox",
     colour: "green",
     shape: "square",
     tasks: [
-      {
-        id: "dentist",
-        title: "Book dentist appointment",
-        date: "Today",
-        selected: true,
-      },
+      { id: "dentist", title: "Book dentist appointment", date: "Today" },
       {
         id: "sync-notes",
         title: "Read offline sync notes",
@@ -33,7 +27,6 @@ export const lanes: Lane[] = [
     id: "today",
     title: "Today",
     caption: "One thing at a time.",
-    count: 4,
     kind: "today",
     colour: "amber",
     shape: "circle",
@@ -59,7 +52,6 @@ export const lanes: Lane[] = [
     id: "sidequest",
     title: "Sidequest",
     caption: "Build the calmest task manager.",
-    count: 5,
     kind: "project",
     colour: "blue",
     shape: "diamond",
@@ -85,7 +77,6 @@ export const lanes: Lane[] = [
     id: "life",
     title: "Life admin",
     caption: "Small things, safely held.",
-    count: 3,
     kind: "life",
     colour: "violet",
     shape: "square",

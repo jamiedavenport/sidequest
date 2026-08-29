@@ -1,10 +1,10 @@
 import { Ellipsis } from "lucide-react";
 
 import { Button } from "~/components/ui/button.tsrx";
-import { LaneSymbol } from "~/components/board/lane/symbol.tsrx";
-import { QuickAdd } from "~/components/board/quick-add.tsrx";
-import { TaskRow } from "~/components/board/task-row.tsrx";
-import type { Lane } from "~/components/board/types";
+import { LaneSymbol } from "~/board/components/lane/symbol.tsrx";
+import { QuickAdd } from "~/board/components/quick-add.tsrx";
+import { TaskRow } from "~/board/components/task-row.tsrx";
+import type { Lane } from "~/board/types";
 
 export function TaskLane({ lane }: { lane: Lane }) @{
   <article
@@ -20,7 +20,9 @@ export function TaskLane({ lane }: { lane: Lane }) @{
         >
           {lane.title}
         </h2>
-        <span className="tabular-nums text-sm text-muted-foreground sm:text-xs">{lane.count}</span>
+        <span className="tabular-nums text-sm text-muted-foreground sm:text-xs">
+          {lane.tasks.length}
+        </span>
       </div>
       <Button size="icon" type="button" variant="ghost" aria-label={`${lane.title} options`}>
         <Ellipsis aria-hidden="true" />

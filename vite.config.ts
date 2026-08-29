@@ -9,6 +9,13 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  optimizeDeps: {
+    include: [
+      "@tanstack/hotkeys",
+      "@tanstack/react-hotkeys",
+      "use-sync-external-store/shim/with-selector",
+    ],
+  },
   server: {
     port: 3000,
   },

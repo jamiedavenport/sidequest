@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-import type { LaneSymbolColour, LaneSymbolShape } from "~/components/board/types";
+import type { LaneSymbolColour, LaneSymbolShape } from "~/board/types";
 
 const colours: Record<LaneSymbolColour, string> = {
   green: "border-emerald-500/40 before:bg-emerald-500/60",

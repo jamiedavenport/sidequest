@@ -1,4 +1,4 @@
-import { TaskBoard } from "~/components/board.tsrx";
+import { TaskBoard } from "~/board/components/board.tsrx";
 
 export function Component() @{
   <TaskBoard />;
