@@ -13,8 +13,8 @@ export default defineConfig({
   },
   plugins: [
     cloudflare({ viteEnvironment: { name: "ssr" } }),
-    tanstackStart({ srcDirectory: "src" }),
     tsrxReact(),
+    tanstackStart({ srcDirectory: "src" }),
     viteReact(),
   ],
 });

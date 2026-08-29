@@ -4,4 +4,5 @@ import { Component } from "./index.tsrx";
 
 export const Route = createFileRoute("/")({
   component: Component,
+  loader: () => ({ status: "The application foundation is ready." }),
 });
