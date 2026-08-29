@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit and Push"
+  short_description: "Commit changes conventionally and push safely"
+  default_prompt: "Use $commit-and-push to commit the current repository changes and push the current branch."
