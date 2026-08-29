@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
+    "prepare": "lefthook install",
     "build": "bun run cf-typegen && vite build",
     "cf-typegen": "wrangler types",
     "commitlint": "commitlint --edit",
