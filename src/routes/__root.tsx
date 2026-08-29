@@ -22,7 +22,7 @@ export const Route = createRootRoute({
         content: "Sidequest is a task management tool for your projects.",
         name: "description",
       },
-      { content: "#f7f7f3", name: "theme-color" },
+      { content: "#ffffff", name: "theme-color" },
     ],
   }),
   notFoundComponent: NotFound,

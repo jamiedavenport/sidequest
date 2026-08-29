@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { Component } from "./index.tsrx";
+import { Component } from "~/routes/index.tsrx";
 
 export const Route = createFileRoute("/")({
   component: Component,
-  loader: () => ({ status: "The application foundation is ready." }),
 });
