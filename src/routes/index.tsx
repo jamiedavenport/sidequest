@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { Welcome } from "~/components/welcome.tsrx";
+import { Component } from "./index.tsrx";
 
 export const Route = createFileRoute("/")({
-  component: Welcome,
+  component: Component,
 });

@@ -1,4 +1,4 @@
-export function Welcome() @{
+export function Component() @{
   <main className="welcome">
     <div className="mark" aria-hidden="true">
       <span />
