@@ -5,7 +5,11 @@ import appStyles from "~/styles.css?url";
 
 export const Route = createRootRoute({
   head: () => ({
-    links: [{ href: appStyles, rel: "stylesheet" }],
+    links: [
+      { href: "https://rsms.me", rel: "preconnect" },
+      { href: "https://rsms.me/inter/inter.css", rel: "stylesheet" },
+      { href: appStyles, rel: "stylesheet" },
+    ],
     meta: [
       { charSet: "utf-8" },
       {
@@ -25,11 +29,14 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html
+      className="min-h-full min-w-80 bg-background font-sans text-foreground antialiased [font-synthesis:none] [text-rendering:optimizeLegibility]"
+      lang="en"
+    >
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="min-h-dvh bg-background text-foreground">
         {children}
         <Scripts />
       </body>

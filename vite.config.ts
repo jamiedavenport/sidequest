@@ -1,4 +1,5 @@
 import { cloudflare } from "@cloudflare/vite-plugin";
+import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import tsrxReact from "@tsrx/vite-plugin-react";
 import viteReact from "@vitejs/plugin-react";
@@ -16,5 +17,6 @@ export default defineConfig({
     tsrxReact(),
     tanstackStart({ srcDirectory: "src" }),
     viteReact(),
+    tailwindcss(),
   ],
 });

@@ -45,6 +45,38 @@ bun run test        # Run tests once
 bun run typecheck   # Type-check TypeScript and TSRX
 ```
 
+## UI components
+
+The application uses Tailwind CSS v4 and shadcn/ui with the Base UI-backed
+Mira style. The shadcn configuration is intentionally a source-code starting
+point: production components are owned by this repository and use TSRX. The
+shared `cn` utility is provided by `cnfast`.
+
+Add one component at a time and inspect the generated source before porting it:
+
+```sh
+bunx shadcn add button --dry-run
+bunx shadcn add button
+```
+
+The CLI writes `src/components/ui/button.tsx`. Rewrite that file as
+`src/components/ui/button.tsrx`, apply the Sidequest design tokens and component
+conventions, then remove the generated `.tsx` file. Do not leave both extensions
+with the same basename because an extensionless import may resolve the generated
+TSX version. A later shadcn command may recreate `.tsx` dependencies, so check
+for same-basename siblings after every add:
+
+```sh
+rg --files src/components/ui | sort
+```
+
+For upstream changes, preview and merge rather than overwriting the owned TSRX
+component:
+
+```sh
+bunx shadcn add button --diff button.tsx
+```
+
 `build`, `dev`, and `typecheck` automatically regenerate Cloudflare Worker
 types. Run `bun run cf-typegen` directly to refresh them without starting
 another task. TanStack Start regenerates its route tree during Vite development

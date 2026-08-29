@@ -1,87 +1,129 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@source "./**/*.tsrx";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans:
+    InterVariable, Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans--font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01", "ss03";
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-soft-hover: var(--destructive-soft-hover);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 0.3125rem);
+  --radius-md: calc(var(--radius) - 0.1875rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.25rem);
+}
+
 :root {
-  color: #171713;
-  background: #f7f7f3;
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  --radius: 0.75rem;
+  --background: #f7f7f3;
+  --foreground: #20221d;
+  --card: #ffffff;
+  --card-foreground: #20221d;
+  --popover: #ffffff;
+  --popover-foreground: #20221d;
+  --primary: #527e32;
+  --primary-hover: #466f2a;
+  --primary-foreground: #f7ffe9;
+  --secondary: #eeefe9;
+  --secondary-hover: #e8eae3;
+  --secondary-foreground: #20221d;
+  --muted: #eeefe9;
+  --muted-foreground: #696d63;
+  --accent: #e8eae3;
+  --accent-foreground: #20221d;
+  --destructive: #b85440;
+  --destructive-soft: rgb(184 84 64 / 0.09);
+  --destructive-soft-hover: rgb(184 84 64 / 0.15);
+  --border: rgb(28 31 24 / 0.08);
+  --input: rgb(28 31 24 / 0.13);
+  --ring: #527e32;
+  --chart-1: #527e32;
+  --chart-2: #a36e12;
+  --chart-3: #6d8060;
+  --chart-4: #879b6e;
+  --chart-5: #b85440;
+  --sidebar: #fafaf7;
+  --sidebar-foreground: #20221d;
+  --sidebar-primary: #527e32;
+  --sidebar-primary-foreground: #f7ffe9;
+  --sidebar-accent: #eeefe9;
+  --sidebar-accent-foreground: #20221d;
+  --sidebar-border: rgb(28 31 24 / 0.08);
+  --sidebar-ring: #527e32;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html {
-  min-width: 20rem;
-  min-height: 100%;
-  background: #f7f7f3;
-}
-
-body {
-  min-height: 100vh;
-  margin: 0;
-}
-
-.welcome {
-  width: min(34rem, calc(100% - 2rem));
-  margin: 0 auto;
-  padding: 15vh 0 4rem;
-}
-
-.mark {
-  display: flex;
-  gap: 0.3rem;
-  width: fit-content;
-  margin-bottom: 2rem;
-}
-
-.mark span {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 999px;
-  background: #171713;
-}
-
-.mark span:nth-child(2) {
-  opacity: 0.55;
-}
-
-.mark span:nth-child(3) {
-  opacity: 0.2;
-}
-
-.eyebrow,
-.status {
-  color: #6f6f68;
-  font-size: 0.78rem;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.welcome h1 {
-  margin: 0.3rem 0 0.8rem;
-  font-size: clamp(3rem, 10vw, 5.5rem);
-  letter-spacing: -0.07em;
-  line-height: 0.95;
-}
-
-.description {
-  max-width: 30rem;
-  margin: 0;
-  color: #4b4b45;
-  font-size: 1.15rem;
-  line-height: 1.55;
-}
-
-.status {
-  margin-top: 3rem;
-  padding-top: 1rem;
-  border-top: 1px solid #ddddd5;
+.dark {
+  --background: #171914;
+  --foreground: #f1f2ec;
+  --card: #1e211b;
+  --card-foreground: #f1f2ec;
+  --popover: #22251e;
+  --popover-foreground: #f1f2ec;
+  --primary: #8fb76f;
+  --primary-hover: #9fc580;
+  --primary-foreground: #182111;
+  --secondary: #292d25;
+  --secondary-hover: #30352b;
+  --secondary-foreground: #f1f2ec;
+  --muted: #292d25;
+  --muted-foreground: #a9aea2;
+  --accent: #30352b;
+  --accent-foreground: #f1f2ec;
+  --destructive: #df806e;
+  --destructive-soft: rgb(223 128 110 / 0.12);
+  --destructive-soft-hover: rgb(223 128 110 / 0.2);
+  --border: rgb(241 242 236 / 0.09);
+  --input: rgb(241 242 236 / 0.14);
+  --ring: #8fb76f;
+  --chart-1: #8fb76f;
+  --chart-2: #d5a24c;
+  --chart-3: #9baa8f;
+  --chart-4: #b0c594;
+  --chart-5: #df806e;
+  --sidebar: #1a1c17;
+  --sidebar-foreground: #f1f2ec;
+  --sidebar-primary: #8fb76f;
+  --sidebar-primary-foreground: #182111;
+  --sidebar-accent: #292d25;
+  --sidebar-accent-foreground: #f1f2ec;
+  --sidebar-border: rgb(241 242 236 / 0.09);
+  --sidebar-ring: #8fb76f;
 }
