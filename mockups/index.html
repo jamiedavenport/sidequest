@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f7f3" />
+    <title>Sidequest — Product mockup</title>
+    <link rel="preconnect" href="https://rsms.me" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell" id="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Homepage">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>Sidequest</span>
+        </a>
+
+        <div class="topbar-center" aria-label="Workspace status">
+          <span class="workspace-name">Jamie’s space</span>
+          <span class="sync-state"><i aria-hidden="true"></i> Synced</span>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="command-trigger" type="button" data-open-command>
+            <span>Search or run a command</span>
+            <kbd>⌘ K</kbd>
+          </button>
+          <button class="icon-button" type="button" aria-label="More options">
+            <span aria-hidden="true">•••</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="lane-viewport" aria-label="Task lanes">
+        <div class="lane-track" id="lane-track">
+          <article class="lane lane-special" data-lane-id="inbox">
+            <header class="lane-header">
+              <div class="lane-title-group">
+                <span class="lane-symbol inbox-symbol" aria-hidden="true"></span>
+                <h1>Inbox</h1>
+                <span class="task-count">3</span>
+              </div>
+              <button class="lane-menu" type="button" aria-label="Inbox options">•••</button>
+            </header>
+            <p class="lane-caption">Capture now. Decide later.</p>
+
+            <ul class="task-list" role="list">
+              <li class="task-row is-selected" data-task data-title="Book dentist appointment">
+                <button class="completion" type="button" aria-label="Complete Book dentist appointment"></button>
+                <div class="task-content">
+                  <p class="task-title">Book dentist appointment</p>
+                  <div class="task-meta">
+                    <span class="date-chip is-today">Today</span>
+                  </div>
+                </div>
+              </li>
+
+              <li class="task-row" data-task data-title="Read offline sync notes">
+                <button class="completion" type="button" aria-label="Complete Read offline sync notes"></button>
+                <div class="task-content">
+                  <p class="task-title">Read offline sync notes</p>
+                  <a class="link-card" href="https://linear.app/blog/scaling-the-linear-sync-engine" target="_blank" rel="noreferrer">
+                    <span class="link-favicon" aria-hidden="true">L</span>
+                    <span class="link-copy">
+                      <strong>Scaling the Linear sync engine</strong>
+                      <small>linear.app · Engineering</small>
+                    </span>
+                    <span class="link-arrow" aria-hidden="true">↗</span>
+                  </a>
+                </div>
+              </li>
+
+              <li class="task-row" data-task data-title="Plan weekend shop">
+                <button class="completion" type="button" aria-label="Complete Plan weekend shop"></button>
+                <div class="task-content">
+                  <p class="task-title">Plan weekend shop</p>
+                  <div class="task-meta">
+                    <span class="date-chip">Sat, 31 Aug</span>
+                  </div>
+                </div>
+              </li>
+            </ul>
+
+            <form class="quick-add" data-quick-add>
+              <span class="add-glyph" aria-hidden="true">+</span>
+              <input name="task" aria-label="Add a task to Inbox" placeholder="Add a task" autocomplete="off" />
+              <kbd>Enter</kbd>
+            </form>
+          </article>
+
+          <article class="lane lane-special lane-today" data-lane-id="today">
+            <header class="lane-header">
+              <div class="lane-title-group">
+                <span class="lane-symbol today-symbol" aria-hidden="true">29</span>
+                <h1>Today</h1>
+                <span class="task-count">4</span>
+              </div>
+              <button class="lane-menu" type="button" aria-label="Today options">•••</button>
+            </header>
+            <p class="lane-caption">One thing at a time.</p>
+
+            <ul class="task-list" role="list">
+              <li class="task-row" data-task data-title="Refine interaction model">
+                <button class="branch-toggle" type="button" aria-label="Collapse subtasks">⌄</button>
+                <button class="completion" type="button" aria-label="Complete Refine interaction model"></button>
+                <div class="task-content">
+                  <p class="task-title">Refine interaction model</p>
+                  <div class="task-meta">
+                    <span class="date-chip is-today">Today</span>
+                    <span class="subtask-count">2 of 3</span>
+                  </div>
+                </div>
+              </li>
+              <li class="task-row task-child is-completed" data-task data-title="Define keyboard shortcuts">
+                <span class="tree-line" aria-hidden="true"></span>
+                <button class="completion" type="button" aria-label="Complete Define keyboard shortcuts"></button>
+                <div class="task-content">
+                  <p class="task-title">Define keyboard shortcuts</p>
+                </div>
+              </li>
+              <li class="task-row task-child" data-task data-title="Prototype command menu">
+                <span class="tree-line" aria-hidden="true"></span>
+                <button class="completion" type="button" aria-label="Complete Prototype command menu"></button>
+                <div class="task-content">
+                  <p class="task-title">Prototype command menu</p>
+                </div>
+              </li>
+              <li class="task-row task-grandchild" data-task data-title="Test fuzzy search">
+                <span class="tree-line" aria-hidden="true"></span>
+                <button class="completion" type="button" aria-label="Complete Test fuzzy search"></button>
+                <div class="task-content">
+                  <p class="task-title">Test fuzzy search</p>
+                </div>
+              </li>
+              <li class="task-row task-child" data-task data-title="Check mobile gestures">
+                <span class="tree-line" aria-hidden="true"></span>
+                <button class="completion" type="button" aria-label="Complete Check mobile gestures"></button>
+                <div class="task-content">
+                  <p class="task-title">Check mobile gestures</p>
+                </div>
+              </li>
+              <li class="task-row" data-task data-title="Go for a run">
+                <button class="completion" type="button" aria-label="Complete Go for a run"></button>
+                <div class="task-content">
+                  <p class="task-title">Go for a run</p>
+                  <div class="task-meta">
+                    <span class="date-chip is-today">Today</span>
+                    <span class="recurrence-chip">Every Friday</span>
+                  </div>
+                </div>
+              </li>
+            </ul>
+
+            <form class="quick-add" data-quick-add>
+              <span class="add-glyph" aria-hidden="true">+</span>
+              <input name="task" aria-label="Add a task to Today" placeholder="Add to Today" autocomplete="off" />
+              <kbd>Enter</kbd>
+            </form>
+          </article>
+
+          <article class="lane" data-lane-id="sidequest">
+            <header class="lane-header">
+              <div class="lane-title-group">
+                <span class="lane-symbol project-symbol" aria-hidden="true"></span>
+                <h1>Sidequest</h1>
+                <span class="task-count">5</span>
+              </div>
+              <button class="lane-menu" type="button" aria-label="Sidequest options">•••</button>
+            </header>
+            <p class="lane-caption">Build the calmest task manager.</p>
+
+            <ul class="task-list" role="list">
+              <li class="task-row" data-task data-title="Create high-fidelity mockups">
+                <button class="completion" type="button" aria-label="Complete Create high-fidelity mockups"></button>
+                <div class="task-content">
+                  <p class="task-title">Create high-fidelity mockups</p>
+                  <div class="task-meta">
+                    <span class="date-chip is-today">Today</span>
+                  </div>
+                </div>
+              </li>
+              <li class="task-row" data-task data-title="Evaluate local-first database">
+                <button class="completion" type="button" aria-label="Complete Evaluate local-first database"></button>
+                <div class="task-content">
+                  <p class="task-title">Evaluate local-first database</p>
+                  <div class="task-meta"><span class="date-chip">2 Sep</span></div>
+                </div>
+              </li>
+              <li class="task-row" data-task data-title="Track ElectricSQL integration">
+                <button class="completion" type="button" aria-label="Complete Track ElectricSQL integration"></button>
+                <div class="task-content">
+                  <p class="task-title">Track ElectricSQL integration</p>
+                  <a class="link-card github-card" href="https://github.com/electric-sql/electric" target="_blank" rel="noreferrer">
+                    <span class="link-favicon github-mark" aria-hidden="true">GH</span>
+                    <span class="link-copy">
+                      <strong>electric-sql / electric</strong>
+                      <small>Postgres sync engine for local-first apps</small>
+                    </span>
+                    <span class="github-stat" aria-label="8.6 thousand stars">8.6k</span>
+                  </a>
+                </div>
+              </li>
+              <li class="task-row" data-task data-title="Define MCP tools">
+                <button class="completion" type="button" aria-label="Complete Define MCP tools"></button>
+                <div class="task-content">
+                  <p class="task-title">Define MCP tools</p>
+                  <div class="task-meta"><span class="date-chip">5 Sep</span></div>
+                </div>
+              </li>
+              <li class="task-row" data-task data-title="Test offline task creation">
+                <button class="completion" type="button" aria-label="Complete Test offline task creation"></button>
+                <div class="task-content"><p class="task-title">Test offline task creation</p></div>
+              </li>
+            </ul>
+
+            <form class="quick-add" data-quick-add>
+              <span class="add-glyph" aria-hidden="true">+</span>
+              <input name="task" aria-label="Add a task to Sidequest" placeholder="Add a task" autocomplete="off" />
+              <kbd>Enter</kbd>
+            </form>
+          </article>
+
+          <article class="lane" data-lane-id="life">
+            <header class="lane-header">
+              <div class="lane-title-group">
+                <span class="lane-symbol life-symbol" aria-hidden="true"></span>
+                <h1>Life admin</h1>
+                <span class="task-count">3</span>
+              </div>
+              <button class="lane-menu" type="button" aria-label="Life admin options">•••</button>
+            </header>
+            <p class="lane-caption">Small things, safely held.</p>
+
+            <ul class="task-list" role="list">
+              <li class="task-row" data-task data-title="Renew contents insurance">
+                <button class="completion" type="button" aria-label="Complete Renew contents insurance"></button>
+                <div class="task-content">
+                  <p class="task-title">Renew contents insurance</p>
+                  <div class="task-meta"><span class="date-chip">12 Sep</span></div>
+                </div>
+              </li>
+              <li class="task-row" data-task data-title="Water the plants">
+                <button class="completion" type="button" aria-label="Complete Water the plants"></button>
+                <div class="task-content">
+                  <p class="task-title">Water the plants</p>
+                  <div class="task-meta"><span class="recurrence-chip">Every Sunday</span></div>
+                </div>
+              </li>
+              <li class="task-row" data-task data-title="Send meter reading">
+                <button class="completion" type="button" aria-label="Complete Send meter reading"></button>
+                <div class="task-content"><p class="task-title">Send meter reading</p></div>
+              </li>
+            </ul>
+
+            <form class="quick-add" data-quick-add>
+              <span class="add-glyph" aria-hidden="true">+</span>
+              <input name="task" aria-label="Add a task to Life admin" placeholder="Add a task" autocomplete="off" />
+              <kbd>Enter</kbd>
+            </form>
+          </article>
+
+          <button class="add-lane" type="button">
+            <span aria-hidden="true">+</span>
+            New lane
+          </button>
+        </div>
+      </section>
+
+      <footer class="shortcut-bar">
+        <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+        <span><kbd>⌘</kbd><kbd>↵</kbd> Complete</span>
+        <span><kbd>Tab</kbd> Nest</span>
+        <span><kbd>⌘</kbd><kbd>⇧</kbd><kbd>←</kbd><kbd>→</kbd> Move lane</span>
+        <span class="shortcut-spacer"></span>
+        <span class="local-status"><i aria-hidden="true"></i> Available offline</span>
+      </footer>
+
+      <div class="mobile-dots" aria-label="Lane position">
+        <button class="is-active" type="button" aria-label="Go to Inbox" data-lane-dot="0"></button>
+        <button type="button" aria-label="Go to Today" data-lane-dot="1"></button>
+        <button type="button" aria-label="Go to Sidequest" data-lane-dot="2"></button>
+        <button type="button" aria-label="Go to Life admin" data-lane-dot="3"></button>
+      </div>
+    </main>
+
+    <div class="command-backdrop" id="command-backdrop" hidden>
+      <section class="command-menu" role="dialog" aria-modal="true" aria-labelledby="command-title">
+        <h2 id="command-title" class="sr-only">Command menu</h2>
+        <div class="command-search">
+          <span class="search-glyph" aria-hidden="true"></span>
+          <input id="command-input" name="command" aria-label="Search tasks or commands" placeholder="Search tasks or run a command…" autocomplete="off" />
+          <kbd>Esc</kbd>
+        </div>
+        <div class="command-results" id="command-results">
+          <p class="command-section-label">Suggested</p>
+          <button class="command-item is-active" type="button" data-command-label="Create a task">
+            <span class="command-icon" aria-hidden="true">+</span>
+            <span class="command-copy"><strong>Create a task</strong><small>In the active lane</small></span>
+            <kbd>C</kbd>
+          </button>
+          <button class="command-item" type="button" data-command-label="Set due date">
+            <span class="command-icon calendar-icon" aria-hidden="true">29</span>
+            <span class="command-copy"><strong>Set due date</strong><small>For the focused task</small></span>
+            <kbd>@</kbd>
+          </button>
+          <button class="command-item" type="button" data-command-label="Move to Today">
+            <span class="command-icon arrow-icon" aria-hidden="true">→</span>
+            <span class="command-copy"><strong>Move to Today</strong><small>Keep all subtasks attached</small></span>
+            <kbd>⌘ ⇧ →</kbd>
+          </button>
+          <p class="command-section-label">Recent tasks</p>
+          <button class="command-item" type="button" data-command-label="Create high-fidelity mockups">
+            <span class="command-icon task-icon" aria-hidden="true"></span>
+            <span class="command-copy"><strong>Create high-fidelity mockups</strong><small>Sidequest</small></span>
+            <span class="result-date">Today</span>
+          </button>
+          <button class="command-item" type="button" data-command-label="Book dentist appointment">
+            <span class="command-icon task-icon" aria-hidden="true"></span>
+            <span class="command-copy"><strong>Book dentist appointment</strong><small>Inbox</small></span>
+            <span class="result-date">Today</span>
+          </button>
+        </div>
+        <footer class="command-footer">
+          <span><kbd>↑</kbd><kbd>↓</kbd> Select</span>
+          <span><kbd>↵</kbd> Open</span>
+          <span class="command-footer-brand"><i aria-hidden="true"></i> Sidequest</span>
+        </footer>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+      <span class="toast-check" aria-hidden="true">✓</span>
+      <span id="toast-message">Task completed</span>
+      <button type="button" id="undo-button">Undo</button>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
