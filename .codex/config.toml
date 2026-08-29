@@ -1,0 +1,3 @@
+[mcp_servers.tsrx]
+command = "npx"
+args = ["-y", "@tsrx/mcp"]
