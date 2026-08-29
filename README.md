@@ -34,8 +34,9 @@ bun run dev
 The main repository commands are:
 
 ```sh
-bun run build       # Create a production build
-bun run deploy      # Build and deploy with Wrangler
+bun run build        # Create a production build
+bun run commitlint   # Validate a commit-message file
+bun run deploy       # Build and deploy with Wrangler
 bun run deploy:dry-run # Validate the Cloudflare deployment bundle
 bun run format      # Check formatting
 bun run format:fix  # Apply formatting
@@ -45,6 +46,11 @@ bun run knip        # Find unused files, exports, and dependencies
 bun run test        # Run tests once
 bun run typecheck   # Type-check TypeScript and TSRX
 ```
+
+Lefthook is installed automatically by `bun install`. Before each commit it
+formats and re-stages supported files, then runs type-aware linting against the
+staged source files. The `commit-msg` hook uses Commitlint to enforce
+Conventional Commit messages.
 
 ## UI components
 
