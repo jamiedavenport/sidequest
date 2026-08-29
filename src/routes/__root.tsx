@@ -1,6 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
+import { NotFound } from "~/components/not-found.tsrx";
 import appStyles from "~/styles.css?url";
 
 export const Route = createRootRoute({
@@ -24,6 +25,7 @@ export const Route = createRootRoute({
       { content: "#f7f7f3", name: "theme-color" },
     ],
   }),
+  notFoundComponent: NotFound,
   shellComponent: RootDocument,
 });
 
