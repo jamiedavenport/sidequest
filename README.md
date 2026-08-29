@@ -19,6 +19,39 @@ Serve the repository locally and open `/mockups/` to preview it:
 python3 -m http.server 4173
 ```
 
+## Application development
+
+The application uses TanStack Start, TSRX, Bun, and Vite. It targets Cloudflare
+Workers through the official Cloudflare Vite plugin.
+
+Install dependencies and start the development server:
+
+```sh
+bun install
+bun run dev
+```
+
+The main repository commands are:
+
+```sh
+bun run build       # Create a production build
+bun run deploy      # Build and deploy with Wrangler
+bun run deploy:dry-run # Validate the Cloudflare deployment bundle
+bun run format      # Check formatting
+bun run format:fix  # Apply formatting
+bun run lint        # Run type-aware linting
+bun run lint:fix    # Apply safe lint fixes
+bun run test        # Run tests once
+bun run typecheck   # Type-check TypeScript and TSRX
+```
+
+`build`, `dev`, and `typecheck` automatically regenerate Cloudflare Worker
+types. Run `bun run cf-typegen` directly to refresh them without starting
+another task. TanStack Start regenerates its route tree during Vite development
+and builds. GitHub Actions verifies that both generated files are committed and
+current. Manual production deployments require `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_API_TOKEN` GitHub environment secrets.
+
 ## Product principles
 
 - **Fast:** Capture and organise a thought in under three seconds.

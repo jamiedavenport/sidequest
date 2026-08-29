@@ -1,0 +1,87 @@
+:root {
+  color: #171713;
+  background: #f7f7f3;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 20rem;
+  min-height: 100%;
+  background: #f7f7f3;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+}
+
+.welcome {
+  width: min(34rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 15vh 0 4rem;
+}
+
+.mark {
+  display: flex;
+  gap: 0.3rem;
+  width: fit-content;
+  margin-bottom: 2rem;
+}
+
+.mark span {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #171713;
+}
+
+.mark span:nth-child(2) {
+  opacity: 0.55;
+}
+
+.mark span:nth-child(3) {
+  opacity: 0.2;
+}
+
+.eyebrow,
+.status {
+  color: #6f6f68;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.welcome h1 {
+  margin: 0.3rem 0 0.8rem;
+  font-size: clamp(3rem, 10vw, 5.5rem);
+  letter-spacing: -0.07em;
+  line-height: 0.95;
+}
+
+.description {
+  max-width: 30rem;
+  margin: 0;
+  color: #4b4b45;
+  font-size: 1.15rem;
+  line-height: 1.55;
+}
+
+.status {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid #ddddd5;
+}
