@@ -6,6 +6,7 @@
       "name": "sidequest",
       "dependencies": {
         "@base-ui/react": "1.7.0",
+        "@t3-oss/env-core": "^0.13.11",
         "@tanstack/browser-db-sqlite-persistence": "^0.2.19",
         "@tanstack/cloudflare-durable-objects-db-sqlite-persistence": "^0.2.19",
         "@tanstack/db": "^0.8.6",
@@ -569,6 +570,8 @@
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
     "@sveltejs/acorn-typescript": ["@sveltejs/acorn-typescript@1.0.13", "", { "peerDependencies": { "acorn": "^8.9.0" } }, "sha512-wgKggnhZVL9Bfx1OaKKTrYY9BFRk6C8UAkQNUcIv1+llzYrIqy+RZm5HPKzn0NpEBvTVhTqB4kQyllZywsRBRQ=="],
+
+    "@t3-oss/env-core": ["@t3-oss/env-core@0.13.11", "", { "peerDependencies": { "arktype": "^2.1.0", "typescript": ">=5.0.0", "valibot": "^1.0.0-beta.7 || ^1.0.0", "zod": "^3.24.0 || ^4.0.0" }, "optionalPeers": ["arktype", "typescript", "valibot", "zod"] }, "sha512-sM7GYY+KL7H/Hl0BE0inWfk3nRHZOLhmVn7sHGxaZt9FAR6KqREXAE+6TqKfiavfXmpRxO/OZ2QgKRd+oiBYRQ=="],
 
     "@tailwindcss/node": ["@tailwindcss/node@4.3.3", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.24.1", "jiti": "^2.7.0", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.3" } }, "sha512-/T8IKEsf9VTU6tLjgC7+sv2mOPtQxzE2jMw7u4Tt40Tx+QSZxpzh95/H6cMKoja9XuW7iMdLJYBB0o9G1CaAgg=="],
 

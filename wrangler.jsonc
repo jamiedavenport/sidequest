@@ -21,4 +21,10 @@
   "observability": {
     "enabled": true,
   },
+  "vars": {
+    "BETTER_AUTH_URL": "http://localhost:3000",
+  },
+  "secrets": {
+    "required": ["BETTER_AUTH_SECRET"],
+  },
 }
