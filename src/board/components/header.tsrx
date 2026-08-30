@@ -21,7 +21,7 @@ export function AppHeader() @{
     </a>
 
     <div className="flex items-center justify-end gap-2">
-      <Button type="button" variant="outline" aria-label="Search or run a command">
+      <Button type="button" variant="outline" aria-label="Search or run a command" className="w-[160px] justify-between">
         <span className="sm:hidden">
           <SearchGlyph />
         </span>

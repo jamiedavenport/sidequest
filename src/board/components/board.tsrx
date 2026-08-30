@@ -1,6 +1,7 @@
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useEffect, useRef } from "react";
 
+import { currentLaneId } from "~/board/commands";
 import { BoardActor } from "~/board/machine";
 import { ShortcutFooter } from "~/board/components/footer.tsrx";
 import { AppHeader } from "~/board/components/header.tsrx";
@@ -8,34 +9,35 @@ import { AddLaneButton, TaskLane } from "~/board/components/lane.tsrx";
 
 function useHotkeys() {
   const actorRef = BoardActor.useActorRef();
+  const adding = BoardActor.useSelector((snapshot) => snapshot.value === "adding");
 
   useHotkey(
     "ArrowUp",
     () => {
       actorRef.send({ type: "navigate", direction: "up" });
     },
-    { meta: { name: "Navigate up" } },
+    { enabled: !adding, meta: { name: "Navigate up" } },
   );
   useHotkey(
     "ArrowDown",
     () => {
       actorRef.send({ type: "navigate", direction: "down" });
     },
-    { meta: { name: "Navigate down" } },
+    { enabled: !adding, meta: { name: "Navigate down" } },
   );
   useHotkey(
     "ArrowLeft",
     () => {
       actorRef.send({ type: "navigate", direction: "left" });
     },
-    { meta: { name: "Navigate left" } },
+    { enabled: !adding, meta: { name: "Navigate left" } },
   );
   useHotkey(
     "ArrowRight",
     () => {
       actorRef.send({ type: "navigate", direction: "right" });
     },
-    { meta: { name: "Navigate right" } },
+    { enabled: !adding, meta: { name: "Navigate right" } },
   );
   useHotkey(
     "I",
@@ -50,6 +52,16 @@ function useHotkeys() {
       actorRef.send({ type: "lane.focus", kind: "today" });
     },
     { ignoreInputs: true, meta: { name: "Go to Today" } },
+  );
+  useHotkey(
+    "C",
+    () => {
+      const laneId = currentLaneId(actorRef.getSnapshot().context);
+      if (laneId !== null) {
+        actorRef.send({ type: "add.start", laneId });
+      }
+    },
+    { ignoreInputs: true, meta: { name: "Create" } },
   );
   useHotkey(
     "Mod+Shift+ArrowUp",

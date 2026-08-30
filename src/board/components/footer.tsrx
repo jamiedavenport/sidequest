@@ -1,4 +1,5 @@
 import {
+  addHotkeys,
   completeHotkeys,
   inboxHotkeys,
   moveLaneHotkeys,
@@ -14,6 +15,10 @@ export function ShortcutFooter() @{
     <span className="flex items-center gap-1">
       <ShortcutKeys hotkeys={navigateHotkeys} />
       Navigate
+    </span>
+    <span className="flex items-center gap-1">
+      <ShortcutKeys hotkeys={addHotkeys} />
+      Create
     </span>
     <span className="flex items-center gap-1">
       <ShortcutKeys hotkeys={completeHotkeys} />

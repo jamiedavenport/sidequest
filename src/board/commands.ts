@@ -56,11 +56,21 @@ function setTaskDepth(
 }
 
 export function createBoard(lanes: Lane[], selectedId?: string): BoardContext {
+  const resolvedSelectedId = selectedId ?? firstTaskId(lanes);
   return {
     lanes,
-    selectedId: selectedId ?? firstTaskId(lanes),
+    selectedId: resolvedSelectedId,
+    selectedLaneId: laneIdForTask(lanes, resolvedSelectedId) ?? firstLaneId(lanes),
     addingLaneId: null,
   };
+}
+
+function firstLaneId(lanes: Lane[]): string | null {
+  return lanes[0]?.id ?? null;
+}
+
+function laneIdForTask(lanes: Lane[], taskId: string | null): string | null {
+  return taskId === null ? null : (findTask(lanes, taskId)?.lane.id ?? null);
 }
 
 function firstTaskId(lanes: Lane[]): string | null {
@@ -79,16 +89,48 @@ export function isLastTaskInLane(context: BoardContext): boolean {
   return location !== undefined && location.taskIndex === location.lane.tasks.length - 1;
 }
 
+export function isEmptySelectedLane(context: BoardContext): boolean {
+  const lane = context.lanes.find((candidate) => candidate.id === context.selectedLaneId);
+  return lane !== undefined && lane.tasks.length === 0;
+}
+
 function focus(context: BoardContext, selectedId: string | null): BoardContext {
-  return { ...context, selectedId, addingLaneId: null };
+  return {
+    ...context,
+    selectedId,
+    selectedLaneId: laneIdForTask(context.lanes, selectedId) ?? context.selectedLaneId,
+    addingLaneId: null,
+  };
 }
 
 export function selectTask(context: BoardContext, taskId: string): BoardContext {
   return focus(context, taskId);
 }
 
+export function currentLaneId(context: BoardContext): string | null {
+  return context.addingLaneId ?? context.selectedLaneId;
+}
+
+export function selectLaneById(context: BoardContext, laneId: string): BoardContext {
+  const lane = context.lanes.find((candidate) => candidate.id === laneId);
+  if (lane === undefined) {
+    return context;
+  }
+
+  if (selectedTask(context)?.lane.id === laneId) {
+    return { ...context, selectedLaneId: laneId, addingLaneId: null };
+  }
+
+  return {
+    ...context,
+    selectedId: lane.tasks[0]?.id ?? null,
+    selectedLaneId: laneId,
+    addingLaneId: null,
+  };
+}
+
 export function startAdding(context: BoardContext, laneId: string): BoardContext {
-  return { ...context, addingLaneId: laneId };
+  return { ...context, addingLaneId: laneId, selectedLaneId: laneId };
 }
 
 export function cancelAdd(context: BoardContext): BoardContext {
@@ -98,7 +140,19 @@ export function cancelAdd(context: BoardContext): BoardContext {
 export function selectVertical(context: BoardContext, direction: VerticalDirection): BoardContext {
   const location = selectedTask(context);
   if (location === undefined) {
-    return focus(context, firstTaskId(context.lanes));
+    const lane = context.lanes.find((candidate) => candidate.id === context.selectedLaneId);
+    if (lane === undefined) {
+      return focus(context, firstTaskId(context.lanes));
+    }
+
+    if (direction === "down") {
+      const firstTask = lane.tasks[0];
+      return firstTask === undefined
+        ? startAdding(context, lane.id)
+        : selectTask(context, firstTask.id);
+    }
+
+    return context;
   }
 
   if (direction === "down") {
@@ -117,18 +171,27 @@ export function selectHorizontal(
   direction: HorizontalDirection,
 ): BoardContext {
   const location = selectedTask(context);
-  if (location === undefined) {
+  const laneIndex =
+    location?.laneIndex ??
+    context.lanes.findIndex((candidate) => candidate.id === context.selectedLaneId);
+  if (laneIndex < 0) {
     return focus(context, firstTaskId(context.lanes));
   }
 
-  const nextLane = context.lanes[adjacentIndex(location.laneIndex, direction)];
-  const nextTask = nextLane?.tasks[0];
-  return nextTask === undefined ? context : selectTask(context, nextTask.id);
+  const nextLane = context.lanes[adjacentIndex(laneIndex, direction)];
+  if (nextLane === undefined) {
+    return context;
+  }
+
+  const nextTask = nextLane.tasks[0];
+  return nextTask === undefined
+    ? selectLaneById(context, nextLane.id)
+    : selectTask(context, nextTask.id);
 }
 
 export function selectLane(context: BoardContext, kind: LaneKind): BoardContext {
-  const firstTask = context.lanes.find((lane) => lane.kind === kind)?.tasks[0];
-  return firstTask === undefined ? context : selectTask(context, firstTask.id);
+  const lane = context.lanes.find((candidate) => candidate.kind === kind);
+  return lane === undefined ? context : selectLaneById(context, lane.id);
 }
 
 export function logComplete(context: BoardContext, taskId: string): void {
@@ -195,6 +258,7 @@ export function moveToLane(context: BoardContext, direction: HorizontalDirection
 
   return {
     ...context,
+    selectedLaneId: context.lanes[destinationIndex]?.id ?? context.selectedLaneId,
     lanes: context.lanes.map((lane, laneIndex) => {
       if (laneIndex === location.laneIndex) {
         return {
@@ -212,18 +276,28 @@ export function moveToLane(context: BoardContext, direction: HorizontalDirection
   };
 }
 
-export function addTask(context: BoardContext, title: string, id: string): BoardContext {
+export function addTask(
+  context: BoardContext,
+  title: string,
+  id: string,
+  date?: string,
+): BoardContext {
   const laneId = context.addingLaneId;
   const trimmedTitle = title.trim();
   if (laneId === null || trimmedTitle === "") {
     return context;
   }
 
+  const task: Task =
+    date === undefined || date === ""
+      ? { id, title: trimmedTitle }
+      : { id, title: trimmedTitle, date };
+
   return {
     ...context,
     selectedId: id,
     lanes: context.lanes.map((lane) =>
-      lane.id === laneId ? { ...lane, tasks: [...lane.tasks, { id, title: trimmedTitle }] } : lane,
+      lane.id === laneId ? { ...lane, tasks: [...lane.tasks, task] } : lane,
     ),
   };
 }

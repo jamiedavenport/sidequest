@@ -36,5 +36,6 @@ export type Lane = {
 export type BoardContext = {
   lanes: Lane[];
   selectedId: string | null;
+  selectedLaneId: string | null;
   addingLaneId: string | null;
 };

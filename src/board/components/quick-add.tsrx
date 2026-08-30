@@ -1,51 +1,98 @@
-// oxlint-disable react-perf/jsx-no-new-function-as-prop
+// oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { Plus } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Calendar as CalendarIcon, Plus } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
 
+import { formatTaskDate } from "~/board/date";
 import { BoardActor } from "~/board/machine";
-import { enterHotkeys, ShortcutKeys } from "~/board/components/shortcut-keys.tsrx";
+import { saveHotkeys, ShortcutKeys } from "~/board/components/shortcut-keys.tsrx";
+import { Button } from "~/components/ui/button.tsrx";
+import { Calendar } from "~/components/ui/calendar.tsrx";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "~/components/ui/input-group.tsrx";
+import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover.tsrx";
 import type { Lane } from "~/board/types";
+import { cn } from "@/lib/utils";
 
-export function QuickAdd({ lane }: { lane: Lane }) @{
+export function QuickAdd({ className, lane }: { className?: string; lane: Lane }) @{
   const actorRef = BoardActor.useActorRef();
   const adding = BoardActor.useSelector((snapshot) => snapshot.context.addingLaneId === lane.id);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const [dueDate, setDueDate] = useState<Date>();
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (adding) {
-      inputRef.current?.focus();
+      titleRef.current?.focus();
+      return;
     }
+
+    setCalendarOpen(false);
   }, [adding]);
 
-  useHotkey(
-    "Enter",
-    () => {
-      const title = inputRef.current?.value ?? "";
-      actorRef.send({ type: "add.submit", title, id: crypto.randomUUID() });
-      if (title.trim() !== "" && inputRef.current !== null) {
-        inputRef.current.value = "";
-      }
-    },
-    { enabled: adding, ignoreInputs: false, meta: { name: "Add task" } },
-  );
-  useHotkey(
-    "Escape",
-    () => {
-      actorRef.send({ type: "add.cancel" });
-      inputRef.current?.blur();
-    },
-    { enabled: adding, meta: { name: "Cancel add" } },
-  );
+  function resetDate() {
+    setDueDate(undefined);
+    setCalendarOpen(false);
+  }
+
+  function submitAdd() {
+    const title = titleRef.current?.value ?? "";
+    actorRef.send({
+      type: "add.submit",
+      title,
+      id: crypto.randomUUID(),
+      date: dueDate === undefined ? undefined : formatTaskDate(dueDate),
+    });
+    if (title.trim() !== "" && titleRef.current !== null) {
+      titleRef.current.value = "";
+      resetDate();
+    }
+  }
 
   function focusAdd() {
     actorRef.send({ type: "add.start", laneId: lane.id });
   }
 
-  <InputGroup className="mt-auto h-9 bg-card sm:h-7 sm:bg-input/20">
+  function onSelectDate(next: Date | undefined) {
+    setDueDate(next);
+    setCalendarOpen(false);
+    titleRef.current?.focus();
+  }
+
+  useHotkey("Enter", submitAdd, {
+    enabled: adding && !calendarOpen,
+    ignoreInputs: false,
+    meta: { name: "Add task" },
+  });
+  useHotkey(
+    "/",
+    () => {
+      if (document.activeElement !== titleRef.current) {
+        return;
+      }
+
+      setCalendarOpen(true);
+    },
+    { enabled: adding, ignoreInputs: false, meta: { name: "Focus due date" } },
+  );
+  useHotkey(
+    "Escape",
+    () => {
+      if (calendarOpen) {
+        setCalendarOpen(false);
+        titleRef.current?.focus();
+        return;
+      }
+
+      actorRef.send({ type: "add.cancel" });
+      resetDate();
+      titleRef.current?.blur();
+    },
+    { enabled: adding, meta: { name: "Cancel add" } },
+  );
+
+  <InputGroup className={cn("mt-auto h-9 bg-card sm:h-7 sm:bg-input/20", className)}>
     <InputGroupInput
-      ref={inputRef}
+      ref={titleRef}
       name={`add-${lane.id}`}
       placeholder={lane.kind === "today" ? "Add to Today" : "Add a task"}
       type="text"
@@ -55,8 +102,34 @@ export function QuickAdd({ lane }: { lane: Lane }) @{
     <InputGroupAddon>
       <Plus aria-hidden="true" />
     </InputGroupAddon>
-    <InputGroupAddon className="max-sm:hidden" align="inline-end">
-      <ShortcutKeys hotkeys={enterHotkeys} />
+    <InputGroupAddon align="inline-end">
+      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+        <PopoverTrigger
+          render={<Button size="icon-xs" type="button" variant="ghost" />}
+          aria-label={`Pick a due date for ${lane.title}`}
+        >
+          <CalendarIcon className={dueDate === undefined ? undefined : "text-primary"} />
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-auto p-0"
+          align="end"
+          initialFocus={false}
+          finalFocus={titleRef}
+        >
+          <Calendar
+            mode="single"
+            // Focus the selected day (or today) when the user opens the picker.
+            // oxlint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus={calendarOpen}
+            defaultMonth={dueDate}
+            selected={dueDate}
+            onSelect={onSelectDate}
+          />
+        </PopoverContent>
+      </Popover>
+      <span className="max-sm:hidden">
+        <ShortcutKeys hotkeys={saveHotkeys} />
+      </span>
     </InputGroupAddon>
   </InputGroup>;
 }

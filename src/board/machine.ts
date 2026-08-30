@@ -4,12 +4,14 @@ import {
   addTask,
   cancelAdd,
   createBoard,
+  isEmptySelectedLane,
   isLastTaskInLane,
   logComplete,
   moveInLane,
   moveToLane,
   selectHorizontal,
   selectLane,
+  selectLaneById,
   selectTask,
   selectVertical,
   setDepth,
@@ -35,13 +37,14 @@ export type BoardInput = {
 export type BoardEvent =
   | { type: "navigate"; direction: VerticalDirection | HorizontalDirection }
   | { type: "lane.focus"; kind: Extract<LaneKind, "inbox" | "today"> }
+  | { type: "lane.select"; laneId: string }
   | { type: "lane.move"; direction: HorizontalDirection }
   | { type: "task.move"; direction: VerticalDirection }
   | { type: "task.complete"; taskId: string }
   | { type: "task.nest"; delta: 1 | -1 }
   | { type: "task.select"; taskId: string }
   | { type: "add.start"; laneId: string }
-  | { type: "add.submit"; title: string; id: string }
+  | { type: "add.submit"; title: string; id: string; date?: string }
   | { type: "add.cancel" };
 
 export const boardMachine = setup({
@@ -61,6 +64,10 @@ export const boardMachine = setup({
     focusLane: assign(({ context, event }) => {
       assertEvent(event, "lane.focus");
       return selectLane(context, event.kind);
+    }),
+    selectLane: assign(({ context, event }) => {
+      assertEvent(event, "lane.select");
+      return selectLaneById(context, event.laneId);
     }),
     enterAddingFromSelection: assign(({ context }) => selectVertical(context, "down")),
     enterAdding: assign(({ context, event }) => {
@@ -89,13 +96,15 @@ export const boardMachine = setup({
     }),
     add: assign(({ context, event }) => {
       assertEvent(event, "add.submit");
-      return addTask(context, event.title, event.id);
+      return addTask(context, event.title, event.id, event.date);
     }),
     cancelAdd: assign(({ context }) => cancelAdd(context)),
   },
   guards: {
     canEnterAddingDown: ({ context, event }) =>
-      event.type === "navigate" && event.direction === "down" && isLastTaskInLane(context),
+      event.type === "navigate" &&
+      event.direction === "down" &&
+      (isLastTaskInLane(context) || isEmptySelectedLane(context)),
     canAddTask: ({ event }) => event.type === "add.submit" && event.title.trim() !== "",
   },
 }).createMachine({
@@ -114,6 +123,7 @@ export const boardMachine = setup({
           { actions: "navigate" },
         ],
         "lane.focus": { actions: "focusLane" },
+        "lane.select": { actions: "selectLane" },
         "lane.move": { actions: "moveLane" },
         "task.move": { actions: "moveTask" },
         "task.complete": { actions: "complete" },
@@ -128,6 +138,7 @@ export const boardMachine = setup({
         "add.cancel": { target: "navigating", actions: "cancelAdd" },
         "add.start": { actions: "enterAdding" },
         "lane.focus": { target: "navigating", actions: "focusLane" },
+        "lane.select": { target: "navigating", actions: "selectLane" },
         "task.select": { target: "navigating", actions: "select" },
       },
     },
