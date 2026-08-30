@@ -17,7 +17,7 @@ import {
 } from "~/board/sync/collections";
 import { decodeLaneSync, decodeTaskSync } from "~/board/sync/codec";
 import { createDerivedBoardCollections } from "~/board/sync/live";
-import { Lane, Task, userId } from "~/board/schema";
+import { Lane, Task } from "~/board/schema";
 import { inboxLaneId, isSystemLane, migrateLegacySystemLanes, todayLaneId } from "~/board/views";
 import { collectionSync, SyncTransport, transactionMutations } from "~/sync/transport";
 
@@ -34,29 +34,36 @@ export type BoardClient = {
   close: () => Promise<void>;
 };
 
-let sharedClient: Promise<BoardClient> | undefined;
+const sharedClients = new Map<string, Promise<BoardClient>>();
 
-export function acquireBoardClient(): Promise<BoardClient> {
-  sharedClient ??= createBoardClient().catch((error: unknown) => {
-    sharedClient = undefined;
+export function acquireBoardClient(userId: string): Promise<BoardClient> {
+  const existing = sharedClients.get(userId);
+  if (existing !== undefined) {
+    return existing;
+  }
+
+  const client = createBoardClient(userId).catch((error: unknown) => {
+    sharedClients.delete(userId);
     throw error;
   });
-  return sharedClient;
+  sharedClients.set(userId, client);
+  return client;
 }
 
-async function createBoardClient(): Promise<BoardClient> {
+async function createBoardClient(userId: string): Promise<BoardClient> {
+  const databaseNamespace = `sidequest-board-${userId}`;
   const database = await openBrowserWASQLiteOPFSDatabase({
-    databaseName: "sidequest-board.sqlite",
+    databaseName: `${databaseNamespace}.sqlite`,
   });
   const coordinator = new BrowserCollectionCoordinator({
-    dbName: "sidequest-board",
+    dbName: databaseNamespace,
   });
   const persistence = createBrowserWASQLitePersistence({
     database,
     coordinator,
   });
   const transport = new SyncTransport({
-    url: boardSocketUrl(userId),
+    url: boardSocketUrl(),
     collections: boardCollectionIds,
   });
 
@@ -105,7 +112,7 @@ async function createBoardClient(): Promise<BoardClient> {
     offline,
     transport,
     close: async () => {
-      sharedClient = undefined;
+      sharedClients.delete(userId);
       offline.dispose();
       transport.close();
       coordinator.dispose();
@@ -114,9 +121,9 @@ async function createBoardClient(): Promise<BoardClient> {
   };
 }
 
-function boardSocketUrl(id: string): string {
+function boardSocketUrl(): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}/api/board/${id}`;
+  return `${protocol}//${window.location.host}/api/board`;
 }
 
 const BoardClientContext = createContext<BoardClient | null>(null);

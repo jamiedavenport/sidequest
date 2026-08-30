@@ -12,6 +12,14 @@
       },
     ],
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sidequest-db",
+      "database_id": "b61cbc63-2225-464d-9fe4-a992033a343c",
+      "migrations_dir": "drizzle",
+    },
+  ],
   "migrations": [
     {
       "tag": "v1",
@@ -25,6 +33,6 @@
     "BETTER_AUTH_URL": "http://localhost:3000",
   },
   "secrets": {
-    "required": ["BETTER_AUTH_SECRET"],
+    "required": ["BETTER_AUTH_SECRET", "RESEND_API_KEY"],
   },
 }

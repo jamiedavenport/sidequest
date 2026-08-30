@@ -3,13 +3,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import { acquireBoardClient, BoardClientProvider } from "~/board/sync/client";
 import type { BoardClient } from "~/board/sync/client";
 
-export function BoardSession({ children }: { children: ReactNode }) {
+export function BoardSession({ children, userId }: { children: ReactNode; userId: string }) {
   const [client, setClient] = useState<BoardClient | null>(null);
 
   useEffect(() => {
     let closed = false;
 
-    void acquireBoardClient().then(
+    setClient(null);
+    void acquireBoardClient(userId).then(
       (next) => {
         if (!closed) {
           setClient(next);
@@ -23,7 +24,7 @@ export function BoardSession({ children }: { children: ReactNode }) {
     return () => {
       closed = true;
     };
-  }, []);
+  }, [userId]);
 
   return <BoardClientProvider value={client}>{children}</BoardClientProvider>;
 }

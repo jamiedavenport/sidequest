@@ -15,15 +15,11 @@ export type LoginValues = typeof LoginValues.Type;
 export const loginFormSchema = Schema.toStandardSchemaV1(LoginValues);
 
 export const VerificationCodeValues = Schema.Struct({
-  code: Schema.String.check(
-    Schema.isPattern(/^\d{6}$/, { message: "Enter the six-digit code." }),
-  ),
+  code: Schema.String.check(Schema.isPattern(/^\d{6}$/, { message: "Enter the six-digit code." })),
 });
 export type VerificationCodeValues = typeof VerificationCodeValues.Type;
 
-export const verificationCodeFormSchema = Schema.toStandardSchemaV1(
-  VerificationCodeValues,
-);
+export const verificationCodeFormSchema = Schema.toStandardSchemaV1(VerificationCodeValues);
 
 const CodeSearch = Schema.Struct({
   email: Schema.optionalKey(Schema.String),

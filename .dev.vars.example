@@ -1,3 +1,4 @@
 # Worker secrets (no VITE_ prefix). Copy to .dev.vars and fill in values.
 # Generate a secret with: openssl rand -base64 32
 BETTER_AUTH_SECRET=
+RESEND_API_KEY=

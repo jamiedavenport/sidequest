@@ -1,11 +1,17 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
+import { getSession } from "~/auth/middleware";
 import appIcon from "~/assets/icon.svg?url";
 import { NotFound } from "~/components/not-found.tsrx";
 import appStyles from "~/styles.css?url";
 
 export const Route = createRootRoute({
+  beforeLoad: async () => {
+    const session = await getSession();
+
+    return { user: session?.user ?? null };
+  },
   head: () => ({
     links: [
       { href: "https://rsms.me", rel: "preconnect" },

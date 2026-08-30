@@ -218,9 +218,9 @@ function BoardReady() @{
   }
 }
 
-export function TaskBoard() @{
+export function TaskBoard({ userId }: { userId: string }) @{
   <BoardActor.Provider>
-    <BoardSession>
+    <BoardSession userId={userId}>
       <BoardReady />
     </BoardSession>
   </BoardActor.Provider>;

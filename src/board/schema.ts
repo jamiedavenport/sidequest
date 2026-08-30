@@ -1,8 +1,6 @@
 import { Schema } from "effect";
 import type { StandardSchemaV1 } from "effect/StandardSchema";
 
-export const userId = "jamie";
-
 export const LaneSymbolColour = Schema.Literals(["green", "amber", "blue", "violet"]);
 export type LaneSymbolColour = typeof LaneSymbolColour.Type;
 
