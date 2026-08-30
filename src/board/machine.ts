@@ -17,7 +17,7 @@ import {
   setDepth,
   startAdding,
 } from "~/board/commands";
-import { lanes as seedLanes } from "~/board/data";
+import { lanes as initialLanes } from "~/board/data";
 import type {
   BoardContext,
   HorizontalDirection,
@@ -109,7 +109,7 @@ export const boardMachine = setup({
   },
 }).createMachine({
   id: "board",
-  context: ({ input }) => createBoard(input?.lanes ?? seedLanes, input?.selectedId),
+  context: ({ input }) => createBoard(input?.lanes ?? initialLanes, input?.selectedId),
   initial: "navigating",
   states: {
     navigating: {
