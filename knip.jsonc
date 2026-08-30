@@ -1,5 +1,4 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
-  "entry": ["commitlint.config.ts"],
-  "ignore": ["mockups/**"],
+  "entry": ["commitlint.config.ts"]
 }

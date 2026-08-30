@@ -6,19 +6,6 @@ interface designed to reduce friction for people with ADHD.
 
 The first version is designed for a single user.
 
-## Design mockup
-
-An interactive high-fidelity prototype is available at
-[`mockups/index.html`](./mockups/index.html). It demonstrates the responsive
-lane canvas, recursive tasks, rich links, command menu, keyboard movement,
-completion and undo, quick capture, and mobile swipe behaviour.
-
-Serve the repository locally and open `/mockups/` to preview it:
-
-```sh
-python3 -m http.server 4173
-```
-
 ## Application development
 
 The application uses TanStack Start, TSRX, Bun, and Vite. It targets Cloudflare
