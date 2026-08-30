@@ -1,11 +1,13 @@
 // oxlint-disable react-perf/jsx-no-new-function-as-prop
-import { useHotkey } from "@tanstack/react-hotkeys";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useRef } from "react";
+import type { CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { BoardActor } from "~/board/machine";
+import { useOptionalBoardClient } from "~/board/sync/client";
+import { BoardActor } from "~/board/navigation/machine";
+import { completeTask } from "~/board/data/mutations";
 import { Badge } from "~/components/ui/badge.tsrx";
 import { Button } from "~/components/ui/button.tsrx";
 import {
@@ -16,12 +18,17 @@ import {
   ItemMedia,
   ItemTitle,
 } from "~/components/ui/item.tsrx";
-import type { Task, TaskLink } from "~/board/types";
+import type { Attachment, BoardTask, Task } from "~/board/types";
 
-function LinkPreview({ link }: { link: TaskLink }) @{
+type TaskIndentStyle = CSSProperties & {
+  "--task-indent": string;
+  "--task-indent-sm": string;
+};
+
+function AttachmentPreview({ attachment }: { attachment: Attachment }) @{
   <Item
     className="min-w-0 flex-nowrap bg-foreground/2 text-foreground no-underline"
-    href={link.href}
+    href={attachment.href}
     rel="noreferrer"
     size="xs"
     target="_blank"
@@ -30,19 +37,21 @@ function LinkPreview({ link }: { link: TaskLink }) @{
     <ItemMedia
       className={cn(
         "size-7.5 rounded-md bg-secondary text-[0.625rem] font-semibold sm:size-6.25",
-        link.mark === "GH" && "bg-foreground text-[0.5rem] text-background",
+        attachment.mark === "GH" && "bg-foreground text-[0.5rem] text-background",
       )}
       aria-hidden="true"
     >
-      {link.mark}
+      {attachment.mark}
     </ItemMedia>
     <ItemContent>
-      <ItemTitle className="text-sm/5 text-foreground sm:text-xs/4">{link.label}</ItemTitle>
-      <ItemDescription className="line-clamp-1 text-sm/5 sm:text-xs/4">{link.meta}</ItemDescription>
+      <ItemTitle className="text-sm/5 text-foreground sm:text-xs/4">{attachment.label}</ItemTitle>
+      <ItemDescription className="line-clamp-1 text-sm/5 sm:text-xs/4">
+        {attachment.meta}
+      </ItemDescription>
     </ItemContent>
     <ItemActions className="shrink-0 text-sm/5 text-muted-foreground sm:text-xs/4">
-      @if (link.stat !== undefined) {
-        <span className="tabular-nums">{link.stat}</span>;
+      @if (attachment.stat !== undefined) {
+        <span className="tabular-nums">{attachment.stat}</span>;
       } @else {
         <ExternalLink className="size-4 shrink-0" aria-hidden="true" />;
       }
@@ -50,63 +59,30 @@ function LinkPreview({ link }: { link: TaskLink }) @{
   </Item>;
 }
 
-function TaskMetadata({ task }: { task: Task }) @{
-  @if (
-    task.date !== undefined ||
-    task.recurrence !== undefined ||
-    task.subtaskProgress !== undefined
-  ) {
+function TaskMetadata({ task }: { task: BoardTask }) @{
+  @if (task.date !== undefined || task.subtaskProgress !== undefined) {
     <div className="flex flex-wrap items-center gap-1.5 pt-2 text-sm/5 sm:text-[0.625rem]/4">
       @if (task.date !== undefined) {
         <Badge variant={task.date === "Today" ? "today" : "secondary"}>{task.date}</Badge>;
       }
-      @if (task.recurrence !== undefined) {
-        <Badge className="gap-1" variant="secondary">
-          <span aria-hidden="true">↻</span>
-          {task.recurrence}
-        </Badge>;
-      }
       @if (task.subtaskProgress !== undefined) {
-        <Badge variant="ghost">{task.subtaskProgress}</Badge>;
+        <Badge variant="ghost">
+          {task.subtaskProgress.completed}/{task.subtaskProgress.total}{" "}
+          {task.subtaskProgress.total === 1 ? "subtask" : "subtasks"}
+        </Badge>;
       }
     </div>;
   }
 }
 
-function SelectedTaskHotkeys({ taskId }: { taskId: string }) @{
-  const actorRef = BoardActor.useActorRef();
-
-  useHotkey(
-    "Mod+Enter",
-    () => {
-      actorRef.send({ type: "task.complete", taskId });
-    },
-    { ignoreInputs: true, meta: { name: "Complete" } },
-  );
-  useHotkey(
-    "Tab",
-    () => {
-      actorRef.send({ type: "task.nest", delta: 1 });
-    },
-    { ignoreInputs: true, meta: { name: "Nest" } },
-  );
-  useHotkey(
-    "Shift+Tab",
-    () => {
-      actorRef.send({ type: "task.nest", delta: -1 });
-    },
-    { ignoreInputs: true, meta: { name: "Unnest" } },
-  );
-
-  <></>;
-}
-
 function CompleteTaskButton({ task }: { task: Task }) @{
-  const actorRef = BoardActor.useActorRef();
+  const client = useOptionalBoardClient();
 
   function onComplete(event: { stopPropagation: () => void }) {
     event.stopPropagation();
-    actorRef.send({ type: "task.complete", taskId: task.id });
+    if (client !== null) {
+      completeTask(client, task.id);
+    }
   }
 
   <Button
@@ -119,7 +95,7 @@ function CompleteTaskButton({ task }: { task: Task }) @{
   />;
 }
 
-function SelectTaskButton({ task }: { task: Task }) @{
+function SelectTaskButton({ laneId, task }: { laneId: string; task: Task }) @{
   const actorRef = BoardActor.useActorRef();
 
   function onSelect(event: { button: number }) {
@@ -127,7 +103,7 @@ function SelectTaskButton({ task }: { task: Task }) @{
       return;
     }
 
-    actorRef.send({ type: "task.select", taskId: task.id });
+    actorRef.send({ type: "task.select", taskId: task.id, laneId });
   }
 
   <button
@@ -139,11 +115,18 @@ function SelectTaskButton({ task }: { task: Task }) @{
   />;
 }
 
-export function TaskRow({ task }: { task: Task }) @{
+export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @{
   const highlighted = BoardActor.useSelector(
-    (snapshot) => snapshot.value === "navigating" && snapshot.context.selectedId === task.id,
+    (snapshot) =>
+      snapshot.value === "navigating" &&
+      snapshot.context.selectedId === task.id &&
+      snapshot.context.selectedLaneId === laneId,
   );
   const rowRef = useRef<HTMLLIElement>(null);
+  const indentStyle: TaskIndentStyle = {
+    "--task-indent": `${8 + task.visualDepth * 32}px`,
+    "--task-indent-sm": `${8 + task.visualDepth * 28}px`,
+  };
 
   useEffect(() => {
     if (highlighted) {
@@ -155,22 +138,19 @@ export function TaskRow({ task }: { task: Task }) @{
     ref={rowRef}
     className={cn(
       "relative",
-      task.depth === 1 && "pl-10 sm:pl-9",
-      task.depth === 2 && "pl-18 sm:pl-16",
+      task.visualDepth > 0 && "pl-(--task-indent) sm:pl-(--task-indent-sm)",
     )}
-    id={`task-${task.id}`}
+    style={task.visualDepth === 0 ? undefined : indentStyle}
+    id={`task-${laneId}-${task.id}`}
     aria-current={highlighted ? "true" : undefined}
   >
-    @if (highlighted) {
-      <SelectedTaskHotkeys taskId={task.id} />;
-    }
     <div
       className={cn(
         "relative rounded-lg p-2.5 select-none sm:p-2",
         highlighted && "ring-2 ring-primary/25 ring-inset",
       )}
     >
-      @if (task.depth !== undefined) {
+      @if (task.visualDepth > 0) {
         <svg
           className="-left-5 sm:-left-4.5 pointer-events-none absolute top-0 h-5 w-5 overflow-visible text-border sm:h-4 sm:w-4"
           viewBox="0 0 20 20"
@@ -180,7 +160,7 @@ export function TaskRow({ task }: { task: Task }) @{
           <path d="M0 0V10C0 15.523 4.477 20 10 20H20" stroke="currentColor" />
         </svg>;
       }
-      <SelectTaskButton task={task} />
+      <SelectTaskButton laneId={laneId} task={task} />
       <div className="pointer-events-none relative flex min-w-0 items-start gap-2.5 sm:gap-2">
         <div className="pointer-events-auto flex h-6 items-center sm:h-4.25">
           <CompleteTaskButton task={task} />
@@ -188,9 +168,14 @@ export function TaskRow({ task }: { task: Task }) @{
         <div className="relative min-w-0 flex-1 text-base/6 sm:text-[0.8125rem]/4.25">
           <p className="[overflow-wrap:anywhere] text-foreground/90">{task.title}</p>
           <TaskMetadata task={task} />
-          @if (task.link !== undefined) {
-            <div className="pointer-events-auto pt-2 text-sm/5 sm:text-[0.6875rem]/4">
-              <LinkPreview link={task.link} />
+          @if (
+            task.attachments !== undefined &&
+            task.attachments.length > 0
+          ) {
+            <div className="pointer-events-auto flex flex-col gap-1 pt-2 text-sm/5 sm:text-[0.6875rem]/4">
+              @for (const attachment of task.attachments; key attachment.id) {
+                <AttachmentPreview attachment={attachment} />;
+              }
             </div>;
           }
         </div>

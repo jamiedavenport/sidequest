@@ -6,7 +6,16 @@ export function formatTaskDate(date: Date, now = new Date()): string {
   return isSameDay(date, now) ? "Today" : format(date, "d MMM");
 }
 
-export function parseTaskDate(value: string, now = new Date()): Date | undefined {
+export function isTaskDateToday(value: string | undefined, now = new Date()): boolean {
+  if (value === undefined) {
+    return false;
+  }
+
+  const parsed = parseTaskDate(value, now);
+  return parsed !== undefined && isSameDay(parsed, now);
+}
+
+function parseTaskDate(value: string, now = new Date()): Date | undefined {
   const trimmed = value.trim();
   if (trimmed === "") {
     return undefined;

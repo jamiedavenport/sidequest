@@ -4,19 +4,21 @@ import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { currentLaneId } from "~/board/commands";
-import { BoardActor } from "~/board/machine";
+import { useOptionalBoardClient } from "~/board/sync/client";
+import { currentLaneId } from "~/board/navigation/commands";
+import { BoardActor } from "~/board/navigation/machine";
+import { addLane } from "~/board/data/mutations";
 import { Button } from "~/components/ui/button.tsrx";
 import { LaneSymbol } from "~/board/components/lane/symbol.tsrx";
 import { QuickAdd } from "~/board/components/quick-add.tsrx";
 import { TaskRow } from "~/board/components/task-row.tsrx";
-import type { Lane } from "~/board/types";
+import type { BoardLane } from "~/board/types";
 
 function StartAddButton({
   lane,
   className,
   ...props
-}: ComponentProps<"button"> & { lane: Lane }) @{
+}: ComponentProps<"button"> & { lane: BoardLane }) @{
   const actorRef = BoardActor.useActorRef();
 
   function onStartAdd(event: { button: number; preventDefault: () => void }) {
@@ -37,7 +39,7 @@ function StartAddButton({
   />;
 }
 
-export function TaskLane({ lane }: { lane: Lane }) @{
+export function TaskLane({ lane }: { lane: BoardLane }) @{
   const selected = BoardActor.useSelector(
     (snapshot) => currentLaneId(snapshot.context) === lane.id,
   );
@@ -75,7 +77,7 @@ export function TaskLane({ lane }: { lane: Lane }) @{
     <div className="flex flex-1 flex-col gap-2 pt-4 sm:gap-1.5 sm:pt-3.5">
       <ul className="flex flex-col gap-0.5">
         @for (const task of lane.tasks; key task.id) {
-          <TaskRow task={task} />;
+          <TaskRow laneId={lane.id} task={task} />;
         }
       </ul>
       <StartAddButton className="min-h-0 w-full flex-1" lane={lane} />
@@ -101,8 +103,25 @@ export function TaskLane({ lane }: { lane: Lane }) @{
 }
 
 export function AddLaneButton() @{
+  const client = useOptionalBoardClient();
+  const actorRef = BoardActor.useActorRef();
+
+  function onAdd() {
+    if (client === null) {
+      return;
+    }
+
+    actorRef.send({ type: "lane.select", laneId: addLane(client) });
+  }
+
   <div className="hidden w-44 shrink-0 p-4 sm:block">
-    <Button className="justify-start text-muted-foreground" size="sm" type="button" variant="ghost">
+    <Button
+      className="justify-start text-muted-foreground"
+      size="sm"
+      type="button"
+      variant="ghost"
+      onClick={onAdd}
+    >
       <span aria-hidden="true">+</span>
       New lane
     </Button>

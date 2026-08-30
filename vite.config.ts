@@ -13,8 +13,11 @@ export default defineConfig({
     include: [
       "@tanstack/hotkeys",
       "@tanstack/react-hotkeys",
+      "@tanstack/db",
+      "@tanstack/react-db",
       "use-sync-external-store/shim/with-selector",
     ],
+    exclude: ["@tanstack/browser-db-sqlite-persistence"],
   },
   server: {
     port: 3000,

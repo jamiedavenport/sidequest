@@ -1,20 +1,24 @@
 // oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Calendar as CalendarIcon, Plus } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 
+import { useOptionalBoardClient } from "~/board/sync/client";
 import { formatTaskDate } from "~/board/date";
-import { BoardActor } from "~/board/machine";
+import { BoardActor } from "~/board/navigation/machine";
+import { addTask } from "~/board/data/mutations";
+import { todayLaneId } from "~/board/views";
 import { saveHotkeys, ShortcutKeys } from "~/board/components/shortcut-keys.tsrx";
 import { Button } from "~/components/ui/button.tsrx";
 import { Calendar } from "~/components/ui/calendar.tsrx";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "~/components/ui/input-group.tsrx";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover.tsrx";
-import type { Lane } from "~/board/types";
+import type { BoardLane } from "~/board/types";
 import { cn } from "@/lib/utils";
 
-export function QuickAdd({ className, lane }: { className?: string; lane: Lane }) @{
+export function QuickAdd({ className, lane }: { className?: string; lane: BoardLane }) @{
   const actorRef = BoardActor.useActorRef();
+  const client = useOptionalBoardClient();
   const adding = BoardActor.useSelector((snapshot) => snapshot.context.addingLaneId === lane.id);
   const titleRef = useRef<HTMLInputElement>(null);
   const [dueDate, setDueDate] = useState<Date>();
@@ -36,13 +40,17 @@ export function QuickAdd({ className, lane }: { className?: string; lane: Lane }
 
   function submitAdd() {
     const title = titleRef.current?.value ?? "";
-    actorRef.send({
-      type: "add.submit",
-      title,
-      id: crypto.randomUUID(),
-      date: dueDate === undefined ? undefined : formatTaskDate(dueDate),
-    });
+    const id = crypto.randomUUID();
+    if (client !== null) {
+      addTask(client, {
+        id,
+        laneId: lane.id,
+        title,
+        date: dueDate === undefined ? undefined : formatTaskDate(dueDate),
+      });
+    }
     if (title.trim() !== "" && titleRef.current !== null) {
+      actorRef.send({ type: "task.select", taskId: id });
       titleRef.current.value = "";
       resetDate();
     }
@@ -58,43 +66,54 @@ export function QuickAdd({ className, lane }: { className?: string; lane: Lane }
     titleRef.current?.focus();
   }
 
-  useHotkey("Enter", submitAdd, {
-    enabled: adding && !calendarOpen,
-    ignoreInputs: false,
-    meta: { name: "Add task" },
-  });
-  useHotkey(
-    "/",
-    () => {
-      if (document.activeElement !== titleRef.current) {
-        return;
-      }
+  useHotkeys(
+    adding
+      ? [
+          {
+            hotkey: "Enter",
+            callback: submitAdd,
+            options: {
+              enabled: !calendarOpen,
+              ignoreInputs: false,
+              target: titleRef,
+              meta: { name: "Add task" },
+            },
+          },
+          {
+            hotkey: "/",
+            callback: () => {
+              setCalendarOpen(true);
+            },
+            options: {
+              ignoreInputs: false,
+              target: titleRef,
+              meta: { name: "Focus due date" },
+            },
+          },
+          {
+            hotkey: "Escape",
+            callback: () => {
+              if (calendarOpen) {
+                setCalendarOpen(false);
+                titleRef.current?.focus();
+                return;
+              }
 
-      setCalendarOpen(true);
-    },
-    { enabled: adding, ignoreInputs: false, meta: { name: "Focus due date" } },
-  );
-  useHotkey(
-    "Escape",
-    () => {
-      if (calendarOpen) {
-        setCalendarOpen(false);
-        titleRef.current?.focus();
-        return;
-      }
-
-      actorRef.send({ type: "add.cancel" });
-      resetDate();
-      titleRef.current?.blur();
-    },
-    { enabled: adding, meta: { name: "Cancel add" } },
+              actorRef.send({ type: "add.cancel" });
+              resetDate();
+              titleRef.current?.blur();
+            },
+            options: { meta: { name: "Cancel add" } },
+          },
+        ]
+      : [],
   );
 
   <InputGroup className={cn("mt-auto h-9 bg-card sm:h-7 sm:bg-input/20", className)}>
     <InputGroupInput
       ref={titleRef}
       name={`add-${lane.id}`}
-      placeholder={lane.kind === "today" ? "Add to Today" : "Add a task"}
+      placeholder={lane.id === todayLaneId ? "Add to Today" : "Add a task"}
       type="text"
       aria-label={`Add a task to ${lane.title}`}
       onFocus={focusAdd}
