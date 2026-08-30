@@ -1,5 +1,6 @@
 import { Ellipsis } from "lucide-react";
 
+import logoUrl from "~/assets/logo.svg?url";
 import { ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
 import { Button } from "~/components/ui/button.tsrx";
 
@@ -12,16 +13,23 @@ function SearchGlyph() @{
 
 export function AppHeader() @{
   <header className="relative z-10 flex items-center justify-between gap-4 border-b border-border bg-background/90 px-3.5 backdrop-blur-xl sm:px-4.5">
-    <a
-      className="flex w-fit items-center gap-2.5 text-base font-semibold tracking-tight text-foreground no-underline sm:text-sm"
-      href="/"
-      aria-label="Homepage"
-    >
-      <span>Sidequest</span>
+    <a className="flex h-7 w-fit items-center text-foreground no-underline" href="/">
+      <img
+        alt="Sidequest"
+        className="h-3 w-auto dark:invert"
+        height={12}
+        src={logoUrl}
+        width={57}
+      />
     </a>
 
     <div className="flex items-center justify-end gap-2">
-      <Button type="button" variant="outline" aria-label="Search or run a command" className="w-[160px] justify-between">
+      <Button
+        type="button"
+        variant="outline"
+        aria-label="Search or run a command"
+        className="w-[160px] justify-between"
+      >
         <span className="sm:hidden">
           <SearchGlyph />
         </span>
