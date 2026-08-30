@@ -3,12 +3,7 @@ import type { StandardSchemaV1 } from "effect/StandardSchema";
 
 export const userId = "jamie";
 
-export const LaneSymbolColour = Schema.Literals([
-  "green",
-  "amber",
-  "blue",
-  "violet",
-]);
+export const LaneSymbolColour = Schema.Literals(["green", "amber", "blue", "violet"]);
 export type LaneSymbolColour = typeof LaneSymbolColour.Type;
 
 export const LaneSymbolShape = Schema.Literals(["square", "circle", "diamond"]);
@@ -61,7 +56,5 @@ export type BoardLane = Lane & {
   tasks: ReadonlyArray<BoardTask>;
 };
 
-export const laneSchema: StandardSchemaV1<Lane, Lane> =
-  Schema.toStandardSchemaV1(Lane);
-export const taskSchema: StandardSchemaV1<Task, Task> =
-  Schema.toStandardSchemaV1(Task);
+export const laneSchema: StandardSchemaV1<Lane, Lane> = Schema.toStandardSchemaV1(Lane);
+export const taskSchema: StandardSchemaV1<Task, Task> = Schema.toStandardSchemaV1(Task);

@@ -10,11 +10,23 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CodeRouteImport } from './routes/code'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as ApiBoardUserIdRouteImport } from './routes/api/board.$userId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CodeRoute = CodeRouteImport.update({
+  id: '/code',
+  path: '/code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiBoardUserIdRoute = ApiBoardUserIdRouteImport.update({
@@ -25,27 +37,35 @@ const ApiBoardUserIdRoute = ApiBoardUserIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/code': typeof CodeRoute
+  '/login': typeof LoginRoute
   '/api/board/$userId': typeof ApiBoardUserIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/code': typeof CodeRoute
+  '/login': typeof LoginRoute
   '/api/board/$userId': typeof ApiBoardUserIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/code': typeof CodeRoute
+  '/login': typeof LoginRoute
   '/api/board/$userId': typeof ApiBoardUserIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/board/$userId'
+  fullPaths: '/' | '/code' | '/login' | '/api/board/$userId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/board/$userId'
-  id: '__root__' | '/' | '/api/board/$userId'
+  to: '/' | '/code' | '/login' | '/api/board/$userId'
+  id: '__root__' | '/' | '/code' | '/login' | '/api/board/$userId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CodeRoute: typeof CodeRoute
+  LoginRoute: typeof LoginRoute
   ApiBoardUserIdRoute: typeof ApiBoardUserIdRoute
 }
 
@@ -56,6 +76,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/code': {
+      id: '/code'
+      path: '/code'
+      fullPath: '/code'
+      preLoaderRoute: typeof CodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/board/$userId': {
@@ -70,6 +104,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CodeRoute: CodeRoute,
+  LoginRoute: LoginRoute,
   ApiBoardUserIdRoute: ApiBoardUserIdRoute,
 }
 export const routeTree = rootRouteImport

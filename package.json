@@ -31,6 +31,7 @@
     "@tanstack/hotkeys": "^0.8.0",
     "@tanstack/offline-transactions": "^1.0.52",
     "@tanstack/react-db": "^0.3.6",
+    "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-hotkeys": "^0.10.0",
     "@tanstack/react-router": "1.170.32",
     "@tanstack/react-start": "1.168.49",
