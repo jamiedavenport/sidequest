@@ -1,5 +1,5 @@
 // oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
-import { Ellipsis } from "lucide-react";
+import { Ellipsis, Plus } from "lucide-react";
 import {
   useEffect,
   useLayoutEffect,
@@ -38,6 +38,14 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu.tsrx";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "~/components/ui/empty.tsrx";
 import { Input } from "~/components/ui/input.tsrx";
 
 function StartAddButton({
@@ -276,19 +284,25 @@ export function AddLaneButton() @{
     startRename(laneId);
   }
 
-  <div className="w-44 shrink-0 p-4">
-    <Button
-      className="justify-start text-muted-foreground"
-      size="sm"
-      type="button"
-      variant="ghost"
-      onClick={onAdd}
-    >
-      <span aria-hidden="true">+</span>
-      New lane
-      <span className="ml-auto hidden sm:inline">
+  <button
+    className="flex h-full w-[calc(100vw-1.5rem)] shrink-0 flex-col border-t-2 border-transparent p-2 text-left outline-none hover:bg-muted/25 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 sm:w-87 sm:p-3 cursor-pointer transition-colors"
+    type="button"
+    aria-label="New lane"
+    onClick={onAdd}
+  >
+    <Empty className="h-full min-h-0">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Plus aria-hidden="true" />
+        </EmptyMedia>
+        <EmptyTitle className="text-lg sm:text-sm">New lane</EmptyTitle>
+        <EmptyDescription className="text-pretty text-sm/5 sm:text-xs/4">
+          Create a lane for a project or area of work.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="hidden sm:flex">
         <ShortcutKeys hotkeys={addLaneHotkeys} />
-      </span>
-    </Button>
-  </div>;
+      </EmptyContent>
+    </Empty>
+  </button>;
 }
