@@ -1,7 +1,8 @@
 import type { BoardClient } from "~/board/sync/client";
 import type { HorizontalDirection, Task, VerticalDirection } from "~/board/types";
 import {
-  applyPlacement,
+  applySubtreeMove,
+  applySubtreeNest,
   boardViewIds,
   completeTaskAndDescendants,
   currentViewId,
@@ -110,14 +111,7 @@ export function nestTask(
   }
 
   mutateBoard(client, () => {
-    client.tasks.update(taskId, (draft) => {
-      if (update.parentId === undefined) {
-        delete draft.parentId;
-        return;
-      }
-
-      draft.parentId = update.parentId;
-    });
+    applySubtreeNest(client.tasks, taskId, update.parentId);
   });
 }
 
@@ -174,11 +168,7 @@ export function moveTaskToLane(
   const rank = nextRank(laneTasks(client, destination));
   const placement = placementForMove(destination, task);
   mutateBoard(client, () => {
-    client.tasks.update(taskId, (draft) => {
-      applyPlacement(draft, placement);
-      draft.rank = rank;
-      delete draft.parentId;
-    });
+    applySubtreeMove(client.tasks, taskId, placement, rank);
   });
 
   return destination;

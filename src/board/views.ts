@@ -128,6 +128,20 @@ export function applyPlacement(
   }
 }
 
+function taskPlacement(task: Pick<Task, "laneId" | "date">): TaskPlacement {
+  return {
+    ...(task.laneId === undefined ? {} : { laneId: task.laneId }),
+    ...(task.date === undefined ? {} : { date: task.date }),
+  };
+}
+
+function placementsMatch(
+  left: Pick<Task, "laneId" | "date">,
+  right: Pick<Task, "laneId" | "date">,
+) {
+  return left.laneId === right.laneId && left.date === right.date;
+}
+
 export function normalizeTask(task: Task, now = new Date()): Task {
   if (task.laneId === inboxLaneId) {
     const { laneId: _laneId, ...rest } = task;
@@ -255,6 +269,38 @@ function resolveTaskParents(tasks: ReadonlyArray<Task>): Map<string, string | un
   return parents;
 }
 
+function descendantTaskIds(tasks: ReadonlyArray<Task>, rootId: string): string[] {
+  const children = new Map<string, string[]>();
+  for (const [id, parentId] of resolveTaskParents(tasks)) {
+    if (parentId === undefined) {
+      continue;
+    }
+
+    const siblings = children.get(parentId) ?? [];
+    siblings.push(id);
+    children.set(parentId, siblings);
+  }
+
+  const descendants: string[] = [];
+  const seen = new Set<string>([rootId]);
+  const queue = [...(children.get(rootId) ?? [])];
+  while (queue.length > 0) {
+    const id = queue.shift();
+    if (id === undefined || seen.has(id)) {
+      continue;
+    }
+
+    seen.add(id);
+    descendants.push(id);
+    const nested = children.get(id);
+    if (nested !== undefined) {
+      queue.push(...nested);
+    }
+  }
+
+  return descendants;
+}
+
 export function projectTasksForView(
   viewTasks: ReadonlyArray<Task>,
   allTasks: ReadonlyArray<Task> = viewTasks,
@@ -274,7 +320,120 @@ type WritableTaskDraft = {
   laneId?: string;
   date?: string;
   parentId?: string;
+  rank?: number;
 };
+
+type TaskWriteStore = {
+  toArray: ReadonlyArray<Task>;
+  get: (id: string) => Task | undefined;
+  update: (id: string, updater: (draft: WritableTaskDraft) => void) => void;
+};
+
+function taskById(tasks: ReadonlyArray<Task>): Map<string, Task> {
+  return new Map(tasks.map((task) => [task.id, task]));
+}
+
+function rootOf(task: Task, byId: ReadonlyMap<string, Task>): Task {
+  const seen = new Set<string>();
+  let current = task;
+  while (current.parentId !== undefined && !seen.has(current.id)) {
+    seen.add(current.id);
+    const parent = byId.get(current.parentId);
+    if (parent === undefined) {
+      break;
+    }
+    current = parent;
+  }
+  return current;
+}
+
+export function hasDivergentSubtreePlacement(tasks: ReadonlyArray<Task>): boolean {
+  const byId = taskById(tasks);
+  return tasks.some((task) => {
+    if (task.parentId === undefined) {
+      return false;
+    }
+
+    const root = rootOf(task, byId);
+    return root.id !== task.id && !placementsMatch(task, root);
+  });
+}
+
+export function repairSubtreePlacements(tasks: {
+  toArray: ReadonlyArray<Task>;
+  update: (id: string, updater: (draft: WritableTaskDraft) => void) => void;
+}): boolean {
+  const byId = taskById(tasks.toArray);
+  let changed = false;
+  for (const task of tasks.toArray) {
+    if (task.parentId === undefined) {
+      continue;
+    }
+
+    const root = rootOf(task, byId);
+    if (root.id === task.id || placementsMatch(task, root)) {
+      continue;
+    }
+
+    tasks.update(task.id, (draft) => {
+      applyPlacement(draft, taskPlacement(root));
+    });
+    changed = true;
+  }
+
+  return changed;
+}
+
+export function applySubtreeMove(
+  tasks: TaskWriteStore,
+  rootId: string,
+  placement: TaskPlacement,
+  startRank: number,
+): void {
+  const descendants = descendantTaskIds(tasks.toArray, rootId)
+    .map((id) => tasks.get(id))
+    .filter((task): task is Task => task !== undefined)
+    .toSorted((left, right) => left.rank - right.rank);
+
+  tasks.update(rootId, (draft) => {
+    applyPlacement(draft, placement);
+    draft.rank = startRank;
+    delete draft.parentId;
+  });
+
+  for (const [index, child] of descendants.entries()) {
+    tasks.update(child.id, (draft) => {
+      applyPlacement(draft, placement);
+      draft.rank = startRank + 1 + index;
+    });
+  }
+}
+
+export function applySubtreeNest(
+  tasks: TaskWriteStore,
+  taskId: string,
+  parentId: string | undefined,
+): void {
+  const parent = parentId === undefined ? undefined : tasks.get(parentId);
+  const placement = parent === undefined ? undefined : taskPlacement(parent);
+  const ids = [taskId, ...descendantTaskIds(tasks.toArray, taskId)];
+
+  for (const id of ids) {
+    tasks.update(id, (draft) => {
+      if (id === taskId) {
+        if (parentId === undefined) {
+          delete draft.parentId;
+        } else {
+          draft.parentId = parentId;
+        }
+      }
+
+      if (placement !== undefined) {
+        applyPlacement(draft, placement);
+      }
+    });
+  }
+}
 
 export function migrateLegacySystemLanes(input: {
   lanes: {
@@ -319,44 +478,41 @@ export function migrateLegacySystemLanes(input: {
   return changed;
 }
 
+export function normalizeStoredBoard(input: {
+  lanes: {
+    toArray: ReadonlyArray<Lane>;
+    has: (id: string) => boolean;
+    delete: (id: string) => void;
+  };
+  tasks: {
+    toArray: ReadonlyArray<Task>;
+    get: (id: string) => Task | undefined;
+    update: (id: string, updater: (draft: WritableTaskDraft) => void) => void;
+  };
+  now?: Date;
+}): boolean {
+  const migrated = migrateLegacySystemLanes(input);
+  const repaired = repairSubtreePlacements(input.tasks);
+  return migrated || repaired;
+}
+
+export function boardNeedsNormalize(
+  lanes: ReadonlyArray<Lane>,
+  tasks: ReadonlyArray<Task>,
+): boolean {
+  return (
+    lanes.some(isSystemLane) ||
+    tasks.some((task) => task.laneId === inboxLaneId || task.laneId === todayLaneId) ||
+    hasDivergentSubtreePlacement(tasks)
+  );
+}
+
 type TaskCompletionStore = {
   toArray: ReadonlyArray<Task>;
   has: (id: string) => boolean;
   get: (id: string) => Task | undefined;
   update: (id: string, updater: (draft: { completed: boolean }) => void) => void;
 };
-
-function descendantTaskIds(tasks: ReadonlyArray<Task>, rootId: string): string[] {
-  const children = new Map<string, string[]>();
-  for (const [id, parentId] of resolveTaskParents(tasks)) {
-    if (parentId === undefined) {
-      continue;
-    }
-
-    const siblings = children.get(parentId) ?? [];
-    siblings.push(id);
-    children.set(parentId, siblings);
-  }
-
-  const descendants: string[] = [];
-  const seen = new Set<string>([rootId]);
-  const queue = [...(children.get(rootId) ?? [])];
-  while (queue.length > 0) {
-    const id = queue.shift();
-    if (id === undefined || seen.has(id)) {
-      continue;
-    }
-
-    seen.add(id);
-    descendants.push(id);
-    const nested = children.get(id);
-    if (nested !== undefined) {
-      queue.push(...nested);
-    }
-  }
-
-  return descendants;
-}
 
 export function completeTaskAndDescendants(tasks: TaskCompletionStore, taskId: string): Task[] {
   if (!tasks.has(taskId)) {

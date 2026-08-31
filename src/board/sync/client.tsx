@@ -20,7 +20,7 @@ import {
 import { decodeLaneSync, decodeTaskSync } from "~/board/sync/codec";
 import { createDerivedBoardCollections } from "~/board/sync/live";
 import { Lane, Task } from "~/board/schema";
-import { inboxLaneId, isSystemLane, migrateLegacySystemLanes, todayLaneId } from "~/board/views";
+import { boardNeedsNormalize, normalizeStoredBoard } from "~/board/views";
 import { collectionSync, SyncTransport, transactionMutations } from "~/sync/transport";
 
 type DerivedBoardCollections = ReturnType<typeof createDerivedBoardCollections>;
@@ -101,16 +101,13 @@ async function createBoardClient(userId: string): Promise<BoardClient> {
   await offline.waitForInit();
   await Promise.all([lanes.preload(), tasks.preload()]);
 
-  const needsMigration =
-    lanes.toArray.some(isSystemLane) ||
-    tasks.toArray.some((task) => task.laneId === inboxLaneId || task.laneId === todayLaneId);
-  if (needsMigration) {
+  if (boardNeedsNormalize(lanes.toArray, tasks.toArray)) {
     const transaction = offline.createOfflineTransaction({
       autoCommit: false,
       mutationFnName: "persistBoard",
     });
     transaction.mutate(() => {
-      migrateLegacySystemLanes({ lanes, tasks });
+      normalizeStoredBoard({ lanes, tasks });
     });
     void transaction.commit();
   }

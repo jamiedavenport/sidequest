@@ -13,7 +13,7 @@ import { Lane, Task } from "~/board/schema";
 import {
   enforcedDescendantCompletions,
   isSystemLane,
-  migrateLegacySystemLanes,
+  normalizeStoredBoard,
   normalizeTask,
 } from "~/board/views";
 import { SyncDurableObject } from "~/sync/durable-object";
@@ -53,7 +53,7 @@ export class BoardObject extends SyncDurableObject<Env> {
   protected override async initializeSync() {
     await Promise.all([this.lanes.preload(), this.tasks.preload()]);
     await this.#persist(() => {
-      migrateLegacySystemLanes({ lanes: this.lanes, tasks: this.tasks });
+      normalizeStoredBoard({ lanes: this.lanes, tasks: this.tasks });
     });
   }
 
