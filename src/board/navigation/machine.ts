@@ -3,7 +3,6 @@ import { createActorContext } from "@xstate/react";
 
 import {
   cancelAdd,
-  createBoard,
   isEmptySelectedLane,
   isLastTaskInLane,
   selectHorizontal,
@@ -22,11 +21,6 @@ import type {
 
 export type { BoardContext };
 
-export type BoardInput = {
-  lanes?: BoardLane[];
-  selectedId?: string;
-};
-
 export type BoardEvent =
   | { type: "board.sync"; lanes: BoardLane[] }
   | { type: "navigate"; direction: VerticalDirection | HorizontalDirection }
@@ -40,7 +34,6 @@ export const boardMachine = setup({
   types: {} as {
     context: BoardContext;
     events: BoardEvent;
-    input: BoardInput;
   },
   actions: {
     syncBoard: assign(({ context, event }) => {
@@ -57,7 +50,9 @@ export const boardMachine = setup({
       assertEvent(event, "lane.select");
       return selectLaneById(context, event.laneId);
     }),
-    enterAddingFromSelection: assign(({ context }) => selectVertical(context, "down")),
+    enterAddingFromSelection: assign(({ context }) =>
+      selectVertical(context, "down"),
+    ),
     enterAdding: assign(({ context, event }) => {
       assertEvent(event, "add.start");
       return startAdding(context, event.laneId);
@@ -73,11 +68,17 @@ export const boardMachine = setup({
       event.type === "navigate" &&
       event.direction === "down" &&
       (isLastTaskInLane(context) || isEmptySelectedLane(context)),
-    canLeaveAddingUp: ({ event }) => event.type === "navigate" && event.direction === "up",
+    canLeaveAddingUp: ({ event }) =>
+      event.type === "navigate" && event.direction === "up",
   },
 }).createMachine({
   id: "board",
-  context: ({ input }) => createBoard(input?.lanes ?? [], input?.selectedId),
+  context: {
+    lanes: [],
+    selectedId: null,
+    selectedLaneId: null,
+    addingLaneId: null,
+  },
   initial: "navigating",
   states: {
     navigating: {
