@@ -86,8 +86,8 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
           className={cn(
             "origin-bottom transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none",
             selected
-              ? "translate-y-0 opacity-100"
-              : "pointer-events-none translate-y-1 opacity-0 motion-reduce:translate-y-0",
+              ? "scale-100 opacity-100"
+              : "pointer-events-none scale-90 opacity-0 motion-reduce:scale-100",
           )}
           aria-hidden={selected ? undefined : true}
           inert={selected ? undefined : true}

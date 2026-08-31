@@ -160,7 +160,9 @@ export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @
           <CompleteTaskButton task={task} />
         </div>
         <div className="relative min-w-0 flex-1 text-base/6 sm:text-[0.8125rem]/4.25">
-          <p className="[overflow-wrap:anywhere] text-foreground/90">{task.title}</p>
+          <p className="[overflow-wrap:anywhere] whitespace-pre-wrap text-foreground/90">
+            {task.title}
+          </p>
           <TaskMetadata task={task} />
           @if (
             task.attachments !== undefined &&
