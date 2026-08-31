@@ -1,7 +1,7 @@
 // oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
 import { useForm } from "@tanstack/react-form";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { Calendar as CalendarIcon, Plus } from "lucide-react";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 
 import { useBoardClient } from "~/board/sync/client";
@@ -17,7 +17,6 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
-  InputGroupText,
   InputGroupTextarea,
 } from "~/components/ui/input-group.tsrx";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover.tsrx";
@@ -167,12 +166,6 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
               rows={3}
               value={titleField.state.value}
             />
-            <InputGroupAddon align="block-start" className="border-b">
-              <InputGroupText>
-                <Plus aria-hidden="true" />
-                {label}
-              </InputGroupText>
-            </InputGroupAddon>
             <InputGroupAddon align="block-end" className="justify-between border-t">
               <form.Field name="date">
                 {(dateField) => @{
