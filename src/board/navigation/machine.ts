@@ -35,7 +35,7 @@ export type BoardEvent =
   | { type: "add.start"; laneId: string }
   | { type: "add.cancel" };
 
-const boardMachine = setup({
+export const boardMachine = setup({
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion, typescript/no-unnecessary-type-assertion
   types: {} as {
     context: BoardContext;
@@ -73,6 +73,7 @@ const boardMachine = setup({
       event.type === "navigate" &&
       event.direction === "down" &&
       (isLastTaskInLane(context) || isEmptySelectedLane(context)),
+    canLeaveAddingUp: ({ event }) => event.type === "navigate" && event.direction === "up",
   },
 }).createMachine({
   id: "board",
@@ -98,6 +99,11 @@ const boardMachine = setup({
     adding: {
       on: {
         "board.sync": { actions: "syncBoard" },
+        navigate: {
+          guard: "canLeaveAddingUp",
+          target: "navigating",
+          actions: "navigate",
+        },
         "add.cancel": { target: "navigating", actions: "cancelAdd" },
         "add.start": { actions: "enterAdding" },
         "lane.select": { target: "navigating", actions: "selectLane" },

@@ -80,6 +80,18 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
             },
           },
           {
+            hotkey: "ArrowUp",
+            callback: () => {
+              actorRef.send({ type: "navigate", direction: "up" });
+            },
+            options: {
+              enabled: !calendarOpen,
+              ignoreInputs: false,
+              target: titleRef,
+              meta: { name: "Navigate up" },
+            },
+          },
+          {
             hotkey: "/",
             callback: () => {
               setCalendarOpen(true);

@@ -160,7 +160,19 @@ export function cancelAdd(context: BoardContext): BoardContext {
   return { ...context, addingLaneId: null };
 }
 
+function lastTaskInLane(lane: BoardLane): Task | undefined {
+  return lane.tasks[lane.tasks.length - 1];
+}
+
 export function selectVertical(context: BoardContext, direction: VerticalDirection): BoardContext {
+  if (context.addingLaneId !== null && direction === "up") {
+    const lane = context.lanes.find((candidate) => candidate.id === context.addingLaneId);
+    const lastTask = lane === undefined ? undefined : lastTaskInLane(lane);
+    return lastTask === undefined || lane === undefined
+      ? cancelAdd(context)
+      : selectTask(context, lastTask.id, lane.id);
+  }
+
   const location = selectedTask(context);
   if (location === undefined) {
     const lane = context.lanes.find((candidate) => candidate.id === context.selectedLaneId);
