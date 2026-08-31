@@ -75,20 +75,16 @@ function useBoardHotkeys() {
   useHotkey(
     "C",
     () => {
-      const laneId = currentLaneId(actorRef.getSnapshot().context);
-      if (laneId !== null) {
-        actorRef.send({ type: "add.start", laneId });
-      }
+      actorRef.send({ type: "add.start", laneId: currentLaneId(actorRef.getSnapshot().context) });
     },
     { ignoreInputs: true, meta: { name: "Create" } },
   );
   useHotkey(
     "Mod+Shift+ArrowUp",
     () => {
-      const snapshot = actorRef.getSnapshot();
-      const taskId = snapshot.context.selectedId;
-      if (taskId !== null) {
-        moveTaskInLane(client, taskId, "up", snapshot.context.selectedLaneId);
+      const { cursor } = actorRef.getSnapshot().context;
+      if (cursor.taskId !== null) {
+        moveTaskInLane(client, cursor.taskId, "up", cursor.laneId);
       }
     },
     { ignoreInputs: true, meta: { name: "Move up" } },
@@ -96,10 +92,9 @@ function useBoardHotkeys() {
   useHotkey(
     "Mod+Shift+ArrowDown",
     () => {
-      const snapshot = actorRef.getSnapshot();
-      const taskId = snapshot.context.selectedId;
-      if (taskId !== null) {
-        moveTaskInLane(client, taskId, "down", snapshot.context.selectedLaneId);
+      const { cursor } = actorRef.getSnapshot().context;
+      if (cursor.taskId !== null) {
+        moveTaskInLane(client, cursor.taskId, "down", cursor.laneId);
       }
     },
     { ignoreInputs: true, meta: { name: "Move down" } },
@@ -107,12 +102,11 @@ function useBoardHotkeys() {
   useHotkey(
     "Mod+Shift+ArrowLeft",
     () => {
-      const snapshot = actorRef.getSnapshot();
-      const taskId = snapshot.context.selectedId;
-      if (taskId !== null) {
-        const laneId = moveTaskToLane(client, taskId, "left", snapshot.context.selectedLaneId);
+      const { cursor } = actorRef.getSnapshot().context;
+      if (cursor.taskId !== null) {
+        const laneId = moveTaskToLane(client, cursor.taskId, "left", cursor.laneId);
         if (laneId !== undefined) {
-          actorRef.send({ type: "task.select", taskId, laneId });
+          actorRef.send({ type: "task.select", taskId: cursor.taskId, laneId });
         }
       }
     },
@@ -121,12 +115,11 @@ function useBoardHotkeys() {
   useHotkey(
     "Mod+Shift+ArrowRight",
     () => {
-      const snapshot = actorRef.getSnapshot();
-      const taskId = snapshot.context.selectedId;
-      if (taskId !== null) {
-        const laneId = moveTaskToLane(client, taskId, "right", snapshot.context.selectedLaneId);
+      const { cursor } = actorRef.getSnapshot().context;
+      if (cursor.taskId !== null) {
+        const laneId = moveTaskToLane(client, cursor.taskId, "right", cursor.laneId);
         if (laneId !== undefined) {
-          actorRef.send({ type: "task.select", taskId, laneId });
+          actorRef.send({ type: "task.select", taskId: cursor.taskId, laneId });
         }
       }
     },
@@ -145,7 +138,7 @@ function useBoardHotkeys() {
     "R",
     () => {
       const laneId = currentLaneId(actorRef.getSnapshot().context);
-      if (laneId !== null && !isSystemLane({ id: laneId })) {
+      if (!isSystemLane({ id: laneId })) {
         startRename(laneId);
       }
     },
@@ -154,37 +147,28 @@ function useBoardHotkeys() {
   useHotkey(
     "Mod+Alt+ArrowLeft",
     () => {
-      const laneId = currentLaneId(actorRef.getSnapshot().context);
-      if (laneId !== null) {
-        moveLane(client, laneId, "left");
-      }
+      moveLane(client, currentLaneId(actorRef.getSnapshot().context), "left");
     },
     { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Move lane left" } },
   );
   useHotkey(
     "Mod+Alt+ArrowRight",
     () => {
-      const laneId = currentLaneId(actorRef.getSnapshot().context);
-      if (laneId !== null) {
-        moveLane(client, laneId, "right");
-      }
+      moveLane(client, currentLaneId(actorRef.getSnapshot().context), "right");
     },
     { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Move lane right" } },
   );
   useHotkey(
     "Mod+Backspace",
     () => {
-      const laneId = currentLaneId(actorRef.getSnapshot().context);
-      if (laneId !== null) {
-        requestRemoveLane(client, laneId, startRemove);
-      }
+      requestRemoveLane(client, currentLaneId(actorRef.getSnapshot().context), startRemove);
     },
     { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Remove lane" } },
   );
   useHotkey(
     "Mod+Enter",
     () => {
-      const taskId = actorRef.getSnapshot().context.selectedId;
+      const taskId = actorRef.getSnapshot().context.cursor.taskId;
       if (taskId !== null) {
         completeTask(client, taskId);
       }
@@ -194,10 +178,9 @@ function useBoardHotkeys() {
   useHotkey(
     "Tab",
     () => {
-      const snapshot = actorRef.getSnapshot();
-      const taskId = snapshot.context.selectedId;
-      if (taskId !== null) {
-        nestTask(client, taskId, 1, snapshot.context.selectedLaneId);
+      const { cursor } = actorRef.getSnapshot().context;
+      if (cursor.taskId !== null) {
+        nestTask(client, cursor.taskId, 1, cursor.laneId);
       }
     },
     { ignoreInputs: true, enabled: !adding, meta: { name: "Nest" } },
@@ -205,10 +188,9 @@ function useBoardHotkeys() {
   useHotkey(
     "Shift+Tab",
     () => {
-      const snapshot = actorRef.getSnapshot();
-      const taskId = snapshot.context.selectedId;
-      if (taskId !== null) {
-        nestTask(client, taskId, -1, snapshot.context.selectedLaneId);
+      const { cursor } = actorRef.getSnapshot().context;
+      if (cursor.taskId !== null) {
+        nestTask(client, cursor.taskId, -1, cursor.laneId);
       }
     },
     { ignoreInputs: true, enabled: !adding, meta: { name: "Unnest" } },

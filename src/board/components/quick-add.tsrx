@@ -26,7 +26,9 @@ import { cn } from "@/lib/utils";
 export function QuickAdd({ className, lane }: { className?: string; lane: BoardLane }) @{
   const actorRef = BoardActor.useActorRef();
   const client = useBoardClient();
-  const adding = BoardActor.useSelector((snapshot) => snapshot.context.addingLaneId === lane.id);
+  const adding = BoardActor.useSelector(
+    (snapshot) => snapshot.value === "adding" && snapshot.context.cursor.laneId === lane.id,
+  );
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const label = `Add to ${lane.title}`;

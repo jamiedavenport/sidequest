@@ -2,9 +2,10 @@ import { assertEvent, assign, setup } from "xstate";
 import { createActorContext } from "@xstate/react";
 
 import {
-  cancelAdd,
+  initialBoardContext,
   isEmptySelectedLane,
   isLastTaskInLane,
+  leaveAdding,
   selectHorizontal,
   selectLaneById,
   selectTask,
@@ -59,7 +60,7 @@ export const boardMachine = setup({
       assertEvent(event, "task.select");
       return selectTask(context, event.taskId, event.laneId);
     }),
-    cancelAdd: assign(({ context }) => cancelAdd(context)),
+    leaveAdding: assign(({ context }) => leaveAdding(context)),
   },
   guards: {
     canEnterAddingDown: ({ context, event }) =>
@@ -67,15 +68,12 @@ export const boardMachine = setup({
       event.direction === "down" &&
       (isLastTaskInLane(context) || isEmptySelectedLane(context)),
     canLeaveAddingUp: ({ event }) => event.type === "navigate" && event.direction === "up",
+    isCursorLaneMissing: ({ context, event }) =>
+      event.type === "board.sync" && !event.lanes.some((lane) => lane.id === context.cursor.laneId),
   },
 }).createMachine({
   id: "board",
-  context: {
-    lanes: [],
-    selectedId: null,
-    selectedLaneId: null,
-    addingLaneId: null,
-  },
+  context: initialBoardContext,
   initial: "navigating",
   states: {
     navigating: {
@@ -96,13 +94,20 @@ export const boardMachine = setup({
     },
     adding: {
       on: {
-        "board.sync": { actions: "syncBoard" },
+        "board.sync": [
+          {
+            guard: "isCursorLaneMissing",
+            target: "navigating",
+            actions: "syncBoard",
+          },
+          { actions: "syncBoard" },
+        ],
         navigate: {
           guard: "canLeaveAddingUp",
           target: "navigating",
-          actions: "navigate",
+          actions: "leaveAdding",
         },
-        "add.cancel": { target: "navigating", actions: "cancelAdd" },
+        "add.cancel": { target: "navigating" },
         "add.start": { actions: "enterAdding" },
         "lane.select": { target: "navigating", actions: "selectLane" },
         "task.select": { target: "navigating", actions: "select" },

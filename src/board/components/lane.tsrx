@@ -208,9 +208,9 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
   const selected = BoardActor.useSelector(
     (snapshot) => currentLaneId(snapshot.context) === lane.id,
   );
-  const selectedId = BoardActor.useSelector((snapshot) => snapshot.context.selectedId);
+  const selectedTaskId = BoardActor.useSelector((snapshot) => snapshot.context.cursor.taskId);
   const focusedWithoutTask =
-    selected && (selectedId === null || !lane.tasks.some((task) => task.id === selectedId));
+    selected && (selectedTaskId === null || !lane.tasks.some((task) => task.id === selectedTaskId));
   const articleRef = useRef<HTMLElement>(null);
   const system = isSystemLane(lane);
 

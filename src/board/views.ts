@@ -1,5 +1,12 @@
 import { formatTaskDate, isTaskDateToday } from "~/board/date";
-import type { BoardTask, Lane, LaneSymbolColour, LaneSymbolShape, Task } from "~/board/schema";
+import type {
+  BoardLane,
+  BoardTask,
+  Lane,
+  LaneSymbolColour,
+  LaneSymbolShape,
+  Task,
+} from "~/board/schema";
 import type { HorizontalDirection } from "~/board/types";
 
 export const inboxLaneId = "inbox";
@@ -23,6 +30,10 @@ export const systemLanes: ReadonlyArray<Lane> = [
     rank: 1,
   },
 ];
+
+export function emptySystemBoardLanes(): BoardLane[] {
+  return systemLanes.map((lane) => ({ ...lane, tasks: [] }));
+}
 
 export type TaskPlacement = {
   laneId?: string;

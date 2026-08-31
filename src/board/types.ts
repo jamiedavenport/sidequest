@@ -1,3 +1,5 @@
+import type { BoardLane } from "~/board/schema";
+
 export type {
   Attachment,
   BoardLane,
@@ -10,9 +12,12 @@ export type {
 export type VerticalDirection = "up" | "down";
 export type HorizontalDirection = "left" | "right";
 
+export type BoardCursor = {
+  laneId: string;
+  taskId: string | null;
+};
+
 export type BoardContext = {
-  lanes: import("~/board/schema").BoardLane[];
-  selectedId: string | null;
-  selectedLaneId: string | null;
-  addingLaneId: string | null;
+  lanes: BoardLane[];
+  cursor: BoardCursor;
 };

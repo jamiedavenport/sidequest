@@ -111,8 +111,8 @@ export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @
   const highlighted = BoardActor.useSelector(
     (snapshot) =>
       snapshot.value === "navigating" &&
-      snapshot.context.selectedId === task.id &&
-      snapshot.context.selectedLaneId === laneId,
+      snapshot.context.cursor.taskId === task.id &&
+      snapshot.context.cursor.laneId === laneId,
   );
   const rowRef = useRef<HTMLLIElement>(null);
   const indentStyle: TaskIndentStyle = {
