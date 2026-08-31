@@ -1,4 +1,5 @@
 import type { Lane } from "~/board/schema";
+import { playDoneSound } from "~/board/sound";
 import type { BoardClient } from "~/board/sync/client";
 import type { HorizontalDirection, Task, VerticalDirection } from "~/board/types";
 import {
@@ -169,13 +170,15 @@ export function addTask(
 }
 
 export function completeTask(client: BoardClient, taskId: string) {
-  if (!client.tasks.has(taskId)) {
+  const task = client.tasks.get(taskId);
+  if (task === undefined || task.completed) {
     return;
   }
 
   mutateBoard(client, () => {
     completeTaskAndDescendants(client.tasks, taskId);
   });
+  playDoneSound();
 }
 
 export function nestTask(
