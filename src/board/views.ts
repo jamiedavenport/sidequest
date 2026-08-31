@@ -123,7 +123,7 @@ export function rehomeTasksForDeletedLane(
 ): void {
   for (const task of tasksInLane(tasks.toArray, laneId)) {
     tasks.update(task.id, (draft) => {
-      delete draft.laneId;
+      clearOptional(draft, "laneId");
     });
   }
 }
@@ -162,7 +162,7 @@ function repairOrphanLaneAssignments(input: {
     }
 
     input.tasks.update(task.id, (draft) => {
-      delete draft.laneId;
+      clearOptional(draft, "laneId");
     });
     changed = true;
   }
@@ -241,18 +241,26 @@ export function placementForMove(
   };
 }
 
+function clearOptional(
+  draft: { laneId?: string; date?: string; parentId?: string },
+  key: "laneId" | "date" | "parentId",
+): void {
+  // TanStack DB change tracking ignores `delete`, so the update patch must assign undefined.
+  draft[key] = undefined;
+}
+
 export function applyPlacement(
   draft: { laneId?: string; date?: string },
   placement: TaskPlacement,
 ): void {
   if (placement.laneId === undefined) {
-    delete draft.laneId;
+    clearOptional(draft, "laneId");
   } else {
     draft.laneId = placement.laneId;
   }
 
   if (placement.date === undefined) {
-    delete draft.date;
+    clearOptional(draft, "date");
   } else {
     draft.date = placement.date;
   }
@@ -528,7 +536,7 @@ export function applySubtreeMove(
   tasks.update(rootId, (draft) => {
     applyPlacement(draft, placement);
     draft.rank = startRank;
-    delete draft.parentId;
+    clearOptional(draft, "parentId");
   });
 
   for (const [index, child] of descendants.entries()) {
@@ -552,7 +560,7 @@ export function applySubtreeNest(
     tasks.update(id, (draft) => {
       if (id === taskId) {
         if (parentId === undefined) {
-          delete draft.parentId;
+          clearOptional(draft, "parentId");
         } else {
           draft.parentId = parentId;
         }
@@ -583,7 +591,7 @@ export function migrateLegacySystemLanes(input: {
   for (const task of input.tasks.toArray) {
     if (task.laneId === inboxLaneId) {
       input.tasks.update(task.id, (draft) => {
-        delete draft.laneId;
+        clearOptional(draft, "laneId");
       });
       changed = true;
       continue;
@@ -591,7 +599,7 @@ export function migrateLegacySystemLanes(input: {
 
     if (task.laneId === todayLaneId) {
       input.tasks.update(task.id, (draft) => {
-        delete draft.laneId;
+        clearOptional(draft, "laneId");
         draft.date = draft.date ?? formatTaskDate(now, now);
       });
       changed = true;

@@ -29,12 +29,12 @@ export type Lane = typeof Lane.Type;
 
 export const Task = Schema.Struct({
   id: Schema.String,
-  laneId: Schema.optionalKey(Schema.String),
-  parentId: Schema.optionalKey(Schema.String),
+  laneId: Schema.optional(Schema.String),
+  parentId: Schema.optional(Schema.String),
   title: Schema.String,
   rank: Schema.Number,
   completed: Schema.Boolean,
-  date: Schema.optionalKey(Schema.String),
+  date: Schema.optional(Schema.String),
   attachments: Schema.optionalKey(Schema.Array(Attachment)),
 });
 export type Task = typeof Task.Type;

@@ -230,7 +230,7 @@ export function moveTaskInLane(
     client.tasks.update(taskId, (draft) => {
       draft.rank = swap.rank;
       if (target === 0) {
-        delete draft.parentId;
+        draft.parentId = undefined;
       }
     });
     client.tasks.update(swap.id, (draft) => {
