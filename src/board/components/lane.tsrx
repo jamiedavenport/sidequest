@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { useOptionalBoardClient } from "~/board/sync/client";
+import { useBoardClient } from "~/board/sync/client";
 import { currentLaneId } from "~/board/navigation/commands";
 import { BoardActor } from "~/board/navigation/machine";
 import { addLane } from "~/board/data/mutations";
@@ -103,14 +103,10 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
 }
 
 export function AddLaneButton() @{
-  const client = useOptionalBoardClient();
+  const client = useBoardClient();
   const actorRef = BoardActor.useActorRef();
 
   function onAdd() {
-    if (client === null) {
-      return;
-    }
-
     actorRef.send({ type: "lane.select", laneId: addLane(client) });
   }
 

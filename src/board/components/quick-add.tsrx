@@ -4,7 +4,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Calendar as CalendarIcon, Plus } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 
-import { useOptionalBoardClient } from "~/board/sync/client";
+import { useBoardClient } from "~/board/sync/client";
 import { isCaretOnFirstLine } from "~/board/caret";
 import { formatTaskDate } from "~/board/date";
 import { BoardActor } from "~/board/navigation/machine";
@@ -12,7 +12,7 @@ import { addTask } from "~/board/data/mutations";
 import { quickAddFormSchema } from "~/board/schema";
 import { saveHotkey, ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
 import { Calendar } from "~/components/ui/calendar.tsrx";
-import { Field, FieldError, FieldLabel } from "~/components/ui/field.tsrx";
+import { Field, FieldLabel } from "~/components/ui/field.tsrx";
 import {
   InputGroup,
   InputGroupAddon,
@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 
 export function QuickAdd({ className, lane }: { className?: string; lane: BoardLane }) @{
   const actorRef = BoardActor.useActorRef();
-  const client = useOptionalBoardClient();
+  const client = useBoardClient();
   const adding = BoardActor.useSelector((snapshot) => snapshot.context.addingLaneId === lane.id);
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -42,14 +42,12 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
     },
     onSubmit: ({ value }) => {
       const id = crypto.randomUUID();
-      if (client !== null) {
-        addTask(client, {
-          id,
-          laneId: lane.id,
-          title: value.title,
-          date: value.date === undefined ? undefined : formatTaskDate(value.date),
-        });
-      }
+      addTask(client, {
+        id,
+        laneId: lane.id,
+        title: value.title,
+        date: value.date === undefined ? undefined : formatTaskDate(value.date),
+      });
       actorRef.send({ type: "task.select", taskId: id });
       form.reset();
     },

@@ -10,7 +10,7 @@ export const Route = createRootRoute({
   beforeLoad: async () => {
     const session = await getSession();
 
-    return { user: session?.user ?? null };
+    return { session };
   },
   head: () => ({
     links: [

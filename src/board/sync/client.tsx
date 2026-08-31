@@ -6,8 +6,10 @@ import {
 } from "@tanstack/browser-db-sqlite-persistence";
 import { startOfflineExecutor } from "@tanstack/offline-transactions";
 import type { OfflineExecutor } from "@tanstack/offline-transactions";
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
+import { useSession } from "~/auth/hooks";
+import { BoardBooting } from "~/board/components/booting.tsrx";
 import {
   boardCollectionIds,
   createSyncedLaneCollection,
@@ -34,19 +36,31 @@ export type BoardClient = {
   close: () => Promise<void>;
 };
 
-const sharedClients = new Map<string, Promise<BoardClient>>();
+const BoardClientContext = createContext<BoardClient | null>(null);
 
-export function acquireBoardClient(userId: string): Promise<BoardClient> {
-  const existing = sharedClients.get(userId);
-  if (existing !== undefined) {
-    return existing;
+export function SyncClientProvider({ children }: { children: ReactNode }) {
+  const session = useSession();
+  const [client, setClient] = useState<BoardClient | null>(null);
+
+  useEffect(() => {
+    void createBoardClient(session.user.id).then(setClient, (error: unknown) => {
+      console.error("Failed to start the board client", error);
+    });
+  }, [session.user.id]);
+
+  if (client === null) {
+    return <BoardBooting />;
   }
 
-  const client = createBoardClient(userId).catch((error: unknown) => {
-    sharedClients.delete(userId);
-    throw error;
-  });
-  sharedClients.set(userId, client);
+  return <BoardClientContext.Provider value={client}>{children}</BoardClientContext.Provider>;
+}
+
+export function useBoardClient(): BoardClient {
+  const client = useContext(BoardClientContext);
+  if (client === null) {
+    throw new Error("Board client is not ready");
+  }
+
   return client;
 }
 
@@ -112,7 +126,6 @@ async function createBoardClient(userId: string): Promise<BoardClient> {
     offline,
     transport,
     close: async () => {
-      sharedClients.delete(userId);
       offline.dispose();
       transport.close();
       coordinator.dispose();
@@ -124,21 +137,4 @@ async function createBoardClient(userId: string): Promise<BoardClient> {
 function boardSocketUrl(): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}/api/board`;
-}
-
-const BoardClientContext = createContext<BoardClient | null>(null);
-
-export const BoardClientProvider = BoardClientContext.Provider;
-
-export function useBoardClient(): BoardClient {
-  const client = useContext(BoardClientContext);
-  if (client === null) {
-    throw new Error("Board client is not ready");
-  }
-
-  return client;
-}
-
-export function useOptionalBoardClient(): BoardClient | null {
-  return useContext(BoardClientContext);
 }

@@ -2,8 +2,7 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { useEffect, useRef } from "react";
 
 import { currentLaneId } from "~/board/navigation/commands";
-import { useBoardClient, useOptionalBoardClient } from "~/board/sync/client";
-import { BoardSession } from "~/board/sync/session";
+import { SyncClientProvider, useBoardClient } from "~/board/sync/client";
 import { BoardActor } from "~/board/navigation/machine";
 import { completeTask, moveTaskInLane, moveTaskToLane, nestTask } from "~/board/data/mutations";
 import { useBoardLanes } from "~/board/data/queries";
@@ -16,7 +15,7 @@ import type { BoardLane } from "~/board/types";
 
 function useBoardHotkeys() {
   const actorRef = BoardActor.useActorRef();
-  const client = useOptionalBoardClient();
+  const client = useBoardClient();
   const adding = BoardActor.useSelector((snapshot) => snapshot.value === "adding");
 
   useHotkey(
@@ -76,7 +75,7 @@ function useBoardHotkeys() {
     () => {
       const snapshot = actorRef.getSnapshot();
       const taskId = snapshot.context.selectedId;
-      if (client !== null && taskId !== null) {
+      if (taskId !== null) {
         moveTaskInLane(client, taskId, "up", snapshot.context.selectedLaneId);
       }
     },
@@ -87,7 +86,7 @@ function useBoardHotkeys() {
     () => {
       const snapshot = actorRef.getSnapshot();
       const taskId = snapshot.context.selectedId;
-      if (client !== null && taskId !== null) {
+      if (taskId !== null) {
         moveTaskInLane(client, taskId, "down", snapshot.context.selectedLaneId);
       }
     },
@@ -98,7 +97,7 @@ function useBoardHotkeys() {
     () => {
       const snapshot = actorRef.getSnapshot();
       const taskId = snapshot.context.selectedId;
-      if (client !== null && taskId !== null) {
+      if (taskId !== null) {
         const laneId = moveTaskToLane(client, taskId, "left", snapshot.context.selectedLaneId);
         if (laneId !== undefined) {
           actorRef.send({ type: "task.select", taskId, laneId });
@@ -112,7 +111,7 @@ function useBoardHotkeys() {
     () => {
       const snapshot = actorRef.getSnapshot();
       const taskId = snapshot.context.selectedId;
-      if (client !== null && taskId !== null) {
+      if (taskId !== null) {
         const laneId = moveTaskToLane(client, taskId, "right", snapshot.context.selectedLaneId);
         if (laneId !== undefined) {
           actorRef.send({ type: "task.select", taskId, laneId });
@@ -125,7 +124,7 @@ function useBoardHotkeys() {
     "Mod+Enter",
     () => {
       const taskId = actorRef.getSnapshot().context.selectedId;
-      if (client !== null && taskId !== null) {
+      if (taskId !== null) {
         completeTask(client, taskId);
       }
     },
@@ -136,7 +135,7 @@ function useBoardHotkeys() {
     () => {
       const snapshot = actorRef.getSnapshot();
       const taskId = snapshot.context.selectedId;
-      if (client !== null && taskId !== null) {
+      if (taskId !== null) {
         nestTask(client, taskId, 1, snapshot.context.selectedLaneId);
       }
     },
@@ -147,7 +146,7 @@ function useBoardHotkeys() {
     () => {
       const snapshot = actorRef.getSnapshot();
       const taskId = snapshot.context.selectedId;
-      if (client !== null && taskId !== null) {
+      if (taskId !== null) {
         nestTask(client, taskId, -1, snapshot.context.selectedLaneId);
       }
     },
@@ -193,35 +192,24 @@ function SyncedBoard() @{
   const client = useBoardClient();
   const actorRef = BoardActor.useActorRef();
   const { isReady, lanes } = useBoardLanes(client);
-  const canShow = isReady || lanes.length > 0;
 
   useEffect(() => {
-    if (canShow) {
+    if (isReady) {
       actorRef.send({ type: "board.sync", lanes });
     }
-  }, [actorRef, canShow, lanes]);
+  }, [actorRef, isReady, lanes]);
 
-  @if (!canShow) {
+  @if (!isReady) {
     <BoardBooting />;
   } @else {
     <BoardShell lanes={lanes} />;
   }
 }
 
-function BoardReady() @{
-  const client = useOptionalBoardClient();
-
-  @if (client === null) {
-    <BoardBooting />;
-  } @else {
-    <SyncedBoard />;
-  }
-}
-
-export function TaskBoard({ userId }: { userId: string }) @{
+export function TaskBoard() @{
   <BoardActor.Provider>
-    <BoardSession userId={userId}>
-      <BoardReady />
-    </BoardSession>
+    <SyncClientProvider>
+      <SyncedBoard />
+    </SyncClientProvider>
   </BoardActor.Provider>;
 }

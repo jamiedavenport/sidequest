@@ -4,7 +4,7 @@ import { Component } from "~/routes/login.tsrx";
 
 export const Route = createFileRoute("/login")({
   beforeLoad: ({ context }) => {
-    if (context.user !== null) {
+    if (context.session !== null) {
       throw redirect({ to: "/" });
     }
   },

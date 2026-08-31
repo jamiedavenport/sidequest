@@ -5,7 +5,7 @@ import type { CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { useOptionalBoardClient } from "~/board/sync/client";
+import { useBoardClient } from "~/board/sync/client";
 import { BoardActor } from "~/board/navigation/machine";
 import { completeTask } from "~/board/data/mutations";
 import { Badge } from "~/components/ui/badge.tsrx";
@@ -70,13 +70,11 @@ function TaskMetadata({ task }: { task: BoardTask }) @{
 }
 
 function CompleteTaskButton({ task }: { task: Task }) @{
-  const client = useOptionalBoardClient();
+  const client = useBoardClient();
 
   function onComplete(event: { stopPropagation: () => void }) {
     event.stopPropagation();
-    if (client !== null) {
-      completeTask(client, task.id);
-    }
+    completeTask(client, task.id);
   }
 
   <Button

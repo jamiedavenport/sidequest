@@ -5,7 +5,7 @@ import { Component } from "~/routes/code.tsrx";
 
 export const Route = createFileRoute("/code")({
   beforeLoad: ({ context, search }) => {
-    if (context.user !== null) {
+    if (context.session !== null) {
       throw redirect({ to: "/" });
     }
     if (search.email === undefined || search.email.length === 0) {
