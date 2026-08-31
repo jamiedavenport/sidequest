@@ -10,9 +10,9 @@ const colours: Record<LaneSymbolColour, string> = {
 };
 
 const shapes: Record<LaneSymbolShape, string> = {
-  square: "before:rounded-sm",
+  square: "before:rounded-[1px]",
   circle: "before:rounded-full",
-  diamond: "before:rotate-45 before:rounded-sm",
+  diamond: "before:rotate-45 before:rounded-[1px]",
 };
 
 export function LaneSymbol({

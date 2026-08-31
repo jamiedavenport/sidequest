@@ -21,7 +21,6 @@ export type Attachment = typeof Attachment.Type;
 export const Lane = Schema.Struct({
   id: Schema.String,
   title: Schema.String,
-  caption: Schema.String,
   colour: LaneSymbolColour,
   shape: LaneSymbolShape,
   rank: Schema.Number,

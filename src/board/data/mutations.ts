@@ -55,7 +55,6 @@ export function addLane(client: BoardClient, title = "New lane"): string {
     client.lanes.insert({
       id,
       title,
-      caption: "A place for this work.",
       colour: symbol.colour,
       shape: symbol.shape,
       rank,
@@ -67,7 +66,7 @@ export function addLane(client: BoardClient, title = "New lane"): string {
 export function updateLane(
   client: BoardClient,
   laneId: string,
-  patch: Partial<Pick<Lane, "title" | "caption" | "colour" | "shape">>,
+  patch: Partial<Pick<Lane, "title" | "colour" | "shape">>,
 ) {
   if (isSystemLane({ id: laneId }) || !client.lanes.has(laneId)) {
     return;
@@ -82,9 +81,6 @@ export function updateLane(
     client.lanes.update(laneId, (draft) => {
       if (nextTitle !== undefined) {
         draft.title = nextTitle;
-      }
-      if (patch.caption !== undefined) {
-        draft.caption = patch.caption;
       }
       if (patch.colour !== undefined) {
         draft.colour = patch.colour;

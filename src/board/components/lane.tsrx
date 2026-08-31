@@ -240,11 +240,6 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
         <LaneOptions lane={lane} />;
       }
     </div>
-    <StartAddButton className="block w-full" lane={lane}>
-      <p className="pl-8.5 text-pretty text-sm/5 text-muted-foreground sm:pl-7 sm:text-xs/4">
-        {lane.caption}
-      </p>
-    </StartAddButton>
     <div className="flex flex-1 flex-col gap-2 pt-4 sm:gap-1.5 sm:pt-3.5">
       <ul className="flex flex-col gap-0.5">
         @for (const task of lane.tasks; key task.id) {

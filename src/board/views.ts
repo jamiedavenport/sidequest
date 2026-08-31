@@ -16,7 +16,6 @@ export const systemLanes: ReadonlyArray<Lane> = [
   {
     id: todayLaneId,
     title: "Today",
-    caption: "One thing at a time.",
     colour: "amber",
     shape: "circle",
     rank: 0,
@@ -24,7 +23,6 @@ export const systemLanes: ReadonlyArray<Lane> = [
   {
     id: inboxLaneId,
     title: "Inbox",
-    caption: "Capture now. Decide later.",
     colour: "green",
     shape: "square",
     rank: 1,
