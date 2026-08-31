@@ -1,11 +1,15 @@
 import {
   addHotkeys,
+  addLaneHotkeys,
   completeHotkeys,
   inboxHotkeys,
+  moveAcrossHotkeys,
   moveLaneHotkeys,
   moveTaskHotkeys,
   navigateHotkeys,
   nestHotkeys,
+  removeLaneHotkeys,
+  renameLaneHotkeys,
   ShortcutKeys,
   todayHotkeys,
 } from "~/board/components/shortcut-keys.tsrx";
@@ -21,6 +25,14 @@ export function ShortcutFooter() @{
       Create
     </span>
     <span className="flex items-center gap-1">
+      <ShortcutKeys hotkeys={addLaneHotkeys} />
+      Lane
+    </span>
+    <span className="flex items-center gap-1">
+      <ShortcutKeys hotkeys={renameLaneHotkeys} />
+      Rename
+    </span>
+    <span className="flex items-center gap-1">
       <ShortcutKeys hotkeys={completeHotkeys} />
       Complete
     </span>
@@ -33,8 +45,16 @@ export function ShortcutFooter() @{
       Move
     </span>
     <span className="flex items-center gap-1">
+      <ShortcutKeys hotkeys={moveAcrossHotkeys} />
+      Move across
+    </span>
+    <span className="flex items-center gap-1">
       <ShortcutKeys hotkeys={moveLaneHotkeys} />
       Move lane
+    </span>
+    <span className="flex items-center gap-1">
+      <ShortcutKeys hotkeys={removeLaneHotkeys} />
+      Remove lane
     </span>
     <span className="flex items-center gap-1">
       <ShortcutKeys hotkeys={inboxHotkeys} />

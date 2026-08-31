@@ -50,9 +50,7 @@ export const boardMachine = setup({
       assertEvent(event, "lane.select");
       return selectLaneById(context, event.laneId);
     }),
-    enterAddingFromSelection: assign(({ context }) =>
-      selectVertical(context, "down"),
-    ),
+    enterAddingFromSelection: assign(({ context }) => selectVertical(context, "down")),
     enterAdding: assign(({ context, event }) => {
       assertEvent(event, "add.start");
       return startAdding(context, event.laneId);
@@ -68,8 +66,7 @@ export const boardMachine = setup({
       event.type === "navigate" &&
       event.direction === "down" &&
       (isLastTaskInLane(context) || isEmptySelectedLane(context)),
-    canLeaveAddingUp: ({ event }) =>
-      event.type === "navigate" && event.direction === "up",
+    canLeaveAddingUp: ({ event }) => event.type === "navigate" && event.direction === "up",
   },
 }).createMachine({
   id: "board",

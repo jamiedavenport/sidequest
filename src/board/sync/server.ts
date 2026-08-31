@@ -15,6 +15,8 @@ import {
   isSystemLane,
   normalizeStoredBoard,
   normalizeTask,
+  rehomeTasksForDeletedLane,
+  tasksInLane,
 } from "~/board/views";
 import { SyncDurableObject } from "~/sync/durable-object";
 import type { SyncSnapshot } from "~/sync/durable-object";
@@ -98,7 +100,11 @@ export class BoardObject extends SyncDurableObject<Env> {
           for (const mutation of prepared) {
             this.#applyMutation(mutation);
           }
-          outgoing = [...applied, ...this.#enforcedCompletionMutations(applied)];
+          outgoing = [
+            ...applied,
+            ...this.#enforcedCompletionMutations(applied),
+            ...this.#enforcedOrphanRehomeMutations(applied),
+          ];
         }),
       catch: (cause) => new SyncProtocolError({ message: String(cause) }),
     });
@@ -122,6 +128,10 @@ export class BoardObject extends SyncDurableObject<Env> {
   ) {
     if (mutation.collection === laneCollectionId) {
       if (mutation.type === "delete") {
+        if (isSystemLane({ id: mutation.key })) {
+          return yield* new SyncProtocolError({ message: "System lanes cannot be persisted" });
+        }
+
         return { collection: laneCollectionId, mutation } satisfies PreparedMutation;
       }
 
@@ -246,6 +256,38 @@ export class BoardObject extends SyncDurableObject<Env> {
           value: task,
         }),
     );
+  }
+
+  #enforcedOrphanRehomeMutations(incoming: ReadonlyArray<Mutation>): Mutation[] {
+    const deletedLaneIds = incoming.flatMap((mutation) =>
+      mutation.collection === laneCollectionId && mutation.type === "delete" ? [mutation.key] : [],
+    );
+    const outgoing: Mutation[] = [];
+    for (const laneId of deletedLaneIds) {
+      const leftover = tasksInLane(this.tasks.toArray, laneId);
+      if (leftover.length === 0) {
+        continue;
+      }
+
+      rehomeTasksForDeletedLane(this.tasks, laneId);
+      for (const task of leftover) {
+        const next = this.tasks.get(task.id);
+        if (next === undefined) {
+          continue;
+        }
+
+        outgoing.push(
+          new Mutation({
+            collection: taskCollectionId,
+            type: "update",
+            key: next.id,
+            value: next,
+          }),
+        );
+      }
+    }
+
+    return outgoing;
   }
 }
 

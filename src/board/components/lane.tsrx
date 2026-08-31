@@ -1,18 +1,44 @@
-// oxlint-disable react-perf/jsx-no-new-function-as-prop
+// oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
 import { Ellipsis } from "lucide-react";
-import type { ComponentProps } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type KeyboardEvent,
+} from "react";
 
 import { cn } from "@/lib/utils";
 
-import { useBoardClient } from "~/board/sync/client";
-import { currentLaneId } from "~/board/navigation/commands";
-import { BoardActor } from "~/board/navigation/machine";
-import { addLane } from "~/board/data/mutations";
-import { Button } from "~/components/ui/button.tsrx";
+import { useLaneChrome } from "~/board/components/lane-chrome.tsrx";
 import { LaneSymbol } from "~/board/components/lane/symbol.tsrx";
 import { QuickAdd } from "~/board/components/quick-add.tsrx";
+import {
+  addLaneHotkeys,
+  moveLaneLeftHotkeys,
+  moveLaneRightHotkeys,
+  removeLaneHotkeys,
+  renameLaneHotkeys,
+  ShortcutKeys,
+} from "~/board/components/shortcut-keys.tsrx";
 import { TaskRow } from "~/board/components/task-row.tsrx";
+import { addLane, moveLane, requestRemoveLane, updateLane } from "~/board/data/mutations";
+import { currentLaneId } from "~/board/navigation/commands";
+import { BoardActor } from "~/board/navigation/machine";
+import { useBoardClient } from "~/board/sync/client";
 import type { BoardLane } from "~/board/types";
+import { isSystemLane, planLaneMove } from "~/board/views";
+import { Button } from "~/components/ui/button.tsrx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu.tsrx";
+import { Input } from "~/components/ui/input.tsrx";
 
 function StartAddButton({
   lane,
@@ -39,12 +65,155 @@ function StartAddButton({
   />;
 }
 
+function LaneTitle({ lane }: { lane: BoardLane }) @{
+  const client = useBoardClient();
+  const { editingLaneId, stopRename } = useLaneChrome();
+  const editing = editingLaneId === lane.id;
+  const [draft, setDraft] = useState(lane.title);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const cancelledRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!editing) {
+      return;
+    }
+
+    cancelledRef.current = false;
+    setDraft(lane.title);
+    titleRef.current?.focus();
+    titleRef.current?.select();
+  }, [editing, lane.title]);
+
+  function save() {
+    if (cancelledRef.current) {
+      return;
+    }
+
+    updateLane(client, lane.id, { title: draft });
+    stopRename();
+  }
+
+  function cancel() {
+    cancelledRef.current = true;
+    stopRename();
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      save();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancel();
+    }
+  }
+
+  @if (editing) {
+    <Input
+      ref={titleRef}
+      className="h-7 min-w-0 flex-1 px-1.5 text-lg font-semibold tracking-tight sm:text-sm"
+      aria-label={`Rename ${lane.title}`}
+      id={`${lane.id}-title`}
+      value={draft}
+      onBlur={save}
+      onChange={(event) => {
+        setDraft(event.currentTarget.value);
+      }}
+      onKeyDown={onKeyDown}
+    />;
+  } @else {
+    <StartAddButton className="flex min-w-0 flex-1 items-center gap-2.5" lane={lane}>
+      <h2
+        className="truncate text-lg font-semibold tracking-tight sm:text-sm"
+        id={`${lane.id}-title`}
+      >
+        {lane.title}
+      </h2>
+      <span className="tabular-nums text-sm text-muted-foreground sm:text-xs">
+        {lane.tasks.length}
+      </span>
+    </StartAddButton>;
+  }
+}
+
+function LaneOptions({ lane }: { lane: BoardLane }) @{
+  const client = useBoardClient();
+  const { startRename, startRemove } = useLaneChrome();
+  const canMoveLeft = planLaneMove(client.lanes.toArray, lane.id, "left") !== undefined;
+  const canMoveRight = planLaneMove(client.lanes.toArray, lane.id, "right") !== undefined;
+
+  <DropdownMenu>
+    <DropdownMenuTrigger
+      render={
+        <Button size="icon" type="button" variant="ghost" aria-label={`${lane.title} options`} />
+      }
+    >
+      <Ellipsis aria-hidden="true" />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="min-w-48">
+      <DropdownMenuItem onClick={() => startRename(lane.id)}>
+        Rename
+        <DropdownMenuShortcut>
+          <ShortcutKeys hotkeys={renameLaneHotkeys} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={!canMoveLeft}
+        onClick={() => {
+          moveLane(client, lane.id, "left");
+        }}
+      >
+        Move left
+        <DropdownMenuShortcut>
+          <ShortcutKeys hotkeys={moveLaneLeftHotkeys} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={!canMoveRight}
+        onClick={() => {
+          moveLane(client, lane.id, "right");
+        }}
+      >
+        Move right
+        <DropdownMenuShortcut>
+          <ShortcutKeys hotkeys={moveLaneRightHotkeys} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        variant="destructive"
+        onClick={() => requestRemoveLane(client, lane.id, startRemove)}
+      >
+        Remove lane
+        <DropdownMenuShortcut>
+          <ShortcutKeys hotkeys={removeLaneHotkeys} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>;
+}
+
 export function TaskLane({ lane }: { lane: BoardLane }) @{
   const selected = BoardActor.useSelector(
     (snapshot) => currentLaneId(snapshot.context) === lane.id,
   );
+  const selectedId = BoardActor.useSelector((snapshot) => snapshot.context.selectedId);
+  const focusedWithoutTask =
+    selected && (selectedId === null || !lane.tasks.some((task) => task.id === selectedId));
+  const articleRef = useRef<HTMLElement>(null);
+  const system = isSystemLane(lane);
+
+  useEffect(() => {
+    if (focusedWithoutTask) {
+      articleRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, [focusedWithoutTask]);
 
   <article
+    ref={articleRef}
     className={cn(
       "flex h-full w-[calc(100vw-1.5rem)] shrink-0 flex-col overflow-y-auto border-t-2 border-r border-border bg-white px-2 py-5 sm:w-87 sm:px-3 sm:py-4.5",
       selected ? "border-t-primary" : "border-t-transparent",
@@ -53,21 +222,15 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
     aria-labelledby={`${lane.id}-title`}
   >
     <div className="flex min-w-0 items-center justify-between gap-3 px-2 sm:px-1">
-      <StartAddButton className="flex min-w-0 flex-1 items-center gap-2.5" lane={lane}>
-        <LaneSymbol colour={lane.colour} shape={lane.shape} />
-        <h2
-          className="truncate text-lg font-semibold tracking-tight sm:text-sm"
-          id={`${lane.id}-title`}
-        >
-          {lane.title}
-        </h2>
-        <span className="tabular-nums text-sm text-muted-foreground sm:text-xs">
-          {lane.tasks.length}
-        </span>
-      </StartAddButton>
-      <Button size="icon" type="button" variant="ghost" aria-label={`${lane.title} options`}>
-        <Ellipsis aria-hidden="true" />
-      </Button>
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <StartAddButton className="shrink-0" lane={lane}>
+          <LaneSymbol colour={lane.colour} shape={lane.shape} />
+        </StartAddButton>
+        <LaneTitle lane={lane} />
+      </div>
+      @if (!system) {
+        <LaneOptions lane={lane} />;
+      }
     </div>
     <StartAddButton className="block w-full" lane={lane}>
       <p className="pl-8.5 text-pretty text-sm/5 text-muted-foreground sm:pl-7 sm:text-xs/4">
@@ -105,12 +268,15 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
 export function AddLaneButton() @{
   const client = useBoardClient();
   const actorRef = BoardActor.useActorRef();
+  const { startRename } = useLaneChrome();
 
   function onAdd() {
-    actorRef.send({ type: "lane.select", laneId: addLane(client) });
+    const laneId = addLane(client);
+    actorRef.send({ type: "lane.select", laneId });
+    startRename(laneId);
   }
 
-  <div className="hidden w-44 shrink-0 p-4 sm:block">
+  <div className="w-44 shrink-0 p-4">
     <Button
       className="justify-start text-muted-foreground"
       size="sm"
@@ -120,6 +286,9 @@ export function AddLaneButton() @{
     >
       <span aria-hidden="true">+</span>
       New lane
+      <span className="ml-auto hidden sm:inline">
+        <ShortcutKeys hotkeys={addLaneHotkeys} />
+      </span>
     </Button>
   </div>;
 }

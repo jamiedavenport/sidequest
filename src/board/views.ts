@@ -1,5 +1,6 @@
 import { formatTaskDate, isTaskDateToday } from "~/board/date";
-import type { BoardTask, Lane, Task } from "~/board/schema";
+import type { BoardTask, Lane, LaneSymbolColour, LaneSymbolShape, Task } from "~/board/schema";
+import type { HorizontalDirection } from "~/board/types";
 
 export const inboxLaneId = "inbox";
 export const todayLaneId = "today";
@@ -38,6 +39,126 @@ export function isSystemLane(lane: Pick<Lane, "id">): boolean {
 
 function isPersistedLane(lane: Lane): boolean {
   return !isSystemLane(lane);
+}
+
+const laneColours = [
+  "green",
+  "amber",
+  "blue",
+  "violet",
+] as const satisfies ReadonlyArray<LaneSymbolColour>;
+
+const laneShapes = [
+  "square",
+  "circle",
+  "diamond",
+] as const satisfies ReadonlyArray<LaneSymbolShape>;
+
+function pickOne<T>(values: ReadonlyArray<T>): T {
+  const value = values[Math.floor(Math.random() * values.length)];
+  if (value === undefined) {
+    throw new Error("Cannot pick from an empty list");
+  }
+
+  return value;
+}
+
+export function randomLaneSymbol(): {
+  colour: LaneSymbolColour;
+  shape: LaneSymbolShape;
+} {
+  return {
+    colour: pickOne(laneColours),
+    shape: pickOne(laneShapes),
+  };
+}
+
+export function persistedLanes(lanes: ReadonlyArray<Lane>): Lane[] {
+  return lanes.filter(isPersistedLane).toSorted((left, right) => left.rank - right.rank);
+}
+
+export type LaneRankSwap = {
+  laneId: string;
+  rank: number;
+};
+
+export function planLaneMove(
+  lanes: ReadonlyArray<Lane>,
+  laneId: string,
+  direction: HorizontalDirection,
+): ReadonlyArray<LaneRankSwap> | undefined {
+  const ordered = persistedLanes(lanes);
+  const index = ordered.findIndex((lane) => lane.id === laneId);
+  const neighbor = ordered[direction === "left" ? index - 1 : index + 1];
+  const current = ordered[index];
+  if (index < 0 || current === undefined || neighbor === undefined) {
+    return undefined;
+  }
+
+  return [
+    { laneId: current.id, rank: neighbor.rank },
+    { laneId: neighbor.id, rank: current.rank },
+  ];
+}
+
+export function tasksInLane(tasks: ReadonlyArray<Task>, laneId: string): Task[] {
+  return tasks.filter((task) => task.laneId === laneId);
+}
+
+export function rehomeTasksForDeletedLane(
+  tasks: {
+    toArray: ReadonlyArray<Task>;
+    update: (id: string, updater: (draft: WritableTaskDraft) => void) => void;
+  },
+  laneId: string,
+): void {
+  for (const task of tasksInLane(tasks.toArray, laneId)) {
+    tasks.update(task.id, (draft) => {
+      delete draft.laneId;
+    });
+  }
+}
+
+export function deleteTasksForDeletedLane(
+  tasks: {
+    toArray: ReadonlyArray<Task>;
+    delete: (id: string) => void;
+  },
+  laneId: string,
+): void {
+  for (const task of tasksInLane(tasks.toArray, laneId)) {
+    tasks.delete(task.id);
+  }
+}
+
+function hasOrphanLaneAssignment(lanes: ReadonlyArray<Lane>, tasks: ReadonlyArray<Task>): boolean {
+  const ids = new Set(lanes.map((lane) => lane.id));
+  return tasks.some(
+    (task) => task.laneId !== undefined && !isSystemLaneId(task.laneId) && !ids.has(task.laneId),
+  );
+}
+
+function repairOrphanLaneAssignments(input: {
+  lanes: { toArray: ReadonlyArray<Lane> };
+  tasks: {
+    toArray: ReadonlyArray<Task>;
+    update: (id: string, updater: (draft: WritableTaskDraft) => void) => void;
+  };
+}): boolean {
+  const ids = new Set(input.lanes.toArray.map((lane) => lane.id));
+  let changed = false;
+  for (const task of input.tasks.toArray) {
+    if (task.laneId === undefined || isSystemLaneId(task.laneId) || ids.has(task.laneId)) {
+      continue;
+    }
+
+    input.tasks.update(task.id, (draft) => {
+      delete draft.laneId;
+    });
+    changed = true;
+  }
+
+  return changed;
 }
 
 function projectLaneId(task: Task): string | undefined {
@@ -492,8 +613,9 @@ export function normalizeStoredBoard(input: {
   now?: Date;
 }): boolean {
   const migrated = migrateLegacySystemLanes(input);
+  const orphans = repairOrphanLaneAssignments(input);
   const repaired = repairSubtreePlacements(input.tasks);
-  return migrated || repaired;
+  return migrated || orphans || repaired;
 }
 
 export function boardNeedsNormalize(
@@ -503,6 +625,7 @@ export function boardNeedsNormalize(
   return (
     lanes.some(isSystemLane) ||
     tasks.some((task) => task.laneId === inboxLaneId || task.laneId === todayLaneId) ||
+    hasOrphanLaneAssignment(lanes, tasks) ||
     hasDivergentSubtreePlacement(tasks)
   );
 }

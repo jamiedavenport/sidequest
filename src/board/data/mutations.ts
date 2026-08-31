@@ -1,3 +1,4 @@
+import type { Lane } from "~/board/schema";
 import type { BoardClient } from "~/board/sync/client";
 import type { HorizontalDirection, Task, VerticalDirection } from "~/board/types";
 import {
@@ -6,11 +7,16 @@ import {
   boardViewIds,
   completeTaskAndDescendants,
   currentViewId,
+  deleteTasksForDeletedLane,
   inboxLaneId,
+  isSystemLane,
   isTaskInView,
   placementForCreate,
   placementForMove,
+  planLaneMove,
   planNest,
+  randomLaneSymbol,
+  rehomeTasksForDeletedLane,
   todayLaneId,
 } from "~/board/views";
 
@@ -44,17 +50,104 @@ function mutateBoard(client: BoardClient, apply: () => void) {
 export function addLane(client: BoardClient, title = "New lane"): string {
   const rank = client.lanes.toArray.reduce((max, lane) => Math.max(max, lane.rank), -1) + 1;
   const id = crypto.randomUUID();
+  const symbol = randomLaneSymbol();
   mutateBoard(client, () => {
     client.lanes.insert({
       id,
       title,
       caption: "A place for this work.",
-      colour: "blue",
-      shape: "diamond",
+      colour: symbol.colour,
+      shape: symbol.shape,
       rank,
     });
   });
   return id;
+}
+
+export function updateLane(
+  client: BoardClient,
+  laneId: string,
+  patch: Partial<Pick<Lane, "title" | "caption" | "colour" | "shape">>,
+) {
+  if (isSystemLane({ id: laneId }) || !client.lanes.has(laneId)) {
+    return;
+  }
+
+  const nextTitle = patch.title === undefined ? undefined : patch.title.trim();
+  if (nextTitle === "") {
+    return;
+  }
+
+  mutateBoard(client, () => {
+    client.lanes.update(laneId, (draft) => {
+      if (nextTitle !== undefined) {
+        draft.title = nextTitle;
+      }
+      if (patch.caption !== undefined) {
+        draft.caption = patch.caption;
+      }
+      if (patch.colour !== undefined) {
+        draft.colour = patch.colour;
+      }
+      if (patch.shape !== undefined) {
+        draft.shape = patch.shape;
+      }
+    });
+  });
+}
+
+export function moveLane(client: BoardClient, laneId: string, direction: HorizontalDirection) {
+  if (isSystemLane({ id: laneId })) {
+    return;
+  }
+
+  const swaps = planLaneMove(client.lanes.toArray, laneId, direction);
+  if (swaps === undefined) {
+    return;
+  }
+
+  mutateBoard(client, () => {
+    for (const swap of swaps) {
+      client.lanes.update(swap.laneId, (draft) => {
+        draft.rank = swap.rank;
+      });
+    }
+  });
+}
+
+export function deleteLane(client: BoardClient, laneId: string, input: { deleteTasks: boolean }) {
+  if (isSystemLane({ id: laneId }) || !client.lanes.has(laneId)) {
+    return;
+  }
+
+  mutateBoard(client, () => {
+    if (input.deleteTasks) {
+      deleteTasksForDeletedLane(client.tasks, laneId);
+    } else {
+      rehomeTasksForDeletedLane(client.tasks, laneId);
+    }
+    client.lanes.delete(laneId);
+  });
+}
+
+export function requestRemoveLane(
+  client: BoardClient,
+  laneId: string,
+  confirm: (laneId: string) => void,
+) {
+  if (isSystemLane({ id: laneId }) || !client.lanes.has(laneId)) {
+    return;
+  }
+
+  const hasVisibleTasks = client.tasks.toArray.some(
+    (task) => task.laneId === laneId && !task.completed,
+  );
+  if (hasVisibleTasks) {
+    confirm(laneId);
+    return;
+  }
+
+  deleteLane(client, laneId, { deleteTasks: false });
 }
 
 export function addTask(

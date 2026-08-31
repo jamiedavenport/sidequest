@@ -7,10 +7,16 @@ export const navigateHotkeys = ["ArrowUp", "ArrowDown"];
 export const completeHotkeys = ["Mod+Enter"];
 export const nestHotkeys = ["Tab"];
 export const moveTaskHotkeys = ["Mod+Shift+ArrowUp", "ArrowDown"];
-export const moveLaneHotkeys = ["Mod+Shift+ArrowLeft", "ArrowRight"];
+export const moveAcrossHotkeys = ["Mod+Shift+ArrowLeft", "ArrowRight"];
+export const moveLaneHotkeys = ["Mod+Alt+ArrowLeft", "ArrowRight"];
+export const moveLaneLeftHotkeys = ["Mod+Alt+ArrowLeft"];
+export const moveLaneRightHotkeys = ["Mod+Alt+ArrowRight"];
 export const saveHotkey = "Mod+Enter";
 export const saveHotkeys = [saveHotkey];
 export const addHotkeys = ["C"];
+export const addLaneHotkeys = ["L"];
+export const renameLaneHotkeys = ["R"];
+export const removeLaneHotkeys = ["Mod+Backspace"];
 export const inboxHotkeys = ["I"];
 export const todayHotkeys = ["T"];
 
