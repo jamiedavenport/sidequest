@@ -60,16 +60,10 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) @{
 }
 
 function TaskMetadata({ task }: { task: BoardTask }) @{
-  @if (task.date !== undefined || task.subtaskProgress !== undefined) {
+  @if (task.date !== undefined) {
     <div className="flex flex-wrap items-center gap-1.5 pt-2 text-sm/5 sm:text-[0.625rem]/4">
       @if (task.date !== undefined) {
         <Badge variant={task.date === "Today" ? "today" : "secondary"}>{task.date}</Badge>;
-      }
-      @if (task.subtaskProgress !== undefined) {
-        <Badge variant="ghost">
-          {task.subtaskProgress.completed}/{task.subtaskProgress.total}{" "}
-          {task.subtaskProgress.total === 1 ? "subtask" : "subtasks"}
-        </Badge>;
       }
     </div>;
   }

@@ -7,17 +7,17 @@ const EmailAddress = Schema.String.check(
   }),
 );
 
-export const LoginValues = Schema.Struct({
+const LoginValues = Schema.Struct({
   email: EmailAddress,
 });
-export type LoginValues = typeof LoginValues.Type;
+type LoginValues = typeof LoginValues.Type;
 
 export const loginFormSchema = Schema.toStandardSchemaV1(LoginValues);
 
-export const VerificationCodeValues = Schema.Struct({
+const VerificationCodeValues = Schema.Struct({
   code: Schema.String.check(Schema.isPattern(/^\d{6}$/, { message: "Enter the six-digit code." })),
 });
-export type VerificationCodeValues = typeof VerificationCodeValues.Type;
+type VerificationCodeValues = typeof VerificationCodeValues.Type;
 
 export const verificationCodeFormSchema = Schema.toStandardSchemaV1(VerificationCodeValues);
 

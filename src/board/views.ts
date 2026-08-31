@@ -255,29 +255,11 @@ function resolveTaskParents(tasks: ReadonlyArray<Task>): Map<string, string | un
   return parents;
 }
 
-function subtaskProgressByParent(tasks: ReadonlyArray<Task>) {
-  const progress = new Map<string, { completed: number; total: number }>();
-  for (const task of uniqueTasks(tasks)) {
-    if (task.parentId === undefined) {
-      continue;
-    }
-
-    const current = progress.get(task.parentId) ?? { completed: 0, total: 0 };
-    progress.set(task.parentId, {
-      completed: current.completed + Number(task.completed),
-      total: current.total + 1,
-    });
-  }
-
-  return progress;
-}
-
 export function projectTasksForView(
   viewTasks: ReadonlyArray<Task>,
   allTasks: ReadonlyArray<Task> = viewTasks,
 ): BoardTask[] {
   const parents = resolveTaskParents(allTasks);
-  const progress = subtaskProgressByParent(allTasks);
   const ids = new Set(viewTasks.map((task) => task.id));
 
   return viewTasks
@@ -285,7 +267,6 @@ export function projectTasksForView(
     .map((task) => ({
       ...task,
       visualDepth: visualTaskDepth(task, ids, parents),
-      ...(progress.has(task.id) ? { subtaskProgress: progress.get(task.id) } : {}),
     }));
 }
 

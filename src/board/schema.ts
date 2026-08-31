@@ -40,14 +40,8 @@ export const Task = Schema.Struct({
 });
 export type Task = typeof Task.Type;
 
-type SubtaskProgress = {
-  completed: number;
-  total: number;
-};
-
 export type BoardTask = Task & {
   visualDepth: number;
-  subtaskProgress?: SubtaskProgress;
 };
 
 export type BoardLane = Lane & {

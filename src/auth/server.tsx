@@ -71,8 +71,6 @@ export const auth = betterAuth({
   ],
 });
 
-export type AuthSession = typeof auth.$Infer.Session;
-
 export async function issueSignInCode(email: string): Promise<boolean> {
   await deleteSignInCode(email);
   const otp = await auth.api.createVerificationOTP({
