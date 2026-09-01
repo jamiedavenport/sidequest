@@ -2,6 +2,9 @@ import { createCloudflareDOSQLitePersistence } from "@tanstack/cloudflare-durabl
 import { createTransaction } from "@tanstack/db";
 import { Effect } from "effect";
 
+import { attachmentsForTitle } from "~/board/links/enrich";
+import { titleMayContainHttpUrl } from "~/board/links/extract";
+import { linkPreviewRuntime } from "~/board/links/runtime";
 import { decodeLane, decodeTask } from "~/board/sync/codec";
 import {
   createLaneCollection,
@@ -21,6 +24,7 @@ import {
 import { SyncDurableObject } from "~/sync/durable-object";
 import type { SyncSnapshot } from "~/sync/durable-object";
 import { Mutation, SyncProtocolError } from "~/sync/protocol";
+import { serverRuntime } from "~/server/runtime";
 
 const optionalTaskKeys = [
   "laneId",
@@ -33,7 +37,24 @@ type PreparedMutation =
   | { collection: typeof laneCollectionId; mutation: Mutation; value?: Lane }
   | { collection: typeof taskCollectionId; mutation: Mutation; value?: Task };
 
+function mutationTelemetry(mutations: ReadonlyArray<Mutation>) {
+  return {
+    collections: [...new Set(mutations.map((mutation) => mutation.collection))]
+      .toSorted()
+      .join(","),
+    mutationCount: mutations.length,
+    mutationTypes: [...new Set(mutations.map((mutation) => mutation.type))].toSorted().join(","),
+  };
+}
+
+function logBoardSync(event: string, annotations: Record<string, string | number | boolean> = {}) {
+  return Effect.logInfo("sync.lifecycle").pipe(
+    Effect.annotateLogs({ component: "sync-server", event, ...annotations }),
+  );
+}
+
 function replaceTask(draft: Task, next: Task) {
+  const preservedAttachments = draft.attachments;
   for (const key of optionalTaskKeys) {
     if (next[key] === undefined) {
       delete draft[key];
@@ -41,6 +62,9 @@ function replaceTask(draft: Task, next: Task) {
   }
 
   Object.assign(draft, next);
+  if (next.attachments === undefined && preservedAttachments !== undefined) {
+    Object.assign(draft, { attachments: [...preservedAttachments] });
+  }
 }
 
 export class BoardObject extends SyncDurableObject<Env> {
@@ -54,9 +78,11 @@ export class BoardObject extends SyncDurableObject<Env> {
 
   protected override async initializeSync() {
     await Promise.all([this.lanes.preload(), this.tasks.preload()]);
-    await this.#persist(() => {
-      normalizeStoredBoard({ lanes: this.lanes, tasks: this.tasks });
-    });
+    await serverRuntime.runPromise(
+      this.#persist(() => {
+        normalizeStoredBoard({ lanes: this.lanes, tasks: this.tasks });
+      }, "initialize"),
+    );
   }
 
   protected override async readSyncSnapshot(): Promise<ReadonlyArray<SyncSnapshot>> {
@@ -69,45 +95,77 @@ export class BoardObject extends SyncDurableObject<Env> {
 
   protected override commitSyncMutations(
     mutations: ReadonlyArray<Mutation>,
+    transactionId: string,
   ): Promise<ReadonlyArray<Mutation>> {
-    return Effect.runPromise(this.#commitMutations(mutations));
+    return serverRuntime.runPromise(this.#commitMutations(mutations, transactionId));
   }
 
-  async #persist(mutate: () => void) {
-    const transaction = createTransaction({
-      autoCommit: false,
-      mutationFn: async ({ transaction: pending }) => {
-        await Promise.all([
-          this.lanes.utils.acceptMutations(pending),
-          this.tasks.utils.acceptMutations(pending),
-        ]);
-      },
+  #persist = Effect.fn("BoardObject.persist")(function* (
+    this: BoardObject,
+    mutate: () => void,
+    operation: string,
+    transactionId?: string,
+  ) {
+    const startedAt = Date.now();
+    yield* Effect.annotateCurrentSpan({
+      operation,
+      ...(transactionId === undefined ? {} : { transactionId }),
     });
-    transaction.mutate(mutate);
-    await transaction.commit();
-  }
+    yield* Effect.tryPromise({
+      try: async () => {
+        const transaction = createTransaction({
+          autoCommit: false,
+          mutationFn: async ({ transaction: pending }) => {
+            await Promise.all([
+              this.lanes.utils.acceptMutations(pending),
+              this.tasks.utils.acceptMutations(pending),
+            ]);
+          },
+        });
+        transaction.mutate(mutate);
+        await transaction.commit();
+      },
+      catch: (cause) => new SyncProtocolError({ message: String(cause) }),
+    });
+    yield* logBoardSync("persistence_committed", {
+      durationMs: Date.now() - startedAt,
+      operation,
+      outcome: "success",
+      ...(transactionId === undefined ? {} : { transactionId }),
+    });
+  });
 
   #commitMutations = Effect.fn("BoardObject.commitMutations")(function* (
     this: BoardObject,
     incoming: ReadonlyArray<Mutation>,
+    transactionId: string,
   ) {
+    const startedAt = Date.now();
+    yield* Effect.annotateCurrentSpan({ transactionId, ...mutationTelemetry(incoming) });
     const prepared = yield* this.#prepareMutations(incoming);
     const applied = prepared.map(({ mutation }) => mutation);
     let outgoing: Mutation[] = [];
-    yield* Effect.tryPromise({
-      try: () =>
-        this.#persist(() => {
-          for (const mutation of prepared) {
-            this.#applyMutation(mutation);
-          }
-          outgoing = [
-            ...applied,
-            ...this.#enforcedCompletionMutations(applied),
-            ...this.#enforcedOrphanRehomeMutations(applied),
-          ];
-        }),
-      catch: (cause) => new SyncProtocolError({ message: String(cause) }),
+    yield* this.#persist(
+      () => {
+        for (const mutation of prepared) {
+          this.#applyMutation(mutation);
+        }
+        outgoing = [
+          ...applied,
+          ...this.#enforcedCompletionMutations(applied),
+          ...this.#enforcedOrphanRehomeMutations(applied),
+        ];
+      },
+      "client_mutation",
+      transactionId,
+    );
+    yield* logBoardSync("collection_application", {
+      durationMs: Date.now() - startedAt,
+      outcome: "success",
+      transactionId,
+      ...mutationTelemetry(outgoing),
     });
+    this.#enqueueLinkEnrichment(applied, transactionId);
     return outgoing;
   });
 
@@ -115,10 +173,17 @@ export class BoardObject extends SyncDurableObject<Env> {
     this: BoardObject,
     mutations: ReadonlyArray<Mutation>,
   ) {
+    const startedAt = Date.now();
+    yield* Effect.annotateCurrentSpan(mutationTelemetry(mutations));
     const applied: PreparedMutation[] = [];
     for (const mutation of mutations) {
       applied.push(yield* this.#prepareMutation(mutation));
     }
+    yield* logBoardSync("mutations_prepared", {
+      durationMs: Date.now() - startedAt,
+      outcome: "success",
+      ...mutationTelemetry(mutations),
+    });
     return applied;
   });
 
@@ -289,6 +354,137 @@ export class BoardObject extends SyncDurableObject<Env> {
 
     return outgoing;
   }
+
+  #enqueueLinkEnrichment(mutations: ReadonlyArray<Mutation>, originatingTransactionId: string) {
+    const taskIds = this.#taskInsertsNeedingAttachments(mutations);
+    if (taskIds.length === 0) {
+      return;
+    }
+
+    const startedAt = Date.now();
+    const enrichmentId = crypto.randomUUID();
+    this.ctx.waitUntil(
+      linkPreviewRuntime.runPromise(
+        this.#enrichInsertedTasks(taskIds, startedAt, enrichmentId, originatingTransactionId).pipe(
+          Effect.catch(() =>
+            logBoardSync("enrichment_finished", {
+              durationMs: Date.now() - startedAt,
+              enrichmentId,
+              originatingTransactionId,
+              outcome: "failure",
+              taskCount: taskIds.length,
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+
+  #taskInsertsNeedingAttachments(mutations: ReadonlyArray<Mutation>): string[] {
+    return mutations.flatMap((mutation) => {
+      if (mutation.collection !== taskCollectionId || mutation.type !== "insert") {
+        return [];
+      }
+
+      const task = this.tasks.get(mutation.key);
+      if (
+        task === undefined ||
+        (task.attachments !== undefined && task.attachments.length > 0) ||
+        !titleMayContainHttpUrl(task.title)
+      ) {
+        return [];
+      }
+
+      return [task.id];
+    });
+  }
+
+  #enrichInsertedTasks = Effect.fn("BoardObject.enrichInsertedTasks")(function* (
+    this: BoardObject,
+    taskIds: ReadonlyArray<string>,
+    startedAt: number,
+    enrichmentId: string,
+    originatingTransactionId: string,
+  ) {
+    yield* Effect.annotateCurrentSpan({
+      enrichmentId,
+      originatingTransactionId,
+      taskCount: taskIds.length,
+    });
+    yield* logBoardSync("enrichment_started", {
+      enrichmentId,
+      originatingTransactionId,
+      outcome: "started",
+      taskCount: taskIds.length,
+    });
+    const updates: Array<{ id: string; attachments: NonNullable<Task["attachments"]> }> = [];
+    for (const taskId of taskIds) {
+      const task = this.tasks.get(taskId);
+      if (task === undefined || (task.attachments !== undefined && task.attachments.length > 0)) {
+        continue;
+      }
+
+      const attachments = yield* attachmentsForTitle(task.title);
+      if (attachments.length === 0) {
+        continue;
+      }
+
+      updates.push({ id: taskId, attachments });
+    }
+
+    if (updates.length === 0) {
+      yield* logBoardSync("enrichment_finished", {
+        durationMs: Date.now() - startedAt,
+        enrichmentId,
+        originatingTransactionId,
+        outcome: "no_changes",
+        taskCount: taskIds.length,
+        updateCount: 0,
+      });
+      return;
+    }
+
+    yield* this.#persist(() => {
+      for (const update of updates) {
+        const current = this.tasks.get(update.id);
+        if (
+          current === undefined ||
+          (current.attachments !== undefined && current.attachments.length > 0)
+        ) {
+          continue;
+        }
+
+        this.tasks.update(update.id, (draft) => {
+          draft.attachments = [...update.attachments];
+        });
+      }
+    }, "server_enrichment");
+
+    const outgoing = updates.flatMap((update) => {
+      const task = this.tasks.get(update.id);
+      if (task?.attachments === undefined || task.attachments.length === 0) {
+        return [];
+      }
+
+      return [
+        new Mutation({
+          collection: taskCollectionId,
+          type: "update",
+          key: task.id,
+          value: task,
+        }),
+      ];
+    });
+    yield* this.broadcastSyncMutations(outgoing);
+    yield* logBoardSync("enrichment_finished", {
+      durationMs: Date.now() - startedAt,
+      enrichmentId,
+      originatingTransactionId,
+      outcome: "success",
+      taskCount: taskIds.length,
+      updateCount: outgoing.length,
+    });
+  });
 }
 
 export function handleBoardRequest(request: Request, env: Env, id: string): Promise<Response> {

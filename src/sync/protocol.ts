@@ -36,6 +36,8 @@ export class Snapshot extends Schema.TaggedClass<Snapshot>()("Snapshot", {
 }) {}
 
 export class Changes extends Schema.TaggedClass<Changes>()("Changes", {
+  changeId: Schema.optionalKey(Schema.String),
+  originatingTransactionId: Schema.optionalKey(Schema.String),
   mutations: Schema.Array(Mutation),
 }) {}
 
@@ -47,6 +49,21 @@ export class Reject extends Schema.TaggedClass<Reject>()("Reject", {
   transactionId: Schema.String,
   message: Schema.String,
 }) {}
+
+export function acknowledgedChanges(input: {
+  changeId: string;
+  mutations: ReadonlyArray<Mutation>;
+  transactionId: string;
+}): readonly [Ack, Changes] {
+  return [
+    new Ack({ transactionId: input.transactionId }),
+    new Changes({
+      changeId: input.changeId,
+      originatingTransactionId: input.transactionId,
+      mutations: input.mutations,
+    }),
+  ];
+}
 
 const ServerMessage = Schema.Union([Snapshot, Changes, Ack, Reject]);
 

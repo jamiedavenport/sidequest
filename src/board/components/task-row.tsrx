@@ -1,6 +1,5 @@
 // oxlint-disable react-perf/jsx-no-new-function-as-prop
-import { ExternalLink } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
@@ -12,7 +11,6 @@ import { Badge } from "~/components/ui/badge.tsrx";
 import { Button } from "~/components/ui/button.tsrx";
 import {
   Item,
-  ItemActions,
   ItemContent,
   ItemDescription,
   ItemMedia,
@@ -26,6 +24,9 @@ type TaskIndentStyle = CSSProperties & {
 };
 
 function AttachmentPreview({ attachment }: { attachment: Attachment }) @{
+  const [iconFailed, setIconFailed] = useState(false);
+  const showIcon = attachment.icon !== undefined && !iconFailed;
+
   <Item
     className="min-w-0 flex-nowrap bg-foreground/2 text-foreground no-underline"
     href={attachment.href}
@@ -36,12 +37,22 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) @{
   >
     <ItemMedia
       className={cn(
-        "size-7.5 rounded-md bg-secondary text-[0.625rem] font-semibold sm:size-6.25",
-        attachment.mark === "GH" && "bg-foreground text-[0.5rem] text-background",
+        "size-7.5 rounded-md sm:size-6.25",
+        showIcon
+          ? "overflow-hidden bg-secondary p-0.5 [&_img]:object-contain"
+          : cn(
+              "bg-secondary text-[0.625rem] font-semibold",
+              attachment.mark === "GH" && "bg-foreground text-[0.5rem] text-background",
+            ),
       )}
+      variant={showIcon ? "image" : "default"}
       aria-hidden="true"
     >
-      {attachment.mark}
+      @if (showIcon) {
+        <img alt="" src={attachment.icon} onError={() => setIconFailed(true)} />;
+      } @else {
+        <span>{attachment.mark}</span>;
+      }
     </ItemMedia>
     <ItemContent>
       <ItemTitle className="text-sm/5 text-foreground sm:text-xs/4">{attachment.label}</ItemTitle>
@@ -49,13 +60,6 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) @{
         {attachment.meta}
       </ItemDescription>
     </ItemContent>
-    <ItemActions className="shrink-0 text-sm/5 text-muted-foreground sm:text-xs/4">
-      @if (attachment.stat !== undefined) {
-        <span className="tabular-nums">{attachment.stat}</span>;
-      } @else {
-        <ExternalLink className="size-4 shrink-0" aria-hidden="true" />;
-      }
-    </ItemActions>
   </Item>;
 }
 

@@ -44,6 +44,26 @@ export type SyncTransportOptions = {
   transactionTimeoutMs?: number;
 };
 
+function mutationTelemetry(mutations: ReadonlyArray<Mutation>) {
+  return {
+    collections: [...new Set(mutations.map((mutation) => mutation.collection))]
+      .toSorted()
+      .join(","),
+    mutationCount: mutations.length,
+    mutationTypes: [...new Set(mutations.map((mutation) => mutation.type))].toSorted().join(","),
+  };
+}
+
+function logClientSync(event: string, details: Record<string, string | number | boolean> = {}) {
+  console.info(
+    JSON.stringify({
+      component: "sync-client",
+      event,
+      ...details,
+    }),
+  );
+}
+
 export class SyncTransport {
   readonly #url: string;
   readonly #collections: ReadonlySet<string>;
@@ -118,32 +138,62 @@ export class SyncTransport {
 
     const socket = this.#socket;
     if (socket?.readyState !== WebSocket.OPEN) {
+      logClientSync("mutation_send_error", {
+        outcome: "socket_not_connected",
+        ...mutationTelemetry(mutations),
+      });
       return Promise.reject(new Error("WebSocket not connected"));
     }
 
     const transactionId = crypto.randomUUID();
+    const startedAt = Date.now();
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.#pending.delete(transactionId);
+        logClientSync("acknowledgement_timeout", {
+          durationMs: Date.now() - startedAt,
+          outcome: "timeout",
+          transactionId,
+        });
         reject(new Error(`Transaction ${transactionId} timed out`));
       }, this.#transactionTimeoutMs);
 
       this.#pending.set(transactionId, {
         resolve: () => {
           clearTimeout(timeout);
+          logClientSync("acknowledgement_applied", {
+            durationMs: Date.now() - startedAt,
+            outcome: "success",
+            transactionId,
+          });
           resolve();
         },
         reject: (error) => {
           clearTimeout(timeout);
+          logClientSync("acknowledgement_error", {
+            durationMs: Date.now() - startedAt,
+            outcome: "failure",
+            transactionId,
+          });
           reject(error);
         },
       });
 
       try {
         socket.send(JSON.stringify(new Mutate({ transactionId, idempotencyKey, mutations })));
+        logClientSync("mutation_sent", {
+          outcome: "success",
+          transactionId,
+          ...mutationTelemetry(mutations),
+        });
       } catch (error) {
         clearTimeout(timeout);
         this.#pending.delete(transactionId);
+        logClientSync("mutation_send_error", {
+          outcome: "failure",
+          transactionId,
+          ...mutationTelemetry(mutations),
+        });
         reject(error instanceof Error ? error : new Error(String(error)));
       }
     });
@@ -181,7 +231,9 @@ export class SyncTransport {
     this.#socket = socket;
 
     socket.addEventListener("open", () => {
+      logClientSync("socket_open", { outcome: "success" });
       socket.send(JSON.stringify(new Sync({})));
+      logClientSync("sync_request_sent", { outcome: "success" });
     });
 
     socket.addEventListener("message", (event) => {
@@ -193,19 +245,37 @@ export class SyncTransport {
       try {
         parsed = JSON.parse(event.data);
       } catch {
+        logClientSync("message_decode_error", { outcome: "invalid_json" });
         return;
       }
 
       const exit = Effect.runSync(Effect.exit(decodeServerMessage(parsed)));
       if (Exit.isFailure(exit)) {
         console.error("Failed to decode sync message", exit.cause);
+        logClientSync("message_decode_error", { outcome: "invalid_protocol" });
         return;
+      }
+
+      if (exit.value instanceof Changes) {
+        logClientSync("changes_received", {
+          ...(exit.value.changeId === undefined ? {} : { changeId: exit.value.changeId }),
+          ...(exit.value.originatingTransactionId === undefined
+            ? {}
+            : { originatingTransactionId: exit.value.originatingTransactionId }),
+          ...mutationTelemetry(exit.value.mutations),
+        });
+      } else if (exit.value instanceof Snapshot) {
+        logClientSync("snapshot_received", {
+          collectionCount: exit.value.collections.length,
+          rowCount: exit.value.collections.reduce((total, entry) => total + entry.values.length, 0),
+        });
       }
 
       this.#dispatchQueue = this.#dispatchQueue
         .then(() => this.#dispatch(exit.value))
         .catch((error: unknown) => {
           console.error("Failed to apply sync message", error);
+          logClientSync("message_application_error", { outcome: "failure" });
           for (const pending of this.#pending.values()) {
             pending.reject(new Error("Failed to apply the authoritative sync state"));
           }
@@ -214,7 +284,7 @@ export class SyncTransport {
         });
     });
 
-    socket.addEventListener("close", () => {
+    socket.addEventListener("close", (event) => {
       this.#socket = undefined;
       this.#ready = false;
       this.#buffer = [];
@@ -222,9 +292,18 @@ export class SyncTransport {
         pending.reject(new Error("WebSocket disconnected before acknowledgment"));
       }
       this.#pending.clear();
+      logClientSync("socket_close", {
+        code: event.code,
+        outcome: event.wasClean ? "clean" : "unclean",
+      });
       if (!this.#closed) {
+        logClientSync("reconnect_scheduled", {
+          delayMs: this.#reconnectDelayMs,
+          outcome: "scheduled",
+        });
         this.#reconnectTimer = setTimeout(() => {
           this.#reconnectTimer = undefined;
+          logClientSync("socket_reconnect", { outcome: "attempt" });
           this.#connect();
         }, this.#reconnectDelayMs);
       }
@@ -254,6 +333,9 @@ export class SyncTransport {
     }
 
     if (message instanceof Ack) {
+      logClientSync("acknowledgement_received", {
+        transactionId: message.transactionId,
+      });
       const pending = this.#pending.get(message.transactionId);
       if (pending !== undefined) {
         this.#pending.delete(message.transactionId);
@@ -263,6 +345,10 @@ export class SyncTransport {
     }
 
     const pending = this.#pending.get(message.transactionId);
+    logClientSync("acknowledgement_rejected", {
+      outcome: "rejected",
+      transactionId: message.transactionId,
+    });
     if (pending !== undefined) {
       this.#pending.delete(message.transactionId);
       pending.reject(new NonRetriableError(message.message));
@@ -270,6 +356,7 @@ export class SyncTransport {
   }
 
   async #applySnapshot(snapshot: Snapshot) {
+    const startedAt = Date.now();
     const values = new Map<string, ReadonlyArray<unknown>>();
     for (const entry of snapshot.collections) {
       this.assertCollection(entry.collection);
@@ -286,6 +373,7 @@ export class SyncTransport {
 
     await Promise.all(
       [...this.#collections].map(async (name) => {
+        const collectionStartedAt = Date.now();
         const params = this.#handlers.get(name);
         if (params === undefined) {
           throw new Error(`Missing sync handler for ${name}`);
@@ -298,11 +386,25 @@ export class SyncTransport {
         }
         await params.commit();
         params.markReady();
+        logClientSync("collection_commit", {
+          collection: name,
+          durationMs: Date.now() - collectionStartedAt,
+          mutationCount: values.get(name)?.length ?? 0,
+          outcome: "success",
+          source: "snapshot",
+        });
       }),
     );
+    logClientSync("snapshot_applied", {
+      collectionCount: snapshot.collections.length,
+      durationMs: Date.now() - startedAt,
+      outcome: "success",
+      rowCount: snapshot.collections.reduce((total, entry) => total + entry.values.length, 0),
+    });
   }
 
   async #applyChanges(changes: Changes) {
+    const startedAt = Date.now();
     const byCollection = new Map<string, Mutation[]>();
     for (const mutation of changes.mutations) {
       this.assertCollection(mutation.collection);
@@ -313,6 +415,7 @@ export class SyncTransport {
 
     await Promise.all(
       [...byCollection].map(async ([name, mutations]) => {
+        const collectionStartedAt = Date.now();
         const params = this.#handlers.get(name);
         if (params === undefined) {
           throw new Error(`Missing sync handler for ${name}`);
@@ -327,8 +430,28 @@ export class SyncTransport {
           }
         }
         await params.commit();
+        logClientSync("collection_commit", {
+          ...(changes.changeId === undefined ? {} : { changeId: changes.changeId }),
+          collection: name,
+          durationMs: Date.now() - collectionStartedAt,
+          mutationCount: mutations.length,
+          mutationTypes: [...new Set(mutations.map((mutation) => mutation.type))]
+            .toSorted()
+            .join(","),
+          outcome: "success",
+          source: "changes",
+        });
       }),
     );
+    logClientSync("changes_applied", {
+      ...(changes.changeId === undefined ? {} : { changeId: changes.changeId }),
+      durationMs: Date.now() - startedAt,
+      outcome: "success",
+      ...(changes.originatingTransactionId === undefined
+        ? {}
+        : { originatingTransactionId: changes.originatingTransactionId }),
+      ...mutationTelemetry(changes.mutations),
+    });
   }
 }
 

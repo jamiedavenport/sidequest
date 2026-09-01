@@ -14,6 +14,7 @@ export const Attachment = Schema.Struct({
   meta: Schema.String,
   href: Schema.String,
   mark: Schema.String,
+  icon: Schema.optionalKey(Schema.String),
   stat: Schema.optionalKey(Schema.String),
 });
 export type Attachment = typeof Attachment.Type;

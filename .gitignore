@@ -4,6 +4,9 @@ dist/
 .vite/
 .wrangler/
 coverage/
+.playwright/
+playwright-report/
+test-results/
 
 .env
 .env.*

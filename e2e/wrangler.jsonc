@@ -1,0 +1,36 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "sidequest-e2e",
+  "main": "../src/server.ts",
+  "compatibility_date": "2026-08-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "BOARD",
+        "class_name": "BoardObject",
+      },
+    ],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sidequest-e2e-db",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "../drizzle",
+    },
+  ],
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["BoardObject"],
+    },
+  ],
+  "vars": {
+    "BETTER_AUTH_URL": "http://127.0.0.1:4173",
+    "BETTER_AUTH_SECRET": "sidequest-e2e-better-auth-secret-only",
+    "E2E_MODE": "1",
+    "E2E_SESSION_SECRET": "sidequest-e2e-session-helper-secret",
+    "RESEND_API_KEY": "e2e-resend-disabled",
+  },
+}

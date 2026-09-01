@@ -14,6 +14,7 @@ import { Route as CodeRouteImport } from './routes/code'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ApiBoardRouteImport } from './routes/api/board'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
+import { Route as ApiE2eSessionRouteImport } from './routes/api/e2e/session'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiE2eSessionRoute = ApiE2eSessionRouteImport.update({
+  id: '/api/e2e/session',
+  path: '/api/e2e/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/api/board': typeof ApiBoardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/e2e/session': typeof ApiE2eSessionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/api/board': typeof ApiBoardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/e2e/session': typeof ApiE2eSessionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,23 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/api/board': typeof ApiBoardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/e2e/session': typeof ApiE2eSessionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/code' | '/login' | '/api/board' | '/api/auth/$'
+  fullPaths:
+    '/' | '/code' | '/login' | '/api/board' | '/api/auth/$' | '/api/e2e/session'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/code' | '/login' | '/api/board' | '/api/auth/$'
-  id: '__root__' | '/' | '/code' | '/login' | '/api/board' | '/api/auth/$'
+  to:
+    '/' | '/code' | '/login' | '/api/board' | '/api/auth/$' | '/api/e2e/session'
+  id:
+    | '__root__'
+    | '/'
+    | '/code'
+    | '/login'
+    | '/api/board'
+    | '/api/auth/$'
+    | '/api/e2e/session'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +95,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ApiBoardRoute: typeof ApiBoardRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiE2eSessionRoute: typeof ApiE2eSessionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +135,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/e2e/session': {
+      id: '/api/e2e/session'
+      path: '/api/e2e/session'
+      fullPath: '/api/e2e/session'
+      preLoaderRoute: typeof ApiE2eSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +151,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ApiBoardRoute: ApiBoardRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiE2eSessionRoute: ApiE2eSessionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
