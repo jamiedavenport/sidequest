@@ -223,7 +223,7 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
   <article
     ref={articleRef}
     className={cn(
-      "flex h-full w-[calc(100vw-1.5rem)] shrink-0 flex-col overflow-y-auto border-t-2 border-r border-border bg-white px-2 py-5 sm:w-87 sm:px-3 sm:py-4.5",
+      "flex h-full w-[calc(100vw-1.5rem)] shrink-0 flex-col overflow-hidden border-t-2 border-r border-border bg-white px-2 py-5 sm:w-87 sm:px-3 sm:py-4.5",
       selected ? "border-t-primary" : "border-t-transparent",
     )}
     aria-current={selected ? "true" : undefined}
@@ -240,14 +240,16 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
         <LaneOptions lane={lane} />;
       }
     </div>
-    <div className="flex flex-1 flex-col gap-2 pt-4 sm:gap-1.5 sm:pt-3.5">
-      <ul className="flex flex-col gap-0.5">
-        @for (const task of lane.tasks; key task.id) {
-          <TaskRow laneId={lane.id} task={task} />;
-        }
-      </ul>
-      <StartAddButton className="min-h-0 w-full flex-1" lane={lane} />
-      <div className="relative mt-auto">
+    <div className="flex min-h-0 flex-1 flex-col pt-4 sm:pt-3.5">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-2 sm:pb-1.5">
+        <ul className="flex flex-col gap-0.5">
+          @for (const task of lane.tasks; key task.id) {
+            <TaskRow laneId={lane.id} task={task} />;
+          }
+        </ul>
+        <StartAddButton className="min-h-0 w-full flex-1" lane={lane} />
+      </div>
+      <div className="relative shrink-0">
         <div
           className={cn(
             "origin-bottom transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none",

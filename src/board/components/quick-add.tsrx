@@ -138,7 +138,10 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
   );
 
   <form
-    className={cn("mt-auto", className)}
+    className={cn(
+      "relative mt-auto before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-8 before:bg-linear-to-b before:from-transparent before:to-white",
+      className,
+    )}
     id={formId}
     onSubmit={(event) => {
       event.preventDefault();
