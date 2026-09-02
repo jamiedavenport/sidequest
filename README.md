@@ -75,8 +75,11 @@ bunx shadcn add button --diff button.tsx
 types. Run `bun run cf-typegen` directly to refresh them without starting
 another task. TanStack Start regenerates its route tree during Vite development
 and builds. GitHub Actions verifies that both generated files are committed and
-current. Manual production deployments require `CLOUDFLARE_ACCOUNT_ID` and
-`CLOUDFLARE_API_TOKEN` GitHub environment secrets.
+current. After every successful CI run on `main`, it applies pending remote D1
+migrations and deploys the built Worker to Cloudflare. Continuous deployments
+require `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` GitHub Actions
+repository secrets. The Worker's `BETTER_AUTH_SECRET` and `RESEND_API_KEY`
+remain managed as Cloudflare secrets.
 
 ## Product principles
 
