@@ -222,6 +222,25 @@ export function placementForCreate(viewId: string, date?: string, now = new Date
   };
 }
 
+export function placementForMove(
+  viewId: string,
+  current: Pick<Task, "date">,
+  now = new Date(),
+): TaskPlacement {
+  if (viewId === inboxLaneId) {
+    return {};
+  }
+
+  if (viewId === todayLaneId) {
+    return { date: formatTaskDate(now, now) };
+  }
+
+  return {
+    laneId: viewId,
+    ...(current.date === undefined ? {} : { date: current.date }),
+  };
+}
+
 function clearOptional(
   draft: { laneId?: string; date?: string; parentId?: string },
   key: "laneId" | "date" | "parentId",
