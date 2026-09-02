@@ -2,6 +2,7 @@ import {
   addHotkeys,
   addLaneHotkeys,
   completeHotkeys,
+  editHotkeys,
   inboxHotkeys,
   moveAcrossHotkeys,
   moveLaneHotkeys,
@@ -35,6 +36,10 @@ export function ShortcutFooter() @{
     <span className="flex items-center gap-1">
       <ShortcutKeys hotkeys={completeHotkeys} />
       Complete
+    </span>
+    <span className="flex items-center gap-1">
+      <ShortcutKeys hotkeys={editHotkeys} />
+      Edit
     </span>
     <span className="flex items-center gap-1">
       <ShortcutKeys hotkeys={nestHotkeys} />

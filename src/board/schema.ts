@@ -51,12 +51,12 @@ export type BoardLane = Lane & {
 export const laneSchema: StandardSchemaV1<Lane, Lane> = Schema.toStandardSchemaV1(Lane);
 export const taskSchema: StandardSchemaV1<Task, Task> = Schema.toStandardSchemaV1(Task);
 
-const QuickAddValues = Schema.Struct({
+const TaskFormValues = Schema.Struct({
   title: Schema.String.check(
     Schema.makeFilter((value) => value.trim() !== "" || "Enter a task title."),
   ),
   date: Schema.UndefinedOr(Schema.Date),
 });
-export type QuickAddValues = typeof QuickAddValues.Type;
+export type TaskFormValues = typeof TaskFormValues.Type;
 
-export const quickAddFormSchema = Schema.toStandardSchemaV1(QuickAddValues);
+export const taskFormSchema = Schema.toStandardSchemaV1(TaskFormValues);

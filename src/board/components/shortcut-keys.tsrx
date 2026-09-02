@@ -5,6 +5,8 @@ import { Kbd, KbdGroup } from "~/components/ui/kbd.tsrx";
 
 export const navigateHotkeys = ["ArrowUp", "ArrowDown"];
 export const completeHotkeys = ["Mod+Enter"];
+export const editHotkey = "E";
+export const editHotkeys = [editHotkey];
 export const nestHotkeys = ["Tab"];
 export const moveTaskHotkeys = ["Mod+Shift+ArrowUp", "ArrowDown"];
 export const moveAcrossHotkeys = ["Mod+Shift+ArrowLeft", "ArrowRight"];

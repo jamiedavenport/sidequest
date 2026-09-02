@@ -1,4 +1,5 @@
-// oxlint-disable react-perf/jsx-no-new-function-as-prop
+// oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
+import { Ellipsis } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
@@ -7,8 +8,17 @@ import { cn } from "@/lib/utils";
 import { useBoardClient } from "~/board/sync/client";
 import { BoardActor } from "~/board/navigation/machine";
 import { completeTask } from "~/board/data/mutations";
+import { TaskEdit } from "~/board/components/task-edit.tsrx";
+import { editHotkeys, ShortcutKeys } from "~/board/components/shortcut-keys.tsrx";
 import { Badge } from "~/components/ui/badge.tsrx";
 import { Button } from "~/components/ui/button.tsrx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu.tsrx";
 import {
   Item,
   ItemContent,
@@ -75,9 +85,11 @@ function TaskMetadata({ task }: { task: BoardTask }) @{
 
 function CompleteTaskButton({ task }: { task: Task }) @{
   const client = useBoardClient();
+  const actorRef = BoardActor.useActorRef();
 
   function onComplete(event: { stopPropagation: () => void }) {
     event.stopPropagation();
+    actorRef.send({ type: "edit.cancel" });
     completeTask(client, task.id);
   }
 
@@ -88,7 +100,12 @@ function CompleteTaskButton({ task }: { task: Task }) @{
     variant="ghost"
     aria-label={`Complete ${task.title}`}
     onClick={onComplete}
-  />;
+  >
+    <span
+      className="pointer-events-none absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2 pointer-fine:hidden"
+      aria-hidden="true"
+    />
+  </Button>;
 }
 
 function SelectTaskButton({ laneId, task }: { laneId: string; task: Task }) @{
@@ -106,12 +123,55 @@ function SelectTaskButton({ laneId, task }: { laneId: string; task: Task }) @{
     className="absolute inset-0 cursor-pointer rounded-lg"
     type="button"
     aria-label={`Select ${task.title}`}
+    data-task-select=""
     onClick={onSelect}
     onMouseDown={onSelect}
   />;
 }
 
+function TaskOptions({ laneId, task }: { laneId: string; task: Task }) @{
+  const actorRef = BoardActor.useActorRef();
+
+  <DropdownMenu>
+    <DropdownMenuTrigger
+      render={
+        <Button
+          className="relative z-10 size-5 opacity-100 sm:size-4 sm:opacity-0 sm:group-focus-within/task:opacity-100 sm:group-hover/task:opacity-100"
+          size="icon"
+          type="button"
+          variant="ghost"
+          aria-label={`${task.title} options`}
+        />
+      }
+    >
+      <Ellipsis aria-hidden="true" />
+      <span
+        className="pointer-events-none absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2 pointer-fine:hidden"
+        aria-hidden="true"
+      />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end">
+      <DropdownMenuItem
+        onClick={() => {
+          actorRef.send({ type: "edit.start", taskId: task.id, laneId });
+        }}
+      >
+        Edit
+        <DropdownMenuShortcut>
+          <ShortcutKeys hotkeys={editHotkeys} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>;
+}
+
 export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @{
+  const editing = BoardActor.useSelector(
+    (snapshot) =>
+      snapshot.value === "editing" &&
+      snapshot.context.cursor.taskId === task.id &&
+      snapshot.context.cursor.laneId === laneId,
+  );
   const highlighted = BoardActor.useSelector(
     (snapshot) =>
       snapshot.value === "navigating" &&
@@ -142,7 +202,7 @@ export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @
   >
     <div
       className={cn(
-        "relative rounded-lg p-2.5 select-none sm:p-2",
+        "group/task relative rounded-lg p-2.5 select-none sm:p-2",
         highlighted && "ring-2 ring-primary/25 ring-inset",
       )}
     >
@@ -156,27 +216,38 @@ export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @
           <path d="M0 0V10C0 15.523 4.477 20 10 20H20" stroke="currentColor" />
         </svg>;
       }
-      <SelectTaskButton laneId={laneId} task={task} />
+      @if (!editing) {
+        <SelectTaskButton laneId={laneId} task={task} />;
+      }
       <div className="pointer-events-none relative flex min-w-0 items-start gap-2.5 sm:gap-2">
         <div className="pointer-events-auto flex h-6 items-center sm:h-4.25">
           <CompleteTaskButton task={task} />
         </div>
-        <div className="relative min-w-0 flex-1 text-base/6 sm:text-[0.8125rem]/4.25">
-          <p className="[overflow-wrap:anywhere] whitespace-pre-wrap text-foreground/90">
-            {task.title}
-          </p>
-          <TaskMetadata task={task} />
-          @if (
-            task.attachments !== undefined &&
-            task.attachments.length > 0
-          ) {
-            <div className="pointer-events-auto flex flex-col gap-1 pt-2 text-sm/5 sm:text-[0.6875rem]/4">
-              @for (const attachment of task.attachments; key attachment.id) {
-                <AttachmentPreview attachment={attachment} />;
+        @if (editing) {
+          <TaskEdit laneId={laneId} task={task} />;
+        } @else {
+          <>
+            <div className="relative min-w-0 flex-1 pr-8 text-base/6 sm:text-[0.8125rem]/4.25">
+              <p className="[overflow-wrap:anywhere] whitespace-pre-wrap text-foreground/90">
+                {task.title}
+              </p>
+              <TaskMetadata task={task} />
+              @if (
+                task.attachments !== undefined &&
+                task.attachments.length > 0
+              ) {
+                <div className="pointer-events-auto flex flex-col gap-1 pt-2 text-sm/5 sm:text-[0.6875rem]/4">
+                  @for (const attachment of task.attachments; key attachment.id) {
+                    <AttachmentPreview attachment={attachment} />;
+                  }
+                </div>;
               }
-            </div>;
-          }
-        </div>
+            </div>
+            <div className="pointer-events-auto absolute top-0 right-0 flex h-6 items-center sm:h-4.25">
+              <TaskOptions laneId={laneId} task={task} />
+            </div>
+          </>;
+        }
       </div>
     </div>
   </li>;

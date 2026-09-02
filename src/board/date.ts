@@ -15,7 +15,11 @@ export function isTaskDateToday(value: string | undefined, now = new Date()): bo
   return parsed !== undefined && isSameDay(parsed, now);
 }
 
-function parseTaskDate(value: string, now = new Date()): Date | undefined {
+export function parseTaskDate(value: string | undefined, now = new Date()): Date | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
   const trimmed = value.trim();
   if (trimmed === "") {
     return undefined;

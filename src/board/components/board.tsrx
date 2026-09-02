@@ -21,63 +21,78 @@ import { AppHeader } from "~/board/components/header.tsrx";
 import { LaneChromeProvider, useLaneChrome } from "~/board/components/lane-chrome.tsrx";
 import { AddLaneButton, TaskLane } from "~/board/components/lane.tsrx";
 import { LaneRemoveDialog } from "~/board/components/lane-remove-dialog.tsrx";
+import { editHotkey } from "~/board/components/shortcut-keys.tsrx";
 import type { BoardLane } from "~/board/types";
 
 function useBoardHotkeys() {
   const actorRef = BoardActor.useActorRef();
   const client = useBoardClient();
   const { editingLaneId, removingLaneId, startRename, startRemove } = useLaneChrome();
-  const adding = BoardActor.useSelector((snapshot) => snapshot.value === "adding");
-  const laneCommandsEnabled = !adding && editingLaneId === null && removingLaneId === null;
+  const mode = BoardActor.useSelector((snapshot) => snapshot.value);
+  const selectedTaskId = BoardActor.useSelector((snapshot) => snapshot.context.cursor.taskId);
+  const editing = mode === "editing";
+  const navigating = mode === "navigating";
+  const laneCommandsEnabled = navigating && editingLaneId === null && removingLaneId === null;
+  const taskEditEnabled = laneCommandsEnabled && selectedTaskId !== null;
 
   useHotkey(
     "ArrowUp",
     () => {
       actorRef.send({ type: "navigate", direction: "up" });
     },
-    { enabled: !adding, meta: { name: "Navigate up" } },
+    { enabled: navigating, meta: { name: "Navigate up" } },
   );
   useHotkey(
     "ArrowDown",
     () => {
       actorRef.send({ type: "navigate", direction: "down" });
     },
-    { enabled: !adding, meta: { name: "Navigate down" } },
+    { enabled: navigating, meta: { name: "Navigate down" } },
   );
   useHotkey(
     "ArrowLeft",
     () => {
       actorRef.send({ type: "navigate", direction: "left" });
     },
-    { enabled: !adding, meta: { name: "Navigate left" } },
+    { enabled: navigating, meta: { name: "Navigate left" } },
   );
   useHotkey(
     "ArrowRight",
     () => {
       actorRef.send({ type: "navigate", direction: "right" });
     },
-    { enabled: !adding, meta: { name: "Navigate right" } },
+    { enabled: navigating, meta: { name: "Navigate right" } },
   );
   useHotkey(
     "I",
     () => {
       actorRef.send({ type: "lane.select", laneId: inboxLaneId });
     },
-    { ignoreInputs: true, meta: { name: "Go to Inbox" } },
+    { enabled: !editing, ignoreInputs: true, meta: { name: "Go to Inbox" } },
   );
   useHotkey(
     "T",
     () => {
       actorRef.send({ type: "lane.select", laneId: todayLaneId });
     },
-    { ignoreInputs: true, meta: { name: "Go to Today" } },
+    { enabled: !editing, ignoreInputs: true, meta: { name: "Go to Today" } },
   );
   useHotkey(
     "C",
     () => {
       actorRef.send({ type: "add.start", laneId: currentLaneId(actorRef.getSnapshot().context) });
     },
-    { ignoreInputs: true, meta: { name: "Create" } },
+    { enabled: !editing, ignoreInputs: true, meta: { name: "Create" } },
+  );
+  useHotkey(
+    editHotkey,
+    () => {
+      const { cursor } = actorRef.getSnapshot().context;
+      if (cursor.taskId !== null) {
+        actorRef.send({ type: "edit.start", taskId: cursor.taskId, laneId: cursor.laneId });
+      }
+    },
+    { enabled: taskEditEnabled, ignoreInputs: true, meta: { name: "Edit task" } },
   );
   useHotkey(
     "Mod+Shift+ArrowUp",
@@ -87,7 +102,7 @@ function useBoardHotkeys() {
         moveTaskInLane(client, cursor.taskId, "up", cursor.laneId);
       }
     },
-    { ignoreInputs: true, meta: { name: "Move up" } },
+    { enabled: navigating, ignoreInputs: true, meta: { name: "Move up" } },
   );
   useHotkey(
     "Mod+Shift+ArrowDown",
@@ -97,7 +112,7 @@ function useBoardHotkeys() {
         moveTaskInLane(client, cursor.taskId, "down", cursor.laneId);
       }
     },
-    { ignoreInputs: true, meta: { name: "Move down" } },
+    { enabled: navigating, ignoreInputs: true, meta: { name: "Move down" } },
   );
   useHotkey(
     "Mod+Shift+ArrowLeft",
@@ -110,7 +125,7 @@ function useBoardHotkeys() {
         }
       }
     },
-    { ignoreInputs: true, meta: { name: "Move across left" } },
+    { enabled: navigating, ignoreInputs: true, meta: { name: "Move across left" } },
   );
   useHotkey(
     "Mod+Shift+ArrowRight",
@@ -123,7 +138,7 @@ function useBoardHotkeys() {
         }
       }
     },
-    { ignoreInputs: true, meta: { name: "Move across right" } },
+    { enabled: navigating, ignoreInputs: true, meta: { name: "Move across right" } },
   );
   useHotkey(
     "L",
@@ -173,7 +188,7 @@ function useBoardHotkeys() {
         completeTask(client, taskId);
       }
     },
-    { ignoreInputs: true, enabled: !adding, meta: { name: "Complete" } },
+    { ignoreInputs: true, enabled: navigating, meta: { name: "Complete" } },
   );
   useHotkey(
     "Tab",
@@ -183,7 +198,7 @@ function useBoardHotkeys() {
         nestTask(client, cursor.taskId, 1, cursor.laneId);
       }
     },
-    { ignoreInputs: true, enabled: !adding, meta: { name: "Nest" } },
+    { ignoreInputs: true, enabled: navigating, meta: { name: "Nest" } },
   );
   useHotkey(
     "Shift+Tab",
@@ -193,7 +208,7 @@ function useBoardHotkeys() {
         nestTask(client, cursor.taskId, -1, cursor.laneId);
       }
     },
-    { ignoreInputs: true, enabled: !adding, meta: { name: "Unnest" } },
+    { ignoreInputs: true, enabled: navigating, meta: { name: "Unnest" } },
   );
 }
 

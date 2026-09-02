@@ -28,6 +28,9 @@ export type BoardEvent =
   | { type: "lane.select"; laneId: string }
   | { type: "task.select"; taskId: string; laneId?: string }
   | { type: "task.created"; taskId: string; laneId: string }
+  | { type: "edit.start"; taskId: string; laneId: string }
+  | { type: "edit.cancel" }
+  | { type: "edit.save" }
   | { type: "add.start"; laneId: string }
   | { type: "add.cancel" };
 
@@ -65,6 +68,10 @@ export const boardMachine = setup({
       assertEvent(event, "task.created");
       return selectTask(context, event.taskId, event.laneId);
     }),
+    selectEdited: assign(({ context, event }) => {
+      assertEvent(event, "edit.start");
+      return selectTask(context, event.taskId, event.laneId);
+    }),
     leaveAdding: assign(({ context }) => leaveAdding(context)),
   },
   guards: {
@@ -75,6 +82,18 @@ export const boardMachine = setup({
     canLeaveAddingUp: ({ event }) => event.type === "navigate" && event.direction === "up",
     isCursorLaneMissing: ({ context, event }) =>
       event.type === "board.sync" && !event.lanes.some((lane) => lane.id === context.cursor.laneId),
+    isEditedTaskMissing: ({ context, event }) => {
+      if (event.type !== "board.sync") {
+        return false;
+      }
+
+      if (context.cursor.taskId === null) {
+        return true;
+      }
+
+      const lane = event.lanes.find((candidate) => candidate.id === context.cursor.laneId);
+      return lane === undefined || !lane.tasks.some((task) => task.id === context.cursor.taskId);
+    },
   },
 }).createMachine({
   id: "board",
@@ -94,6 +113,25 @@ export const boardMachine = setup({
         ],
         "lane.select": { actions: "selectLane" },
         "task.select": { actions: "select" },
+        "edit.start": { target: "editing", actions: "selectEdited" },
+        "add.start": { target: "adding", actions: "enterAdding" },
+      },
+    },
+    editing: {
+      on: {
+        "board.sync": [
+          {
+            guard: "isEditedTaskMissing",
+            target: "navigating",
+            actions: "syncBoard",
+          },
+          { actions: "syncBoard" },
+        ],
+        "edit.start": { actions: "selectEdited" },
+        "edit.cancel": { target: "navigating" },
+        "edit.save": { target: "navigating" },
+        "task.select": { target: "navigating", actions: "select" },
+        "lane.select": { target: "navigating", actions: "selectLane" },
         "add.start": { target: "adding", actions: "enterAdding" },
       },
     },
@@ -114,6 +152,7 @@ export const boardMachine = setup({
         },
         "add.cancel": { target: "navigating" },
         "add.start": { actions: "enterAdding" },
+        "edit.start": { target: "editing", actions: "selectEdited" },
         "lane.select": { target: "navigating", actions: "selectLane" },
         "task.select": { target: "navigating", actions: "select" },
         "task.created": { actions: "selectCreated" },

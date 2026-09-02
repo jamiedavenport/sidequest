@@ -9,7 +9,7 @@ import { isCaretOnFirstLine } from "~/board/caret";
 import { formatTaskDate } from "~/board/date";
 import { BoardActor } from "~/board/navigation/machine";
 import { addTask } from "~/board/data/mutations";
-import { quickAddFormSchema } from "~/board/schema";
+import { taskFormSchema } from "~/board/schema";
 import { saveHotkey, ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
 import { Calendar } from "~/components/ui/calendar.tsrx";
 import { Field, FieldLabel } from "~/components/ui/field.tsrx";
@@ -39,7 +39,7 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
       date: undefined as Date | undefined,
     },
     validators: {
-      onSubmit: quickAddFormSchema,
+      onSubmit: taskFormSchema,
     },
     onSubmit: ({ value }) => {
       const id = crypto.randomUUID();

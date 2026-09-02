@@ -170,6 +170,37 @@ export function addTask(
   });
 }
 
+export function updateTask(
+  client: BoardClient,
+  taskId: string,
+  input: { title: string; date?: string },
+) {
+  const task = client.tasks.get(taskId);
+  const title = input.title.trim();
+  if (task === undefined || title === "") {
+    return;
+  }
+
+  const titleChanged = task.title !== title;
+  if (!titleChanged && task.date === input.date) {
+    return;
+  }
+
+  mutateBoard(client, () => {
+    client.tasks.update(taskId, (draft) => {
+      draft.title = title;
+      if (input.date === undefined) {
+        delete draft.date;
+      } else {
+        draft.date = input.date;
+      }
+      if (titleChanged) {
+        draft.attachments = [];
+      }
+    });
+  });
+}
+
 export function completeTask(client: BoardClient, taskId: string) {
   const task = client.tasks.get(taskId);
   if (task === undefined || task.completed) {

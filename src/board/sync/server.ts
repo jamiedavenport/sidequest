@@ -332,7 +332,7 @@ export class BoardObject extends SyncDurableObject<Env> {
   }
 
   #enqueueLinkEnrichment(mutations: ReadonlyArray<Mutation>, originatingTransactionId: string) {
-    const taskIds = this.#taskInsertsNeedingAttachments(mutations);
+    const taskIds = this.#tasksNeedingAttachments(mutations);
     if (taskIds.length === 0) {
       return;
     }
@@ -356,9 +356,9 @@ export class BoardObject extends SyncDurableObject<Env> {
     );
   }
 
-  #taskInsertsNeedingAttachments(mutations: ReadonlyArray<Mutation>): string[] {
+  #tasksNeedingAttachments(mutations: ReadonlyArray<Mutation>): string[] {
     return mutations.flatMap((mutation) => {
-      if (mutation.collection !== taskCollectionId || mutation.type !== "insert") {
+      if (mutation.collection !== taskCollectionId || mutation.type === "delete") {
         return [];
       }
 

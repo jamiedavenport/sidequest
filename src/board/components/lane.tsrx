@@ -1,4 +1,4 @@
-// oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
+// oxlint-disable jsx-a11y/no-redundant-roles, react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
 import { Ellipsis, Plus } from "lucide-react";
 import {
   useEffect,
@@ -149,6 +149,7 @@ function LaneTitle({ lane }: { lane: BoardLane }) @{
 
 function LaneOptions({ lane }: { lane: BoardLane }) @{
   const client = useBoardClient();
+  const actorRef = BoardActor.useActorRef();
   const { startRename, startRemove } = useLaneChrome();
   const canMoveLeft = planLaneMove(client.lanes.toArray, lane.id, "left") !== undefined;
   const canMoveRight = planLaneMove(client.lanes.toArray, lane.id, "right") !== undefined;
@@ -162,7 +163,12 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
       <Ellipsis aria-hidden="true" />
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="min-w-48">
-      <DropdownMenuItem onClick={() => startRename(lane.id)}>
+      <DropdownMenuItem
+        onClick={() => {
+          actorRef.send({ type: "edit.cancel" });
+          startRename(lane.id);
+        }}
+      >
         Rename
         <DropdownMenuShortcut>
           <ShortcutKeys hotkeys={renameLaneHotkeys} />
@@ -171,6 +177,7 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
       <DropdownMenuItem
         disabled={!canMoveLeft}
         onClick={() => {
+          actorRef.send({ type: "edit.cancel" });
           moveLane(client, lane.id, "left");
         }}
       >
@@ -182,6 +189,7 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
       <DropdownMenuItem
         disabled={!canMoveRight}
         onClick={() => {
+          actorRef.send({ type: "edit.cancel" });
           moveLane(client, lane.id, "right");
         }}
       >
@@ -193,7 +201,10 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
       <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"
-        onClick={() => requestRemoveLane(client, lane.id, startRemove)}
+        onClick={() => {
+          actorRef.send({ type: "edit.cancel" });
+          requestRemoveLane(client, lane.id, startRemove);
+        }}
       >
         Remove lane
         <DropdownMenuShortcut>
@@ -209,6 +220,8 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
     (snapshot) => currentLaneId(snapshot.context) === lane.id,
   );
   const selectedTaskId = BoardActor.useSelector((snapshot) => snapshot.context.cursor.taskId);
+  const editingTask = BoardActor.useSelector((snapshot) => snapshot.value === "editing");
+  const quickAddActive = selected && !editingTask;
   const focusedWithoutTask =
     selected && (selectedTaskId === null || !lane.tasks.some((task) => task.id === selectedTaskId));
   const articleRef = useRef<HTMLElement>(null);
@@ -242,7 +255,7 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
     </div>
     <div className="flex min-h-0 flex-1 flex-col pt-4 sm:pt-3.5">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-2 sm:pb-1.5">
-        <ul className="flex flex-col gap-0.5">
+        <ul className="flex flex-col gap-0.5" role="list">
           @for (const task of lane.tasks; key task.id) {
             <TaskRow laneId={lane.id} task={task} />;
           }
@@ -253,16 +266,16 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
         <div
           className={cn(
             "origin-bottom transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none",
-            selected
+            quickAddActive
               ? "scale-100 opacity-100"
               : "pointer-events-none scale-90 opacity-0 motion-reduce:scale-100",
           )}
-          aria-hidden={selected ? undefined : true}
-          inert={selected ? undefined : true}
+          aria-hidden={quickAddActive ? undefined : true}
+          inert={quickAddActive ? undefined : true}
         >
           <QuickAdd lane={lane} />
         </div>
-        @if (!selected) {
+        @if (!quickAddActive) {
           <StartAddButton className="absolute inset-0" lane={lane} />;
         }
       </div>
@@ -276,13 +289,14 @@ export function AddLaneButton() @{
   const { startRename } = useLaneChrome();
 
   function onAdd() {
+    actorRef.send({ type: "edit.cancel" });
     const laneId = addLane(client);
     actorRef.send({ type: "lane.select", laneId });
     startRename(laneId);
   }
 
   <button
-    className="flex h-full w-[calc(100vw-1.5rem)] shrink-0 flex-col border-t-2 border-transparent p-2 text-left outline-none hover:bg-muted/25 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 sm:w-87 sm:p-3 cursor-pointer transition-colors"
+    className="flex h-full w-[calc(100vw-1.5rem)] shrink-0 cursor-pointer flex-col border-t-2 border-transparent p-2 text-left outline-none hover:bg-muted/25 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 sm:w-87 sm:p-3"
     type="button"
     aria-label="New lane"
     onClick={onAdd}
