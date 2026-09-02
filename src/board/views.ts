@@ -82,7 +82,7 @@ export function randomLaneSymbol(): {
   };
 }
 
-export function persistedLanes(lanes: ReadonlyArray<Lane>): Lane[] {
+function persistedLanes(lanes: ReadonlyArray<Lane>): Lane[] {
   return lanes.filter(isPersistedLane).toSorted((left, right) => left.rank - right.rank);
 }
 
@@ -222,25 +222,6 @@ export function placementForCreate(viewId: string, date?: string, now = new Date
   };
 }
 
-export function placementForMove(
-  viewId: string,
-  current: Pick<Task, "date">,
-  now = new Date(),
-): TaskPlacement {
-  if (viewId === inboxLaneId) {
-    return {};
-  }
-
-  if (viewId === todayLaneId) {
-    return { date: formatTaskDate(now, now) };
-  }
-
-  return {
-    laneId: viewId,
-    ...(current.date === undefined ? {} : { date: current.date }),
-  };
-}
-
 function clearOptional(
   draft: { laneId?: string; date?: string; parentId?: string },
   key: "laneId" | "date" | "parentId",
@@ -249,10 +230,7 @@ function clearOptional(
   draft[key] = undefined;
 }
 
-export function applyPlacement(
-  draft: { laneId?: string; date?: string },
-  placement: TaskPlacement,
-): void {
+function applyPlacement(draft: { laneId?: string; date?: string }, placement: TaskPlacement): void {
   if (placement.laneId === undefined) {
     clearOptional(draft, "laneId");
   } else {
@@ -534,7 +512,7 @@ function rootOf(task: Task, byId: ReadonlyMap<string, Task>): Task {
   return current;
 }
 
-export function hasDivergentSubtreePlacement(tasks: ReadonlyArray<Task>): boolean {
+function hasDivergentSubtreePlacement(tasks: ReadonlyArray<Task>): boolean {
   const byId = taskById(tasks);
   return tasks.some((task) => {
     if (task.parentId === undefined) {
@@ -546,7 +524,7 @@ export function hasDivergentSubtreePlacement(tasks: ReadonlyArray<Task>): boolea
   });
 }
 
-export function repairSubtreePlacements(tasks: {
+function repairSubtreePlacements(tasks: {
   toArray: ReadonlyArray<Task>;
   update: (id: string, updater: (draft: WritableTaskDraft) => void) => void;
 }): boolean {
@@ -622,7 +600,7 @@ export function applySubtreeNest(
   }
 }
 
-export function migrateLegacySystemLanes(input: {
+function migrateLegacySystemLanes(input: {
   lanes: {
     toArray: ReadonlyArray<Lane>;
     has: (id: string) => boolean;

@@ -57,6 +57,6 @@ const TaskFormValues = Schema.Struct({
   ),
   date: Schema.UndefinedOr(Schema.Date),
 });
-export type TaskFormValues = typeof TaskFormValues.Type;
+type TaskFormValues = typeof TaskFormValues.Type;
 
 export const taskFormSchema = Schema.toStandardSchemaV1(TaskFormValues);

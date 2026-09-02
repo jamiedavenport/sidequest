@@ -1,5 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
-  "entry": [],
+  "entry": ["scripts/e2e-server.ts"],
   "ignoreDependencies": ["cloudflare"],
 }
