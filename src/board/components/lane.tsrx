@@ -268,7 +268,7 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
             "origin-bottom transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none",
             quickAddActive
               ? "scale-100 opacity-100"
-              : "pointer-events-none scale-90 opacity-0 motion-reduce:scale-100",
+              : "pointer-events-none absolute inset-x-0 bottom-0 scale-90 opacity-0 motion-reduce:scale-100",
           )}
           aria-hidden={quickAddActive ? undefined : true}
           inert={quickAddActive ? undefined : true}
