@@ -708,8 +708,12 @@ export function completeTaskAndDescendants(tasks: TaskCompletionStore, taskId: s
     return [];
   }
 
+  return completeTasks(tasks, [taskId, ...descendantTaskIds(tasks.toArray, taskId)]);
+}
+
+export function completeTasks(tasks: TaskCompletionStore, taskIds: ReadonlyArray<string>): Task[] {
   const completed: Task[] = [];
-  for (const id of [taskId, ...descendantTaskIds(tasks.toArray, taskId)]) {
+  for (const id of taskIds) {
     const current = tasks.get(id);
     if (current === undefined || current.completed) {
       continue;
@@ -725,22 +729,4 @@ export function completeTaskAndDescendants(tasks: TaskCompletionStore, taskId: s
   }
 
   return completed;
-}
-
-export function enforcedDescendantCompletions(
-  tasks: TaskCompletionStore,
-  completedIds: ReadonlyArray<string>,
-): Task[] {
-  const extras: Task[] = [];
-  const seen = new Set<string>();
-  for (const id of completedIds) {
-    if (seen.has(id)) {
-      continue;
-    }
-
-    seen.add(id);
-    extras.push(...completeTaskAndDescendants(tasks, id));
-  }
-
-  return extras;
 }

@@ -14,7 +14,6 @@ import {
 } from "~/board/sync/collections";
 import { Lane, Task } from "~/board/schema";
 import {
-  enforcedDescendantCompletions,
   isSystemLane,
   normalizeStoredBoard,
   normalizeTask,
@@ -150,11 +149,9 @@ export class BoardObject extends SyncDurableObject<Env> {
         for (const mutation of prepared) {
           this.#applyMutation(mutation);
         }
-        outgoing = [
-          ...applied,
-          ...this.#enforcedCompletionMutations(applied),
-          ...this.#enforcedOrphanRehomeMutations(applied),
-        ];
+        // Descendant completions arrive as explicit task mutations. Re-deriving them here can use
+        // a stale parent relationship when an earlier move or unnest is still in the outbox.
+        outgoing = [...applied, ...this.#enforcedOrphanRehomeMutations(applied)];
       },
       "client_mutation",
       transactionId,
@@ -300,27 +297,6 @@ export class BoardObject extends SyncDurableObject<Env> {
     } else {
       this.tasks.insert(task);
     }
-  }
-
-  #enforcedCompletionMutations(incoming: ReadonlyArray<Mutation>): Mutation[] {
-    const completedIds = incoming.flatMap((mutation) => {
-      if (mutation.collection !== taskCollectionId || mutation.type === "delete") {
-        return [];
-      }
-
-      const task = this.tasks.get(mutation.key);
-      return task?.completed === true ? [mutation.key] : [];
-    });
-
-    return enforcedDescendantCompletions(this.tasks, completedIds).map(
-      (task) =>
-        new Mutation({
-          collection: taskCollectionId,
-          type: "update",
-          key: task.id,
-          value: task,
-        }),
-    );
   }
 
   #enforcedOrphanRehomeMutations(incoming: ReadonlyArray<Mutation>): Mutation[] {

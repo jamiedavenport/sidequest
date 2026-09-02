@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { moveTaskInLane, moveTaskToLane } from "~/board/data/mutations";
+import { completeTask, moveTaskInLane, moveTaskToLane, nestTask } from "~/board/data/mutations";
 import type { BoardClient } from "~/board/sync/client";
 import type { Task } from "~/board/types";
+import { completeTasks } from "~/board/views";
 
 type TaskFixture = {
   id: string;
@@ -67,6 +68,7 @@ function testClient(initialTasks: ReadonlyArray<TaskFixture>): BoardClient {
       get toArray() {
         return tasks;
       },
+      has: (id: string) => tasks.some((item) => item.id === id),
       get: (id: string) => tasks.find((item) => item.id === id),
       update: (id: string, updater: (draft: Task) => void) => {
         const draft = tasks.find((item) => item.id === id);
@@ -103,6 +105,46 @@ function taskStructure(tasks: ReadonlyArray<Task>) {
 function expectTaskStructure(client: BoardClient, expected: ReadonlyArray<TaskFixture>) {
   expect(taskStructure(client.tasks.toArray)).toEqual(taskStructure(materializeTasks(expected)));
 }
+
+function completionState(client: BoardClient) {
+  return Object.fromEntries(client.tasks.toArray.map((item) => [item.id, item.completed]));
+}
+
+describe("task completion", () => {
+  it("only completes task IDs explicitly selected by the completion operation", () => {
+    const client = testClient([task("parent", [task("detached")])]);
+
+    completeTasks(client.tasks, ["parent"]);
+
+    expect(completionState(client)).toEqual({ parent: true, detached: false });
+  });
+
+  it("does not complete a former child after it moves to another lane", () => {
+    const client = testClient([task("parent", [task("detached")])]);
+
+    moveTaskToLane(client, "detached", "right", "lane");
+    completeTask(client, "parent");
+
+    expect(completionState(client)).toEqual({ parent: true, detached: false });
+  });
+
+  it("does not complete a former child after it is unnested", () => {
+    const client = testClient([task("parent", [task("detached")])]);
+
+    nestTask(client, "detached", -1, "lane");
+    completeTask(client, "parent");
+
+    expect(completionState(client)).toEqual({ parent: true, detached: false });
+  });
+
+  it("completes a child that remains nested", () => {
+    const client = testClient([task("parent", [task("child")])]);
+
+    completeTask(client, "parent");
+
+    expect(completionState(client)).toEqual({ parent: true, child: true });
+  });
+});
 
 describe("moveTaskInLane", () => {
   it("moves a parent and all of its descendants down as one subtree", () => {
