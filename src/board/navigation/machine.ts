@@ -27,6 +27,7 @@ export type BoardEvent =
   | { type: "navigate"; direction: VerticalDirection | HorizontalDirection }
   | { type: "lane.select"; laneId: string }
   | { type: "task.select"; taskId: string; laneId?: string }
+  | { type: "task.created"; taskId: string; laneId: string }
   | { type: "add.start"; laneId: string }
   | { type: "add.cancel" };
 
@@ -58,6 +59,10 @@ export const boardMachine = setup({
     }),
     select: assign(({ context, event }) => {
       assertEvent(event, "task.select");
+      return selectTask(context, event.taskId, event.laneId);
+    }),
+    selectCreated: assign(({ context, event }) => {
+      assertEvent(event, "task.created");
       return selectTask(context, event.taskId, event.laneId);
     }),
     leaveAdding: assign(({ context }) => leaveAdding(context)),
@@ -111,6 +116,7 @@ export const boardMachine = setup({
         "add.start": { actions: "enterAdding" },
         "lane.select": { target: "navigating", actions: "selectLane" },
         "task.select": { target: "navigating", actions: "select" },
+        "task.created": { actions: "selectCreated" },
       },
     },
   },

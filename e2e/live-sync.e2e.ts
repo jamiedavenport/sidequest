@@ -80,7 +80,9 @@ test("live task changes propagate between devices and into a fresh snapshot", as
       const addTask = connectedPageA.getByRole("textbox", { name: "Add a task to Today" });
 
       await addTask.fill(taskTitle);
-      await addTask.locator("xpath=ancestor::form").getByRole("button", { name: /^Add/ }).click();
+      await addTask.press(process.platform === "darwin" ? "Meta+Enter" : "Control+Enter");
+      await expect(addTask).toBeFocused();
+      await expect(addTask).toHaveValue("");
       await expect(connectedPageA.getByText(taskTitle, { exact: true })).toBeVisible();
     });
 

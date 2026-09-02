@@ -49,7 +49,7 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
         title: value.title,
         date: value.date === undefined ? undefined : formatTaskDate(value.date),
       });
-      actorRef.send({ type: "task.select", taskId: id });
+      actorRef.send({ type: "task.created", taskId: id, laneId: lane.id });
       form.reset();
     },
   });
