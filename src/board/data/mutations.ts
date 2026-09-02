@@ -16,6 +16,7 @@ import {
   placementForMove,
   planLaneMove,
   planNest,
+  planTaskMove,
   randomLaneSymbol,
   rehomeTasksForDeletedLane,
   todayLaneId,
@@ -219,23 +220,17 @@ export function moveTaskInLane(
   }
 
   const tasks = laneTasks(client, viewId ?? currentViewId(task));
-  const index = tasks.findIndex((candidate) => candidate.id === taskId);
-  const target = direction === "up" ? index - 1 : index + 1;
-  const swap = tasks[target];
-  if (index < 0 || swap === undefined) {
+  const updates = planTaskMove(tasks, client.tasks.toArray, taskId, direction);
+  if (updates === undefined) {
     return;
   }
 
   mutateBoard(client, () => {
-    client.tasks.update(taskId, (draft) => {
-      draft.rank = swap.rank;
-      if (target === 0) {
-        draft.parentId = undefined;
-      }
-    });
-    client.tasks.update(swap.id, (draft) => {
-      draft.rank = task.rank;
-    });
+    for (const update of updates) {
+      client.tasks.update(update.taskId, (draft) => {
+        draft.rank = update.rank;
+      });
+    }
   });
 }
 

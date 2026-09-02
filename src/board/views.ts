@@ -7,7 +7,7 @@ import type {
   LaneSymbolShape,
   Task,
 } from "~/board/schema";
-import type { HorizontalDirection } from "~/board/types";
+import type { HorizontalDirection, VerticalDirection } from "~/board/types";
 
 export const inboxLaneId = "inbox";
 export const todayLaneId = "today";
@@ -437,6 +437,55 @@ function descendantTaskIds(tasks: ReadonlyArray<Task>, rootId: string): string[]
   }
 
   return descendants;
+}
+
+export type TaskRankUpdate = {
+  taskId: string;
+  rank: number;
+};
+
+function taskSubtree(tasks: ReadonlyArray<Task>, rootId: string): Task[] {
+  const ids = new Set([rootId, ...descendantTaskIds(tasks, rootId)]);
+  return uniqueTasks(tasks)
+    .filter((task) => ids.has(task.id))
+    .toSorted((left, right) => left.rank - right.rank);
+}
+
+export function planTaskMove(
+  visibleTasks: ReadonlyArray<Task>,
+  allTasks: ReadonlyArray<Task>,
+  taskId: string,
+  direction: VerticalDirection,
+): ReadonlyArray<TaskRankUpdate> | undefined {
+  const ordered = visibleTasks.toSorted((left, right) => left.rank - right.rank);
+  const task = ordered.find((candidate) => candidate.id === taskId);
+  if (task === undefined) {
+    return undefined;
+  }
+
+  const parents = resolveTaskParents(allTasks);
+  const parentId = parents.get(taskId);
+  const siblings = ordered.filter((candidate) => parents.get(candidate.id) === parentId);
+  const index = siblings.findIndex((candidate) => candidate.id === taskId);
+  const neighbor = siblings[direction === "up" ? index - 1 : index + 1];
+  if (index < 0 || neighbor === undefined) {
+    return undefined;
+  }
+
+  const selectedSubtree = taskSubtree(allTasks, taskId);
+  const neighborSubtree = taskSubtree(allTasks, neighbor.id);
+  const ranks = [...selectedSubtree, ...neighborSubtree]
+    .map((candidate) => candidate.rank)
+    .toSorted((left, right) => left - right);
+  const reordered =
+    direction === "up"
+      ? [...selectedSubtree, ...neighborSubtree]
+      : [...neighborSubtree, ...selectedSubtree];
+
+  return reordered.map((candidate, rankIndex) => ({
+    taskId: candidate.id,
+    rank: ranks[rankIndex] ?? candidate.rank,
+  }));
 }
 
 export function projectTasksForView(
