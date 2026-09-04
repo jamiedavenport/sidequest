@@ -256,23 +256,29 @@ export class SyncTransport {
         return;
       }
 
-      if (exit.value instanceof Changes) {
+      const message = exit.value;
+      if (message instanceof Ack || message instanceof Reject) {
+        this.#handleAcknowledgement(message);
+        return;
+      }
+
+      if (message instanceof Changes) {
         logClientSync("changes_received", {
-          ...(exit.value.changeId === undefined ? {} : { changeId: exit.value.changeId }),
-          ...(exit.value.originatingTransactionId === undefined
+          ...(message.changeId === undefined ? {} : { changeId: message.changeId }),
+          ...(message.originatingTransactionId === undefined
             ? {}
-            : { originatingTransactionId: exit.value.originatingTransactionId }),
-          ...mutationTelemetry(exit.value.mutations),
+            : { originatingTransactionId: message.originatingTransactionId }),
+          ...mutationTelemetry(message.mutations),
         });
-      } else if (exit.value instanceof Snapshot) {
+      } else {
         logClientSync("snapshot_received", {
-          collectionCount: exit.value.collections.length,
-          rowCount: exit.value.collections.reduce((total, entry) => total + entry.values.length, 0),
+          collectionCount: message.collections.length,
+          rowCount: message.collections.reduce((total, entry) => total + entry.values.length, 0),
         });
       }
 
       this.#dispatchQueue = this.#dispatchQueue
-        .then(() => this.#dispatch(exit.value))
+        .then(() => this.#dispatchData(message))
         .catch((error: unknown) => {
           console.error("Failed to apply sync message", error);
           logClientSync("message_application_error", { outcome: "failure" });
@@ -310,7 +316,30 @@ export class SyncTransport {
     });
   }
 
-  async #dispatch(message: Snapshot | Changes | Ack | Reject) {
+  #handleAcknowledgement(message: Ack | Reject) {
+    const pending = this.#pending.get(message.transactionId);
+    if (message instanceof Ack) {
+      logClientSync("acknowledgement_received", {
+        transactionId: message.transactionId,
+      });
+      if (pending !== undefined) {
+        this.#pending.delete(message.transactionId);
+        pending.resolve();
+      }
+      return;
+    }
+
+    logClientSync("acknowledgement_rejected", {
+      outcome: "rejected",
+      transactionId: message.transactionId,
+    });
+    if (pending !== undefined) {
+      this.#pending.delete(message.transactionId);
+      pending.reject(new NonRetriableError(message.message));
+    }
+  }
+
+  async #dispatchData(message: Snapshot | Changes) {
     if (message instanceof Snapshot) {
       await this.#applySnapshot(message);
       this.#ready = true;
@@ -322,37 +351,12 @@ export class SyncTransport {
       return;
     }
 
-    if (message instanceof Changes) {
-      if (!this.#ready) {
-        this.#buffer.push(message);
-        return;
-      }
-
-      await this.#applyChanges(message);
+    if (!this.#ready) {
+      this.#buffer.push(message);
       return;
     }
 
-    if (message instanceof Ack) {
-      logClientSync("acknowledgement_received", {
-        transactionId: message.transactionId,
-      });
-      const pending = this.#pending.get(message.transactionId);
-      if (pending !== undefined) {
-        this.#pending.delete(message.transactionId);
-        pending.resolve();
-      }
-      return;
-    }
-
-    const pending = this.#pending.get(message.transactionId);
-    logClientSync("acknowledgement_rejected", {
-      outcome: "rejected",
-      transactionId: message.transactionId,
-    });
-    if (pending !== undefined) {
-      this.#pending.delete(message.transactionId);
-      pending.reject(new NonRetriableError(message.message));
-    }
+    await this.#applyChanges(message);
   }
 
   async #applySnapshot(snapshot: Snapshot) {
