@@ -19,6 +19,7 @@ export function initialBoardContext(): BoardContext {
   return {
     lanes: emptySystemBoardLanes(),
     cursor: { laneId: todayLaneId, taskId: null },
+    detailTab: "notes",
   };
 }
 

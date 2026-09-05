@@ -78,17 +78,17 @@ export type NoteBlock =
   | NoteBulletList
   | NoteOrderedList;
 
-export type NoteListItem = {
+type NoteListItem = {
   readonly type: "listItem";
   readonly content: ReadonlyArray<NoteBlock>;
 };
 
-export type NoteBulletList = {
+type NoteBulletList = {
   readonly type: "bulletList";
   readonly content: ReadonlyArray<NoteListItem>;
 };
 
-export type NoteOrderedList = {
+type NoteOrderedList = {
   readonly type: "orderedList";
   readonly attrs: {
     readonly start: number;
@@ -132,6 +132,13 @@ export const Note = Schema.Struct({
 });
 export type Note = typeof Note.Type;
 
+export const Whiteboard = Schema.Struct({
+  taskId: Schema.String,
+  document: Schema.JsonObject,
+});
+export type Whiteboard = typeof Whiteboard.Type;
+export type WhiteboardDocument = Schema.JsonObject;
+
 export const emptyNoteDocument = (): NoteDocument => ({
   type: "doc",
   content: [{ type: "paragraph" }],
@@ -157,6 +164,8 @@ export type BoardLane = Lane & {
 export const laneSchema: StandardSchemaV1<Lane, Lane> = Schema.toStandardSchemaV1(Lane);
 export const taskSchema: StandardSchemaV1<Task, Task> = Schema.toStandardSchemaV1(Task);
 export const noteSchema: StandardSchemaV1<Note, Note> = Schema.toStandardSchemaV1(Note);
+export const whiteboardSchema: StandardSchemaV1<Whiteboard, Whiteboard> =
+  Schema.toStandardSchemaV1(Whiteboard);
 
 const TaskFormValues = Schema.Struct({
   title: Schema.String.check(

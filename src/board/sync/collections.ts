@@ -3,13 +3,28 @@ import type { Collection, SyncConfig } from "@tanstack/db";
 import type { PersistedCollectionPersistence } from "@tanstack/db-sqlite-persistence-core";
 import { persistedCollectionOptions } from "@tanstack/db-sqlite-persistence-core";
 
-import { Lane, laneSchema, Note, noteSchema, Task, taskSchema } from "~/board/schema";
+import {
+  Lane,
+  laneSchema,
+  Note,
+  noteSchema,
+  Task,
+  taskSchema,
+  Whiteboard,
+  whiteboardSchema,
+} from "~/board/schema";
 
 const boardSchemaVersion = 1;
 export const laneCollectionId = "lanes";
 export const taskCollectionId = "tasks";
 export const noteCollectionId = "notes";
-export const boardCollectionIds = [laneCollectionId, taskCollectionId, noteCollectionId] as const;
+export const whiteboardCollectionId = "whiteboards";
+export const boardCollectionIds = [
+  laneCollectionId,
+  taskCollectionId,
+  noteCollectionId,
+  whiteboardCollectionId,
+] as const;
 
 function laneOptions(persistence: PersistedCollectionPersistence) {
   return {
@@ -43,6 +58,16 @@ function noteOptions(persistence: PersistedCollectionPersistence) {
   };
 }
 
+function whiteboardOptions(persistence: PersistedCollectionPersistence) {
+  return {
+    id: whiteboardCollectionId,
+    schema: whiteboardSchema,
+    getKey: (whiteboard: Whiteboard) => whiteboard.taskId,
+    schemaVersion: boardSchemaVersion,
+    persistence,
+  };
+}
+
 function indexTasks<TCollection extends Collection<Task, string>>(collection: TCollection) {
   collection.createIndex((task) => task.laneId, { indexType: BasicIndex });
   return collection;
@@ -67,6 +92,13 @@ export function createNoteCollection(persistence: PersistedCollectionPersistence
     noteOptions(persistence),
   );
   return createCollection({ ...options, schema: noteSchema });
+}
+
+export function createWhiteboardCollection(persistence: PersistedCollectionPersistence) {
+  const options = persistedCollectionOptions<Whiteboard, string, typeof whiteboardSchema>(
+    whiteboardOptions(persistence),
+  );
+  return createCollection({ ...options, schema: whiteboardSchema });
 }
 
 export function createSyncedLaneCollection(
@@ -100,4 +132,15 @@ export function createSyncedNoteCollection(
     sync,
   });
   return createCollection({ ...options, schema: noteSchema });
+}
+
+export function createSyncedWhiteboardCollection(
+  persistence: PersistedCollectionPersistence,
+  sync: SyncConfig<Whiteboard, string>,
+) {
+  const options = persistedCollectionOptions<Whiteboard, string, typeof whiteboardSchema>({
+    ...whiteboardOptions(persistence),
+    sync,
+  });
+  return createCollection({ ...options, schema: whiteboardSchema });
 }

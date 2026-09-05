@@ -18,12 +18,13 @@ import { inboxLaneId, isSystemLane, todayLaneId } from "~/board/views";
 import { BoardBooting } from "~/board/components/booting.tsrx";
 import { ShortcutFooter } from "~/board/components/footer.tsrx";
 import { AppHeader } from "~/board/components/header.tsrx";
+import { DetailSheet } from "~/board/components/detail-sheet.tsrx";
 import { LaneChromeProvider, useLaneChrome } from "~/board/components/lane-chrome.tsrx";
 import { AddLaneButton, TaskLane } from "~/board/components/lane.tsrx";
 import { LaneRemoveDialog } from "~/board/components/lane-remove-dialog.tsrx";
 import { editHotkey } from "~/board/components/shortcut-keys.tsrx";
 import { notesHotkey } from "~/board/components/shortcut-keys.tsrx";
-import { NoteSheet } from "~/board/components/note-sheet.tsrx";
+import { whiteboardHotkey } from "~/board/components/shortcut-keys.tsrx";
 import type { BoardLane } from "~/board/types";
 
 function useBoardHotkeys() {
@@ -90,10 +91,30 @@ function useBoardHotkeys() {
     () => {
       const { cursor } = actorRef.getSnapshot().context;
       if (cursor.taskId !== null) {
-        actorRef.send({ type: "notes.open", taskId: cursor.taskId, laneId: cursor.laneId });
+        actorRef.send({
+          type: "details.open",
+          taskId: cursor.taskId,
+          laneId: cursor.laneId,
+          tab: "notes",
+        });
       }
     },
     { enabled: taskEditEnabled, ignoreInputs: true, meta: { name: "Open notes" } },
+  );
+  useHotkey(
+    whiteboardHotkey,
+    () => {
+      const { cursor } = actorRef.getSnapshot().context;
+      if (cursor.taskId !== null) {
+        actorRef.send({
+          type: "details.open",
+          taskId: cursor.taskId,
+          laneId: cursor.laneId,
+          tab: "whiteboard",
+        });
+      }
+    },
+    { enabled: taskEditEnabled, ignoreInputs: true, meta: { name: "Open whiteboard" } },
   );
   useHotkey(
     editHotkey,
@@ -257,7 +278,7 @@ function BoardCanvas({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
       <ShortcutFooter />
     </main>
     <LaneRemoveDialog lanes={lanes} />
-    <NoteSheet />
+    <DetailSheet />
   </>;
 }
 

@@ -14,6 +14,7 @@ import {
   renameLaneHotkeys,
   ShortcutKeys,
   todayHotkeys,
+  whiteboardHotkeys,
 } from "~/board/components/shortcut-keys.tsrx";
 
 export function ShortcutFooter() @{
@@ -45,6 +46,10 @@ export function ShortcutFooter() @{
     <span className="flex items-center gap-1">
       <ShortcutKeys hotkeys={notesHotkeys} />
       Notes
+    </span>
+    <span className="flex items-center gap-1">
+      <ShortcutKeys hotkeys={whiteboardHotkeys} />
+      Whiteboard
     </span>
     <span className="flex items-center gap-1">
       <ShortcutKeys hotkeys={nestHotkeys} />

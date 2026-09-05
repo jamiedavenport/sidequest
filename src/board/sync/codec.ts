@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 
-import { Lane, Note, Task } from "~/board/schema";
+import { Lane, Note, Task, Whiteboard } from "~/board/schema";
 
 export const decodeLane = Effect.fn("decodeLane")(function* (input: unknown) {
   return yield* Schema.decodeUnknownEffect(Lane)(input);
@@ -14,8 +14,14 @@ export const decodeNote = Effect.fn("decodeNote")(function* (input: unknown) {
   return yield* Schema.decodeUnknownEffect(Note)(input);
 });
 
+export const decodeWhiteboard = Effect.fn("decodeWhiteboard")(function* (input: unknown) {
+  return yield* Schema.decodeUnknownEffect(Whiteboard)(input);
+});
+
 export const decodeLaneSync = Schema.decodeUnknownSync(Lane);
 
 export const decodeTaskSync = Schema.decodeUnknownSync(Task);
 
 export const decodeNoteSync = Schema.decodeUnknownSync(Note);
+
+export const decodeWhiteboardSync = Schema.decodeUnknownSync(Whiteboard);

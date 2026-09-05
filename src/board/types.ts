@@ -11,6 +11,7 @@ export type {
 
 export type VerticalDirection = "up" | "down";
 export type HorizontalDirection = "left" | "right";
+export type DetailTab = "notes" | "whiteboard";
 
 export type BoardCursor = {
   laneId: string;
@@ -20,4 +21,5 @@ export type BoardCursor = {
 export type BoardContext = {
   lanes: BoardLane[];
   cursor: BoardCursor;
+  detailTab: DetailTab;
 };

@@ -67,6 +67,7 @@
     "react-day-picker": "^10.0.1",
     "react-dom": "19.2.8",
     "resend": "^6.25.0",
+    "tldraw": "5.4.0",
     "xstate": "^5.32.6"
   },
   "devDependencies": {

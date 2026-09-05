@@ -16,6 +16,7 @@ import {
 import type {
   BoardContext,
   BoardLane,
+  DetailTab,
   HorizontalDirection,
   VerticalDirection,
 } from "~/board/types";
@@ -31,8 +32,9 @@ export type BoardEvent =
   | { type: "edit.start"; taskId: string; laneId: string }
   | { type: "edit.cancel" }
   | { type: "edit.save" }
-  | { type: "notes.open"; taskId: string; laneId: string }
-  | { type: "notes.close" }
+  | { type: "details.open"; taskId: string; laneId: string; tab: DetailTab }
+  | { type: "details.tab.select"; tab: DetailTab }
+  | { type: "details.close" }
   | { type: "add.start"; laneId: string }
   | { type: "add.cancel" };
 
@@ -74,9 +76,16 @@ export const boardMachine = setup({
       assertEvent(event, "edit.start");
       return selectTask(context, event.taskId, event.laneId);
     }),
-    selectNoted: assign(({ context, event }) => {
-      assertEvent(event, "notes.open");
-      return selectTask(context, event.taskId, event.laneId);
+    selectDetailed: assign(({ context, event }) => {
+      assertEvent(event, "details.open");
+      return {
+        ...selectTask(context, event.taskId, event.laneId),
+        detailTab: event.tab,
+      };
+    }),
+    selectDetailTab: assign(({ context, event }) => {
+      assertEvent(event, "details.tab.select");
+      return { ...context, detailTab: event.tab };
     }),
     leaveAdding: assign(({ context }) => leaveAdding(context)),
   },
@@ -100,7 +109,7 @@ export const boardMachine = setup({
       const lane = event.lanes.find((candidate) => candidate.id === context.cursor.laneId);
       return lane === undefined || !lane.tasks.some((task) => task.id === context.cursor.taskId);
     },
-    isOpenNoteTaskUnavailable: ({ context, event }) => {
+    isOpenDetailTaskUnavailable: ({ context, event }) => {
       if (event.type !== "board.sync" || context.cursor.taskId === null) {
         return true;
       }
@@ -128,16 +137,18 @@ export const boardMachine = setup({
         "lane.select": { actions: "selectLane" },
         "task.select": { actions: "select" },
         "edit.start": { target: "editing", actions: "selectEdited" },
-        "notes.open": { target: "notes", actions: "selectNoted" },
+        "details.open": { target: "details", actions: "selectDetailed" },
         "add.start": { target: "adding", actions: "enterAdding" },
       },
     },
-    notes: {
+    details: {
       on: {
-        "notes.close": { target: "navigating" },
+        "details.open": { actions: "selectDetailed" },
+        "details.tab.select": { actions: "selectDetailTab" },
+        "details.close": { target: "navigating" },
         "board.sync": [
           {
-            guard: "isOpenNoteTaskUnavailable",
+            guard: "isOpenDetailTaskUnavailable",
             target: "navigating",
             actions: "syncBoard",
           },

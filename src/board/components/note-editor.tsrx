@@ -13,11 +13,10 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
+import type { EditorSaveStatus } from "~/board/components/editor-save-status";
 import { saveNote } from "~/board/data/mutations";
 import { emptyNoteDocument, isAllowedNoteHref, type NoteDocument } from "~/board/schema";
 import { useBoardClient } from "~/board/sync/client";
-
-export type NoteSaveStatus = "idle" | "dirty" | "saving" | "saved" | "error";
 
 const markdownLinkPattern = /\[([^\[\]]+)\]\(([^\s()]+)\)$/;
 
@@ -93,7 +92,7 @@ export function NoteEditor({
   onStatusChange,
 }: {
   taskId: string;
-  onStatusChange: (status: NoteSaveStatus) => void;
+  onStatusChange: (status: EditorSaveStatus) => void;
 }) @{
   const client = useBoardClient();
   const notesQuery = useLiveQuery((query) => query.from({ note: client.notes }));

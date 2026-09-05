@@ -5,16 +5,18 @@ import { Effect } from "effect";
 import { attachmentsForTitle } from "~/board/links/enrich";
 import { titleMayContainHttpUrl } from "~/board/links/extract";
 import { linkPreviewRuntime } from "~/board/links/runtime";
-import { decodeLane, decodeNote, decodeTask } from "~/board/sync/codec";
+import { decodeLane, decodeNote, decodeTask, decodeWhiteboard } from "~/board/sync/codec";
 import {
   createLaneCollection,
   createNoteCollection,
   createTaskCollection,
+  createWhiteboardCollection,
   laneCollectionId,
   noteCollectionId,
   taskCollectionId,
+  whiteboardCollectionId,
 } from "~/board/sync/collections";
-import { emptyNoteDocument, Lane, Note, Task } from "~/board/schema";
+import { emptyNoteDocument, Lane, Note, Task, Whiteboard } from "~/board/schema";
 import {
   isSystemLane,
   normalizeStoredBoard,
@@ -37,7 +39,8 @@ const optionalTaskKeys = [
 type PreparedMutation =
   | { collection: typeof laneCollectionId; mutation: Mutation; value?: Lane }
   | { collection: typeof taskCollectionId; mutation: Mutation; value?: Task }
-  | { collection: typeof noteCollectionId; mutation: Mutation; value?: Note };
+  | { collection: typeof noteCollectionId; mutation: Mutation; value?: Note }
+  | { collection: typeof whiteboardCollectionId; mutation: Mutation; value?: Whiteboard };
 
 type PendingTaskState = Map<string, Task | undefined>;
 
@@ -82,8 +85,15 @@ export class BoardObject extends SyncDurableObject<Env> {
 
   notes = createNoteCollection(this.persistence);
 
+  whiteboards = createWhiteboardCollection(this.persistence);
+
   protected override async initializeSync() {
-    await Promise.all([this.lanes.preload(), this.tasks.preload(), this.notes.preload()]);
+    await Promise.all([
+      this.lanes.preload(),
+      this.tasks.preload(),
+      this.notes.preload(),
+      this.whiteboards.preload(),
+    ]);
     await serverRuntime.runPromise(
       this.#persist(() => {
         normalizeStoredBoard({ lanes: this.lanes, tasks: this.tasks });
@@ -97,12 +107,22 @@ export class BoardObject extends SyncDurableObject<Env> {
             this.notes.delete(note.taskId);
           }
         }
+        for (const whiteboard of this.whiteboards.toArray) {
+          if (!this.tasks.has(whiteboard.taskId)) {
+            this.whiteboards.delete(whiteboard.taskId);
+          }
+        }
       }, "initialize"),
     );
   }
 
   protected override async readSyncSnapshot(): Promise<ReadonlyArray<SyncSnapshot>> {
-    await Promise.all([this.lanes.preload(), this.tasks.preload(), this.notes.preload()]);
+    await Promise.all([
+      this.lanes.preload(),
+      this.tasks.preload(),
+      this.notes.preload(),
+      this.whiteboards.preload(),
+    ]);
     return [
       { collection: laneCollectionId, values: this.lanes.toArray },
       { collection: taskCollectionId, values: this.tasks.toArray },
@@ -110,6 +130,13 @@ export class BoardObject extends SyncDurableObject<Env> {
         collection: noteCollectionId,
         values: this.notes.toArray.filter((note) => {
           const task = this.tasks.get(note.taskId);
+          return task !== undefined && !task.completed;
+        }),
+      },
+      {
+        collection: whiteboardCollectionId,
+        values: this.whiteboards.toArray.filter((whiteboard) => {
+          const task = this.tasks.get(whiteboard.taskId);
           return task !== undefined && !task.completed;
         }),
       },
@@ -143,6 +170,7 @@ export class BoardObject extends SyncDurableObject<Env> {
               this.lanes.utils.acceptMutations(pending),
               this.tasks.utils.acceptMutations(pending),
               this.notes.utils.acceptMutations(pending),
+              this.whiteboards.utils.acceptMutations(pending),
             ]);
           },
         });
@@ -180,6 +208,7 @@ export class BoardObject extends SyncDurableObject<Env> {
           ...applied,
           ...this.#enforcedOrphanRehomeMutations(applied),
           ...this.#enforcedTaskNoteMutations(applied),
+          ...this.#enforcedTaskWhiteboardMutations(applied),
         ];
       },
       "client_mutation",
@@ -276,6 +305,10 @@ export class BoardObject extends SyncDurableObject<Env> {
       return yield* this.#prepareNoteMutation(mutation, pendingTasks);
     }
 
+    if (mutation.collection === whiteboardCollectionId) {
+      return yield* this.#prepareWhiteboardMutation(mutation, pendingTasks);
+    }
+
     return yield* new SyncProtocolError({
       message: `Unknown board collection ${mutation.collection}`,
     });
@@ -358,6 +391,53 @@ export class BoardObject extends SyncDurableObject<Env> {
     } satisfies PreparedMutation;
   });
 
+  #prepareWhiteboardMutation = Effect.fn("BoardObject.prepareWhiteboardMutation")(function* (
+    this: BoardObject,
+    mutation: Mutation,
+    pendingTasks: PendingTaskState,
+  ) {
+    if (mutation.type === "delete") {
+      const task = pendingTasks.has(mutation.key)
+        ? pendingTasks.get(mutation.key)
+        : this.tasks.get(mutation.key);
+      if (task !== undefined) {
+        return yield* new SyncProtocolError({
+          message: "Whiteboards can only be deleted with a task",
+        });
+      }
+      return { collection: whiteboardCollectionId, mutation } satisfies PreparedMutation;
+    }
+
+    if (mutation.value === undefined) {
+      return yield* new SyncProtocolError({ message: "Missing whiteboard value" });
+    }
+
+    const whiteboard = yield* decodeWhiteboard(mutation.value);
+    if (whiteboard.taskId !== mutation.key) {
+      return yield* new SyncProtocolError({
+        message: "Whiteboard mutation key does not match taskId",
+      });
+    }
+
+    const task = pendingTasks.has(whiteboard.taskId)
+      ? pendingTasks.get(whiteboard.taskId)
+      : this.tasks.get(whiteboard.taskId);
+    if (task === undefined || task.completed) {
+      return yield* new SyncProtocolError({ message: "Whiteboards require an active task" });
+    }
+
+    return {
+      collection: whiteboardCollectionId,
+      mutation: new Mutation({
+        collection: mutation.collection,
+        type: mutation.type,
+        key: mutation.key,
+        value: whiteboard,
+      }),
+      value: whiteboard,
+    } satisfies PreparedMutation;
+  });
+
   #applyMutation(prepared: PreparedMutation) {
     const { mutation } = prepared;
     if (prepared.collection === laneCollectionId) {
@@ -400,6 +480,28 @@ export class BoardObject extends SyncDurableObject<Env> {
         });
       } else {
         this.tasks.insert(task);
+      }
+      return;
+    }
+
+    if (prepared.collection === whiteboardCollectionId && mutation.type === "delete") {
+      if (this.whiteboards.has(mutation.key)) {
+        this.whiteboards.delete(mutation.key);
+      }
+      return;
+    }
+
+    if (prepared.collection === whiteboardCollectionId) {
+      const whiteboard = prepared.value;
+      if (whiteboard === undefined) {
+        throw new Error("Prepared whiteboard mutation is missing its value");
+      }
+      if (this.whiteboards.has(mutation.key)) {
+        this.whiteboards.update(mutation.key, (draft) => {
+          Object.assign(draft, { document: whiteboard.document });
+        });
+      } else {
+        this.whiteboards.insert(whiteboard);
       }
       return;
     }
@@ -481,6 +583,52 @@ export class BoardObject extends SyncDurableObject<Env> {
             type: "insert",
             key: mutation.key,
             value: note,
+          }),
+        );
+      }
+    }
+
+    return outgoing;
+  }
+
+  #enforcedTaskWhiteboardMutations(incoming: ReadonlyArray<Mutation>): Mutation[] {
+    const outgoing: Mutation[] = [];
+    const incomingWhiteboardDeletes = new Set(
+      incoming.flatMap((mutation) =>
+        mutation.collection === whiteboardCollectionId && mutation.type === "delete"
+          ? [mutation.key]
+          : [],
+      ),
+    );
+
+    for (const mutation of incoming) {
+      if (mutation.collection !== taskCollectionId) {
+        continue;
+      }
+
+      if (mutation.type === "delete") {
+        if (this.whiteboards.has(mutation.key)) {
+          this.whiteboards.delete(mutation.key);
+          if (!incomingWhiteboardDeletes.has(mutation.key)) {
+            outgoing.push(
+              new Mutation({
+                collection: whiteboardCollectionId,
+                type: "delete",
+                key: mutation.key,
+              }),
+            );
+          }
+        }
+        continue;
+      }
+
+      const task = this.tasks.get(mutation.key);
+      if (task?.completed && this.whiteboards.has(mutation.key)) {
+        outgoing.push(
+          new Mutation({
+            collection: whiteboardCollectionId,
+            type: "delete",
+            key: mutation.key,
           }),
         );
       }

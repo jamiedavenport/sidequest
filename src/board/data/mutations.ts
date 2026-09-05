@@ -1,4 +1,4 @@
-import { emptyNoteDocument, Note, type Lane } from "~/board/schema";
+import { emptyNoteDocument, Note, Whiteboard, type Lane } from "~/board/schema";
 import { Effect, Schema } from "effect";
 import { playDoneSound } from "~/board/sound";
 import type { BoardClient } from "~/board/sync/client";
@@ -50,7 +50,7 @@ function mutateBoard(client: BoardClient, apply: () => void) {
   void transaction.commit();
 }
 
-export class NoteSaveError extends Schema.TaggedError<NoteSaveError>()("NoteSaveError", {
+class NoteSaveError extends Schema.TaggedError<NoteSaveError>()("NoteSaveError", {
   cause: Schema.Defect(),
 }) {}
 
@@ -76,6 +76,46 @@ export const saveNote = Effect.fn("saveNote")(function* (client: BoardClient, in
   yield* Effect.tryPromise({
     try: () => transaction.commit(),
     catch: (cause) => new NoteSaveError({ cause }),
+  });
+});
+
+class WhiteboardSaveError extends Schema.TaggedError<WhiteboardSaveError>()("WhiteboardSaveError", {
+  cause: Schema.Defect(),
+}) {}
+
+export const saveWhiteboard = Effect.fn("saveWhiteboard")(function* (
+  client: BoardClient,
+  input: unknown,
+) {
+  const whiteboard = yield* Schema.decodeUnknownEffect(Whiteboard)(input);
+  const transaction = client.offline.createOfflineTransaction({
+    autoCommit: false,
+    mutationFnName: "persistBoard",
+  });
+
+  yield* Effect.try({
+    try: () => {
+      transaction.mutate(() => {
+        const task = client.tasks.get(whiteboard.taskId);
+        if (task === undefined || task.completed) {
+          throw new Error("Whiteboards require an active task");
+        }
+
+        if (client.whiteboards.has(whiteboard.taskId)) {
+          client.whiteboards.update(whiteboard.taskId, (draft) => {
+            Object.assign(draft, { document: whiteboard.document });
+          });
+        } else {
+          client.whiteboards.insert(whiteboard);
+        }
+      });
+    },
+    catch: (cause) => new WhiteboardSaveError({ cause }),
+  });
+
+  yield* Effect.tryPromise({
+    try: () => transaction.commit(),
+    catch: (cause) => new WhiteboardSaveError({ cause }),
   });
 });
 
@@ -157,6 +197,9 @@ export function deleteLane(client: BoardClient, laneId: string, input: { deleteT
       for (const taskId of taskIds) {
         if (client.notes.has(taskId)) {
           client.notes.delete(taskId);
+        }
+        if (client.whiteboards.has(taskId)) {
+          client.whiteboards.delete(taskId);
         }
       }
     } else {

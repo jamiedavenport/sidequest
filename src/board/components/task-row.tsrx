@@ -9,7 +9,12 @@ import { useBoardClient } from "~/board/sync/client";
 import { BoardActor } from "~/board/navigation/machine";
 import { completeTask } from "~/board/data/mutations";
 import { TaskEdit } from "~/board/components/task-edit.tsrx";
-import { editHotkeys, notesHotkeys, ShortcutKeys } from "~/board/components/shortcut-keys.tsrx";
+import {
+  editHotkeys,
+  notesHotkeys,
+  ShortcutKeys,
+  whiteboardHotkeys,
+} from "~/board/components/shortcut-keys.tsrx";
 import { Badge } from "~/components/ui/badge.tsrx";
 import { Button } from "~/components/ui/button.tsrx";
 import {
@@ -153,12 +158,22 @@ function TaskOptions({ laneId, task }: { laneId: string; task: Task }) @{
     <DropdownMenuContent align="end">
       <DropdownMenuItem
         onClick={() => {
-          actorRef.send({ type: "notes.open", taskId: task.id, laneId });
+          actorRef.send({ type: "details.open", taskId: task.id, laneId, tab: "notes" });
         }}
       >
         Notes
         <DropdownMenuShortcut>
           <ShortcutKeys hotkeys={notesHotkeys} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onClick={() => {
+          actorRef.send({ type: "details.open", taskId: task.id, laneId, tab: "whiteboard" });
+        }}
+      >
+        Whiteboard
+        <DropdownMenuShortcut>
+          <ShortcutKeys hotkeys={whiteboardHotkeys} />
         </DropdownMenuShortcut>
       </DropdownMenuItem>
       <DropdownMenuItem
