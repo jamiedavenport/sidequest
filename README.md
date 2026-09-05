@@ -11,12 +11,23 @@ The first version is designed for a single user.
 The application uses TanStack Start, TSRX, Bun, and Vite. It targets Cloudflare
 Workers through the official Cloudflare Vite plugin.
 
-Install dependencies and start the development server:
+Install [mise](https://mise.jdx.dev/getting-started.html), then provision the
+pinned Bun and Node.js versions and install dependencies:
 
 ```sh
-bun install
-bun run dev
+mise install
+mise run setup
 ```
+
+Start the development server:
+
+```sh
+mise run dev
+```
+
+With mise activated in your shell, the existing `bun` commands also use the
+pinned project version. Run the main local validation suite with `mise run
+check`.
 
 The main repository commands are:
 
