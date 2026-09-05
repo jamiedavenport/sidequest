@@ -13,13 +13,15 @@ import { BoardBooting } from "~/board/components/booting.tsrx";
 import {
   boardCollectionIds,
   createSyncedLaneCollection,
+  createSyncedNoteCollection,
   createSyncedTaskCollection,
   laneCollectionId,
+  noteCollectionId,
   taskCollectionId,
 } from "~/board/sync/collections";
-import { decodeLaneSync, decodeTaskSync } from "~/board/sync/codec";
+import { decodeLaneSync, decodeNoteSync, decodeTaskSync } from "~/board/sync/codec";
 import { createDerivedBoardCollections } from "~/board/sync/live";
-import { Lane, Task } from "~/board/schema";
+import { Lane, Note, Task } from "~/board/schema";
 import { boardNeedsNormalize, normalizeStoredBoard } from "~/board/views";
 import { collectionSync, SyncTransport, transactionMutations } from "~/sync/transport";
 
@@ -28,6 +30,7 @@ type DerivedBoardCollections = ReturnType<typeof createDerivedBoardCollections>;
 export type BoardClient = {
   lanes: Collection<Lane, string>;
   tasks: Collection<Task, string>;
+  notes: Collection<Note, string>;
   inbox: DerivedBoardCollections["inbox"];
   today: DerivedBoardCollections["today"];
   projects: DerivedBoardCollections["projects"];
@@ -89,9 +92,13 @@ async function createBoardClient(userId: string): Promise<BoardClient> {
     persistence,
     collectionSync(transport, taskCollectionId, decodeTaskSync),
   );
+  const notes = createSyncedNoteCollection(
+    persistence,
+    collectionSync(transport, noteCollectionId, decodeNoteSync),
+  );
 
   const offline = startOfflineExecutor({
-    collections: { lanes, tasks },
+    collections: { lanes, tasks, notes },
     mutationFns: {
       persistBoard: async ({ transaction, idempotencyKey }) => {
         await transport.mutate(transactionMutations(transport, transaction), idempotencyKey);
@@ -99,7 +106,7 @@ async function createBoardClient(userId: string): Promise<BoardClient> {
     },
   });
   await offline.waitForInit();
-  await Promise.all([lanes.preload(), tasks.preload()]);
+  await Promise.all([lanes.preload(), tasks.preload(), notes.preload()]);
 
   if (boardNeedsNormalize(lanes.toArray, tasks.toArray)) {
     const transaction = offline.createOfflineTransaction({
@@ -117,6 +124,7 @@ async function createBoardClient(userId: string): Promise<BoardClient> {
   return {
     lanes,
     tasks,
+    notes,
     inbox,
     today,
     projects,

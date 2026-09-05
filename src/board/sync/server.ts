@@ -5,14 +5,16 @@ import { Effect } from "effect";
 import { attachmentsForTitle } from "~/board/links/enrich";
 import { titleMayContainHttpUrl } from "~/board/links/extract";
 import { linkPreviewRuntime } from "~/board/links/runtime";
-import { decodeLane, decodeTask } from "~/board/sync/codec";
+import { decodeLane, decodeNote, decodeTask } from "~/board/sync/codec";
 import {
   createLaneCollection,
+  createNoteCollection,
   createTaskCollection,
   laneCollectionId,
+  noteCollectionId,
   taskCollectionId,
 } from "~/board/sync/collections";
-import { Lane, Task } from "~/board/schema";
+import { emptyNoteDocument, Lane, Note, Task } from "~/board/schema";
 import {
   isSystemLane,
   normalizeStoredBoard,
@@ -34,7 +36,10 @@ const optionalTaskKeys = [
 
 type PreparedMutation =
   | { collection: typeof laneCollectionId; mutation: Mutation; value?: Lane }
-  | { collection: typeof taskCollectionId; mutation: Mutation; value?: Task };
+  | { collection: typeof taskCollectionId; mutation: Mutation; value?: Task }
+  | { collection: typeof noteCollectionId; mutation: Mutation; value?: Note };
+
+type PendingTaskState = Map<string, Task | undefined>;
 
 function mutationTelemetry(mutations: ReadonlyArray<Mutation>) {
   return {
@@ -75,20 +80,39 @@ export class BoardObject extends SyncDurableObject<Env> {
 
   tasks = createTaskCollection(this.persistence);
 
+  notes = createNoteCollection(this.persistence);
+
   protected override async initializeSync() {
-    await Promise.all([this.lanes.preload(), this.tasks.preload()]);
+    await Promise.all([this.lanes.preload(), this.tasks.preload(), this.notes.preload()]);
     await serverRuntime.runPromise(
       this.#persist(() => {
         normalizeStoredBoard({ lanes: this.lanes, tasks: this.tasks });
+        for (const task of this.tasks.toArray) {
+          if (!this.notes.has(task.id)) {
+            this.notes.insert({ taskId: task.id, content: emptyNoteDocument() });
+          }
+        }
+        for (const note of this.notes.toArray) {
+          if (!this.tasks.has(note.taskId)) {
+            this.notes.delete(note.taskId);
+          }
+        }
       }, "initialize"),
     );
   }
 
   protected override async readSyncSnapshot(): Promise<ReadonlyArray<SyncSnapshot>> {
-    await Promise.all([this.lanes.preload(), this.tasks.preload()]);
+    await Promise.all([this.lanes.preload(), this.tasks.preload(), this.notes.preload()]);
     return [
       { collection: laneCollectionId, values: this.lanes.toArray },
       { collection: taskCollectionId, values: this.tasks.toArray },
+      {
+        collection: noteCollectionId,
+        values: this.notes.toArray.filter((note) => {
+          const task = this.tasks.get(note.taskId);
+          return task !== undefined && !task.completed;
+        }),
+      },
     ];
   }
 
@@ -118,6 +142,7 @@ export class BoardObject extends SyncDurableObject<Env> {
             await Promise.all([
               this.lanes.utils.acceptMutations(pending),
               this.tasks.utils.acceptMutations(pending),
+              this.notes.utils.acceptMutations(pending),
             ]);
           },
         });
@@ -151,7 +176,11 @@ export class BoardObject extends SyncDurableObject<Env> {
         }
         // Descendant completions arrive as explicit task mutations. Re-deriving them here can use
         // a stale parent relationship when an earlier move or unnest is still in the outbox.
-        outgoing = [...applied, ...this.#enforcedOrphanRehomeMutations(applied)];
+        outgoing = [
+          ...applied,
+          ...this.#enforcedOrphanRehomeMutations(applied),
+          ...this.#enforcedTaskNoteMutations(applied),
+        ];
       },
       "client_mutation",
       transactionId,
@@ -172,21 +201,40 @@ export class BoardObject extends SyncDurableObject<Env> {
   ) {
     const startedAt = Date.now();
     yield* Effect.annotateCurrentSpan(mutationTelemetry(mutations));
-    const applied: PreparedMutation[] = [];
-    for (const mutation of mutations) {
-      applied.push(yield* this.#prepareMutation(mutation));
+    const applied: Array<PreparedMutation | undefined> = Array.from({
+      length: mutations.length,
+    });
+    const pendingTasks: PendingTaskState = new Map();
+
+    for (const [index, mutation] of mutations.entries()) {
+      if (mutation.collection !== taskCollectionId) {
+        continue;
+      }
+
+      const prepared = yield* this.#prepareTaskMutation(mutation);
+      applied[index] = prepared;
+      pendingTasks.set(mutation.key, prepared.value);
+    }
+
+    for (const [index, mutation] of mutations.entries()) {
+      if (applied[index] !== undefined) {
+        continue;
+      }
+
+      applied[index] = yield* this.#prepareMutation(mutation, pendingTasks);
     }
     yield* logBoardSync("mutations_prepared", {
       durationMs: Date.now() - startedAt,
       outcome: "success",
       ...mutationTelemetry(mutations),
     });
-    return applied;
+    return applied.filter((mutation): mutation is PreparedMutation => mutation !== undefined);
   });
 
   #prepareMutation = Effect.fn("BoardObject.prepareMutation")(function* (
     this: BoardObject,
     mutation: Mutation,
+    pendingTasks: PendingTaskState,
   ) {
     if (mutation.collection === laneCollectionId) {
       if (mutation.type === "delete") {
@@ -224,10 +272,20 @@ export class BoardObject extends SyncDurableObject<Env> {
       } satisfies PreparedMutation;
     }
 
+    if (mutation.collection === noteCollectionId) {
+      return yield* this.#prepareNoteMutation(mutation, pendingTasks);
+    }
+
+    return yield* new SyncProtocolError({
+      message: `Unknown board collection ${mutation.collection}`,
+    });
+  });
+
+  #prepareTaskMutation = Effect.fn("BoardObject.prepareTaskMutation")(function* (
+    mutation: Mutation,
+  ) {
     if (mutation.collection !== taskCollectionId) {
-      return yield* new SyncProtocolError({
-        message: `Unknown board collection ${mutation.collection}`,
-      });
+      return yield* new SyncProtocolError({ message: "Expected a task mutation" });
     }
 
     if (mutation.type === "delete") {
@@ -255,6 +313,51 @@ export class BoardObject extends SyncDurableObject<Env> {
     } satisfies PreparedMutation;
   });
 
+  #prepareNoteMutation = Effect.fn("BoardObject.prepareNoteMutation")(function* (
+    this: BoardObject,
+    mutation: Mutation,
+    pendingTasks: PendingTaskState,
+  ) {
+    if (mutation.type === "delete") {
+      const task = pendingTasks.has(mutation.key)
+        ? pendingTasks.get(mutation.key)
+        : this.tasks.get(mutation.key);
+      if (task !== undefined) {
+        return yield* new SyncProtocolError({ message: "Notes can only be deleted with a task" });
+      }
+      return { collection: noteCollectionId, mutation } satisfies PreparedMutation;
+    }
+
+    if (mutation.value === undefined) {
+      return yield* new SyncProtocolError({ message: "Missing note value" });
+    }
+
+    const note = yield* decodeNote(mutation.value);
+    if (note.taskId !== mutation.key) {
+      return yield* new SyncProtocolError({
+        message: "Note mutation key does not match taskId",
+      });
+    }
+
+    const task = pendingTasks.has(note.taskId)
+      ? pendingTasks.get(note.taskId)
+      : this.tasks.get(note.taskId);
+    if (task === undefined || task.completed) {
+      return yield* new SyncProtocolError({ message: "Notes require an active task" });
+    }
+
+    return {
+      collection: noteCollectionId,
+      mutation: new Mutation({
+        collection: mutation.collection,
+        type: mutation.type,
+        key: mutation.key,
+        value: note,
+      }),
+      value: note,
+    } satisfies PreparedMutation;
+  });
+
   #applyMutation(prepared: PreparedMutation) {
     const { mutation } = prepared;
     if (prepared.collection === laneCollectionId) {
@@ -279,24 +382,111 @@ export class BoardObject extends SyncDurableObject<Env> {
       return;
     }
 
-    if (mutation.type === "delete") {
+    if (prepared.collection === taskCollectionId && mutation.type === "delete") {
       if (this.tasks.has(mutation.key)) {
         this.tasks.delete(mutation.key);
       }
       return;
     }
 
-    const task = prepared.value;
-    if (task === undefined) {
-      throw new Error("Prepared task mutation is missing its value");
+    if (prepared.collection === taskCollectionId) {
+      const task = prepared.value;
+      if (task === undefined) {
+        throw new Error("Prepared task mutation is missing its value");
+      }
+      if (this.tasks.has(mutation.key)) {
+        this.tasks.update(mutation.key, (draft) => {
+          replaceTask(draft, task);
+        });
+      } else {
+        this.tasks.insert(task);
+      }
+      return;
     }
-    if (this.tasks.has(mutation.key)) {
-      this.tasks.update(mutation.key, (draft) => {
-        replaceTask(draft, task);
+
+    if (mutation.type === "delete") {
+      if (this.notes.has(mutation.key)) {
+        this.notes.delete(mutation.key);
+      }
+      return;
+    }
+
+    const note = prepared.value;
+    if (note === undefined) {
+      throw new Error("Prepared note mutation is missing its value");
+    }
+    if (this.notes.has(mutation.key)) {
+      this.notes.update(mutation.key, (draft) => {
+        Object.assign(draft, { content: note.content });
       });
     } else {
-      this.tasks.insert(task);
+      this.notes.insert(note);
     }
+  }
+
+  #enforcedTaskNoteMutations(incoming: ReadonlyArray<Mutation>): Mutation[] {
+    const outgoing: Mutation[] = [];
+    const incomingNoteDeletes = new Set(
+      incoming.flatMap((mutation) =>
+        mutation.collection === noteCollectionId && mutation.type === "delete"
+          ? [mutation.key]
+          : [],
+      ),
+    );
+
+    for (const mutation of incoming) {
+      if (mutation.collection !== taskCollectionId) {
+        continue;
+      }
+
+      if (mutation.type === "delete") {
+        if (this.notes.has(mutation.key)) {
+          this.notes.delete(mutation.key);
+          if (!incomingNoteDeletes.has(mutation.key)) {
+            outgoing.push(
+              new Mutation({
+                collection: noteCollectionId,
+                type: "delete",
+                key: mutation.key,
+              }),
+            );
+          }
+        }
+        continue;
+      }
+
+      const task = this.tasks.get(mutation.key);
+      if (task === undefined) {
+        continue;
+      }
+      if (task.completed) {
+        if (!this.notes.has(mutation.key)) {
+          this.notes.insert({ taskId: mutation.key, content: emptyNoteDocument() });
+        }
+        outgoing.push(
+          new Mutation({
+            collection: noteCollectionId,
+            type: "delete",
+            key: mutation.key,
+          }),
+        );
+        continue;
+      }
+      if (!this.notes.has(mutation.key)) {
+        const note = { taskId: mutation.key, content: emptyNoteDocument() };
+        this.notes.insert(note);
+        outgoing.push(
+          new Mutation({
+            collection: noteCollectionId,
+            type: "insert",
+            key: mutation.key,
+            value: note,
+          }),
+        );
+      }
+    }
+
+    return outgoing;
   }
 
   #enforcedOrphanRehomeMutations(incoming: ReadonlyArray<Mutation>): Mutation[] {

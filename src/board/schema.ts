@@ -40,6 +40,112 @@ export const Task = Schema.Struct({
 });
 export type Task = typeof Task.Type;
 
+const AllowedNoteHref = Schema.String.check(
+  Schema.makeFilter((href) => isAllowedNoteHref(href) || "Links must use http, https, or mailto."),
+);
+
+const NoteLinkMark = Schema.Struct({
+  type: Schema.Literal("link"),
+  attrs: Schema.Struct({
+    href: AllowedNoteHref,
+    target: Schema.NullOr(Schema.Literal("_blank")),
+    rel: Schema.NullOr(Schema.Literal("noopener noreferrer")),
+    class: Schema.Null,
+    title: Schema.NullOr(Schema.String),
+  }),
+});
+
+const NoteText = Schema.Struct({
+  type: Schema.Literal("text"),
+  marks: Schema.optionalKey(Schema.Array(NoteLinkMark)),
+  text: Schema.String,
+});
+
+const NoteParagraph = Schema.Struct({
+  type: Schema.Literal("paragraph"),
+  content: Schema.optionalKey(Schema.Array(NoteText)),
+});
+
+const NoteHeading = Schema.Struct({
+  type: Schema.Literal("heading"),
+  attrs: Schema.Struct({ level: Schema.Literals([1, 2]) }),
+  content: Schema.optionalKey(Schema.Array(NoteText)),
+});
+
+export type NoteBlock =
+  | typeof NoteParagraph.Type
+  | typeof NoteHeading.Type
+  | NoteBulletList
+  | NoteOrderedList;
+
+export type NoteListItem = {
+  readonly type: "listItem";
+  readonly content: ReadonlyArray<NoteBlock>;
+};
+
+export type NoteBulletList = {
+  readonly type: "bulletList";
+  readonly content: ReadonlyArray<NoteListItem>;
+};
+
+export type NoteOrderedList = {
+  readonly type: "orderedList";
+  readonly attrs: {
+    readonly start: number;
+    readonly type: "1" | "a" | "A" | "i" | "I" | null;
+  };
+  readonly content: ReadonlyArray<NoteListItem>;
+};
+
+const NoteBlock: Schema.Codec<NoteBlock> = Schema.suspend(() =>
+  Schema.Union([NoteParagraph, NoteHeading, NoteBulletList, NoteOrderedList]),
+);
+
+const NoteListItem: Schema.Codec<NoteListItem> = Schema.Struct({
+  type: Schema.Literal("listItem"),
+  content: Schema.Array(NoteBlock),
+});
+
+const NoteBulletList: Schema.Codec<NoteBulletList> = Schema.Struct({
+  type: Schema.Literal("bulletList"),
+  content: Schema.Array(NoteListItem),
+});
+
+const NoteOrderedList: Schema.Codec<NoteOrderedList> = Schema.Struct({
+  type: Schema.Literal("orderedList"),
+  attrs: Schema.Struct({
+    start: Schema.Int,
+    type: Schema.NullOr(Schema.Literals(["1", "a", "A", "i", "I"])),
+  }),
+  content: Schema.Array(NoteListItem),
+});
+
+export const NoteDocument = Schema.Struct({
+  type: Schema.Literal("doc"),
+  content: Schema.Array(NoteBlock),
+});
+export type NoteDocument = typeof NoteDocument.Type;
+
+export const Note = Schema.Struct({
+  taskId: Schema.String,
+  content: NoteDocument,
+});
+export type Note = typeof Note.Type;
+
+export const emptyNoteDocument = (): NoteDocument => ({
+  type: "doc",
+  content: [{ type: "paragraph" }],
+});
+
+export function isAllowedNoteHref(href: string): boolean {
+  try {
+    const protocol = new URL(href).protocol;
+    return protocol === "http:" || protocol === "https:" || protocol === "mailto:";
+  } catch {
+    return false;
+  }
+}
+
 export type BoardTask = Task & {
   visualDepth: number;
 };
@@ -50,6 +156,7 @@ export type BoardLane = Lane & {
 
 export const laneSchema: StandardSchemaV1<Lane, Lane> = Schema.toStandardSchemaV1(Lane);
 export const taskSchema: StandardSchemaV1<Task, Task> = Schema.toStandardSchemaV1(Task);
+export const noteSchema: StandardSchemaV1<Note, Note> = Schema.toStandardSchemaV1(Note);
 
 const TaskFormValues = Schema.Struct({
   title: Schema.String.check(

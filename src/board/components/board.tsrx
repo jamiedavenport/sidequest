@@ -22,6 +22,8 @@ import { LaneChromeProvider, useLaneChrome } from "~/board/components/lane-chrom
 import { AddLaneButton, TaskLane } from "~/board/components/lane.tsrx";
 import { LaneRemoveDialog } from "~/board/components/lane-remove-dialog.tsrx";
 import { editHotkey } from "~/board/components/shortcut-keys.tsrx";
+import { notesHotkey } from "~/board/components/shortcut-keys.tsrx";
+import { NoteSheet } from "~/board/components/note-sheet.tsrx";
 import type { BoardLane } from "~/board/types";
 
 function useBoardHotkeys() {
@@ -30,7 +32,6 @@ function useBoardHotkeys() {
   const { editingLaneId, removingLaneId, startRename, startRemove } = useLaneChrome();
   const mode = BoardActor.useSelector((snapshot) => snapshot.value);
   const selectedTaskId = BoardActor.useSelector((snapshot) => snapshot.context.cursor.taskId);
-  const editing = mode === "editing";
   const navigating = mode === "navigating";
   const laneCommandsEnabled = navigating && editingLaneId === null && removingLaneId === null;
   const taskEditEnabled = laneCommandsEnabled && selectedTaskId !== null;
@@ -68,21 +69,31 @@ function useBoardHotkeys() {
     () => {
       actorRef.send({ type: "lane.select", laneId: inboxLaneId });
     },
-    { enabled: !editing, ignoreInputs: true, meta: { name: "Go to Inbox" } },
+    { enabled: navigating, ignoreInputs: true, meta: { name: "Go to Inbox" } },
   );
   useHotkey(
     "T",
     () => {
       actorRef.send({ type: "lane.select", laneId: todayLaneId });
     },
-    { enabled: !editing, ignoreInputs: true, meta: { name: "Go to Today" } },
+    { enabled: navigating, ignoreInputs: true, meta: { name: "Go to Today" } },
   );
   useHotkey(
     "C",
     () => {
       actorRef.send({ type: "add.start", laneId: currentLaneId(actorRef.getSnapshot().context) });
     },
-    { enabled: !editing, ignoreInputs: true, meta: { name: "Create" } },
+    { enabled: navigating, ignoreInputs: true, meta: { name: "Create" } },
+  );
+  useHotkey(
+    notesHotkey,
+    () => {
+      const { cursor } = actorRef.getSnapshot().context;
+      if (cursor.taskId !== null) {
+        actorRef.send({ type: "notes.open", taskId: cursor.taskId, laneId: cursor.laneId });
+      }
+    },
+    { enabled: taskEditEnabled, ignoreInputs: true, meta: { name: "Open notes" } },
   );
   useHotkey(
     editHotkey,
@@ -246,6 +257,7 @@ function BoardCanvas({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
       <ShortcutFooter />
     </main>
     <LaneRemoveDialog lanes={lanes} />
+    <NoteSheet />
   </>;
 }
 

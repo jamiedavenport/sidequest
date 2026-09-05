@@ -3,12 +3,13 @@ import type { Collection, SyncConfig } from "@tanstack/db";
 import type { PersistedCollectionPersistence } from "@tanstack/db-sqlite-persistence-core";
 import { persistedCollectionOptions } from "@tanstack/db-sqlite-persistence-core";
 
-import { Lane, laneSchema, Task, taskSchema } from "~/board/schema";
+import { Lane, laneSchema, Note, noteSchema, Task, taskSchema } from "~/board/schema";
 
 const boardSchemaVersion = 1;
 export const laneCollectionId = "lanes";
 export const taskCollectionId = "tasks";
-export const boardCollectionIds = [laneCollectionId, taskCollectionId] as const;
+export const noteCollectionId = "notes";
+export const boardCollectionIds = [laneCollectionId, taskCollectionId, noteCollectionId] as const;
 
 function laneOptions(persistence: PersistedCollectionPersistence) {
   return {
@@ -32,6 +33,16 @@ function taskOptions(persistence: PersistedCollectionPersistence) {
   };
 }
 
+function noteOptions(persistence: PersistedCollectionPersistence) {
+  return {
+    id: noteCollectionId,
+    schema: noteSchema,
+    getKey: (note: Note) => note.taskId,
+    schemaVersion: boardSchemaVersion,
+    persistence,
+  };
+}
+
 function indexTasks<TCollection extends Collection<Task, string>>(collection: TCollection) {
   collection.createIndex((task) => task.laneId, { indexType: BasicIndex });
   return collection;
@@ -49,6 +60,13 @@ export function createTaskCollection(persistence: PersistedCollectionPersistence
     taskOptions(persistence),
   );
   return indexTasks(createCollection({ ...options, schema: taskSchema }));
+}
+
+export function createNoteCollection(persistence: PersistedCollectionPersistence) {
+  const options = persistedCollectionOptions<Note, string, typeof noteSchema>(
+    noteOptions(persistence),
+  );
+  return createCollection({ ...options, schema: noteSchema });
 }
 
 export function createSyncedLaneCollection(
@@ -71,4 +89,15 @@ export function createSyncedTaskCollection(
     sync,
   });
   return indexTasks(createCollection({ ...options, schema: taskSchema }));
+}
+
+export function createSyncedNoteCollection(
+  persistence: PersistedCollectionPersistence,
+  sync: SyncConfig<Note, string>,
+) {
+  const options = persistedCollectionOptions<Note, string, typeof noteSchema>({
+    ...noteOptions(persistence),
+    sync,
+  });
+  return createCollection({ ...options, schema: noteSchema });
 }

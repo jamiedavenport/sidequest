@@ -9,7 +9,7 @@ import { useBoardClient } from "~/board/sync/client";
 import { BoardActor } from "~/board/navigation/machine";
 import { completeTask } from "~/board/data/mutations";
 import { TaskEdit } from "~/board/components/task-edit.tsrx";
-import { editHotkeys, ShortcutKeys } from "~/board/components/shortcut-keys.tsrx";
+import { editHotkeys, notesHotkeys, ShortcutKeys } from "~/board/components/shortcut-keys.tsrx";
 import { Badge } from "~/components/ui/badge.tsrx";
 import { Button } from "~/components/ui/button.tsrx";
 import {
@@ -151,6 +151,16 @@ function TaskOptions({ laneId, task }: { laneId: string; task: Task }) @{
       />
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end">
+      <DropdownMenuItem
+        onClick={() => {
+          actorRef.send({ type: "notes.open", taskId: task.id, laneId });
+        }}
+      >
+        Notes
+        <DropdownMenuShortcut>
+          <ShortcutKeys hotkeys={notesHotkeys} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
       <DropdownMenuItem
         onClick={() => {
           actorRef.send({ type: "edit.start", taskId: task.id, laneId });

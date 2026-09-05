@@ -1,4 +1,5 @@
-import type { Lane } from "~/board/schema";
+import { emptyNoteDocument, Note, type Lane } from "~/board/schema";
+import { Effect, Schema } from "effect";
 import { playDoneSound } from "~/board/sound";
 import type { BoardClient } from "~/board/sync/client";
 import type { HorizontalDirection, Task, VerticalDirection } from "~/board/types";
@@ -48,6 +49,35 @@ function mutateBoard(client: BoardClient, apply: () => void) {
   transaction.mutate(apply);
   void transaction.commit();
 }
+
+export class NoteSaveError extends Schema.TaggedError<NoteSaveError>()("NoteSaveError", {
+  cause: Schema.Defect(),
+}) {}
+
+export const saveNote = Effect.fn("saveNote")(function* (client: BoardClient, input: unknown) {
+  const note = yield* Schema.decodeUnknownEffect(Note)(input);
+  const transaction = client.offline.createOfflineTransaction({
+    autoCommit: false,
+    mutationFnName: "persistBoard",
+  });
+
+  yield* Effect.sync(() => {
+    transaction.mutate(() => {
+      if (client.notes.has(note.taskId)) {
+        client.notes.update(note.taskId, (draft) => {
+          Object.assign(draft, { content: note.content });
+        });
+      } else {
+        client.notes.insert(note);
+      }
+    });
+  });
+
+  yield* Effect.tryPromise({
+    try: () => transaction.commit(),
+    catch: (cause) => new NoteSaveError({ cause }),
+  });
+});
 
 export function addLane(client: BoardClient, title = "New lane"): string {
   const rank = client.lanes.toArray.reduce((max, lane) => Math.max(max, lane.rank), -1) + 1;
@@ -120,7 +150,15 @@ export function deleteLane(client: BoardClient, laneId: string, input: { deleteT
 
   mutateBoard(client, () => {
     if (input.deleteTasks) {
+      const taskIds = client.tasks.toArray
+        .filter((task) => task.laneId === laneId)
+        .map((task) => task.id);
       deleteTasksForDeletedLane(client.tasks, laneId);
+      for (const taskId of taskIds) {
+        if (client.notes.has(taskId)) {
+          client.notes.delete(taskId);
+        }
+      }
     } else {
       rehomeTasksForDeletedLane(client.tasks, laneId);
     }
@@ -167,6 +205,7 @@ export function addTask(
       completed: false,
       ...placement,
     });
+    client.notes.insert({ taskId: input.id, content: emptyNoteDocument() });
   });
 }
 
