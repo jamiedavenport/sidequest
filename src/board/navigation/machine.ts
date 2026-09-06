@@ -24,6 +24,9 @@ import type {
 export type { BoardContext };
 
 export type BoardEvent =
+  | { type: "drag.start"; source: NonNullable<BoardContext["drag"]> }
+  | { type: "drag.finish"; viewId: string }
+  | { type: "drag.cancel" }
   | { type: "board.sync"; lanes: BoardLane[] }
   | { type: "navigate"; direction: VerticalDirection | HorizontalDirection }
   | { type: "lane.select"; laneId: string }
@@ -45,6 +48,27 @@ export const boardMachine = setup({
     events: BoardEvent;
   },
   actions: {
+    startDrag: assign(({ context, event }) => {
+      assertEvent(event, "drag.start");
+      const source = event.source;
+      return {
+        ...(source.kind === "task"
+          ? selectTask(context, source.taskId, source.viewId)
+          : selectLaneById(context, source.viewId)),
+        drag: source,
+      };
+    }),
+    finishDrag: assign(({ context, event }) => {
+      assertEvent(event, "drag.finish");
+      const source = context.drag;
+      return {
+        ...(source?.kind === "task"
+          ? selectTask(context, source.taskId, event.viewId)
+          : selectLaneById(context, event.viewId)),
+        drag: undefined,
+      };
+    }),
+    clearDrag: assign({ drag: undefined }),
     syncBoard: assign(({ context, event }) => {
       assertEvent(event, "board.sync");
       return syncBoard(context, event.lanes);
@@ -90,6 +114,26 @@ export const boardMachine = setup({
     leaveAdding: assign(({ context }) => leaveAdding(context)),
   },
   guards: {
+    canDrag: ({ context, event }) => {
+      if (event.type !== "drag.start") return false;
+      const source = event.source;
+      const lane = context.lanes.find((item) => item.id === source.viewId);
+      return (
+        lane !== undefined &&
+        (source.kind === "task"
+          ? lane.tasks.some((task) => task.id === source.taskId)
+          : source.viewId !== "today" && source.viewId !== "inbox")
+      );
+    },
+    isDraggedEntityMissing: ({ context, event }) => {
+      if (event.type !== "board.sync" || context.drag === undefined) return false;
+      const source = context.drag;
+      const lane = event.lanes.find((item) => item.id === source.viewId);
+      return (
+        lane === undefined ||
+        (source.kind === "task" && !lane.tasks.some((task) => task.id === source.taskId))
+      );
+    },
     canEnterAddingDown: ({ context, event }) =>
       event.type === "navigate" &&
       event.direction === "down" &&
@@ -125,6 +169,7 @@ export const boardMachine = setup({
   states: {
     navigating: {
       on: {
+        "drag.start": { guard: "canDrag", target: "dragging", actions: "startDrag" },
         "board.sync": { actions: "syncBoard" },
         navigate: [
           {
@@ -139,6 +184,20 @@ export const boardMachine = setup({
         "edit.start": { target: "editing", actions: "selectEdited" },
         "details.open": { target: "details", actions: "selectDetailed" },
         "add.start": { target: "adding", actions: "enterAdding" },
+      },
+    },
+    dragging: {
+      on: {
+        "drag.finish": { target: "navigating", actions: "finishDrag" },
+        "drag.cancel": { target: "navigating", actions: "clearDrag" },
+        "board.sync": [
+          {
+            guard: "isDraggedEntityMissing",
+            target: "navigating",
+            actions: ["syncBoard", "clearDrag"],
+          },
+          { actions: "syncBoard" },
+        ],
       },
     },
     details: {

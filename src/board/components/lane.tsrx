@@ -1,4 +1,5 @@
 // oxlint-disable jsx-a11y/no-redundant-roles, react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
+import { useBoardDrag, useLaneDrag, laneDragId } from "~/board/components/board-drag.tsrx";
 import { Ellipsis, Plus } from "lucide-react";
 import {
   useEffect,
@@ -69,7 +70,7 @@ function StartAddButton({
     type="button"
     aria-label={`Add a task to ${lane.title}`}
     {...props}
-    onMouseDown={onStartAdd}
+    onClick={onStartAdd}
   />;
 }
 
@@ -134,7 +135,11 @@ function LaneTitle({ lane }: { lane: BoardLane }) @{
       onKeyDown={onKeyDown}
     />;
   } @else {
-    <StartAddButton className="flex min-w-0 flex-1 items-center gap-2.5" lane={lane}>
+    <StartAddButton
+      data-lane-drag-surface=""
+      className="flex min-w-0 flex-1 items-center gap-2.5"
+      lane={lane}
+    >
       <h2
         className="truncate text-lg font-semibold tracking-tight sm:text-sm"
         id={`${lane.id}-title`}
@@ -150,6 +155,7 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
   const client = useBoardClient();
   const actorRef = BoardActor.useActorRef();
   const { startRename, startRemove } = useLaneChrome();
+  const { runMove } = useBoardDrag();
   const canMoveLeft = planLaneMove(client.lanes.toArray, lane.id, "left") !== undefined;
   const canMoveRight = planLaneMove(client.lanes.toArray, lane.id, "right") !== undefined;
 
@@ -177,7 +183,7 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
         disabled={!canMoveLeft}
         onClick={() => {
           actorRef.send({ type: "edit.cancel" });
-          moveLane(client, lane.id, "left");
+          runMove(moveLane(client, lane.id, "left"));
         }}
       >
         Move left
@@ -189,7 +195,7 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
         disabled={!canMoveRight}
         onClick={() => {
           actorRef.send({ type: "edit.cancel" });
-          moveLane(client, lane.id, "right");
+          runMove(moveLane(client, lane.id, "right"));
         }}
       >
         Move right
@@ -225,6 +231,8 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
     selected && (selectedTaskId === null || !lane.tasks.some((task) => task.id === selectedTaskId));
   const articleRef = useRef<HTMLElement>(null);
   const system = isSystemLane(lane);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const dropEdge = useLaneDrag(lane.id, articleRef, headerRef);
 
   useEffect(() => {
     if (focusedWithoutTask) {
@@ -234,14 +242,20 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
 
   <article
     ref={articleRef}
+    data-board-drop={laneDragId(lane.id)}
+    data-lane-drop=""
+    data-drop-edge={dropEdge}
     className={cn(
       "flex h-full w-[calc(100vw-1.5rem)] shrink-0 flex-col overflow-hidden border-t-2 border-r border-border bg-white px-2 py-5 sm:w-87 sm:px-3 sm:py-4.5",
       selected ? "border-t-primary" : "border-t-transparent",
+      dropEdge === "append" && "bg-primary/5 ring-2 ring-primary/40 ring-inset",
+      dropEdge === "before" && "border-l-2 border-l-primary",
+      dropEdge === "after" && "border-r-2 border-r-primary",
     )}
     aria-current={selected ? "true" : undefined}
     aria-labelledby={`${lane.id}-title`}
   >
-    <div className="flex min-w-0 items-center justify-between gap-3 px-2 sm:px-1">
+    <div ref={headerRef} className="flex min-w-0 items-center justify-between gap-3 px-2 sm:px-1">
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
         <StartAddButton className="shrink-0" lane={lane}>
           <LaneSymbol colour={lane.colour} shape={lane.shape} />

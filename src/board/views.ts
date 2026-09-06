@@ -86,6 +86,16 @@ function persistedLanes(lanes: ReadonlyArray<Lane>): Lane[] {
   return lanes.filter(isPersistedLane).toSorted((left, right) => left.rank - right.rank);
 }
 
+export type LaneDestination = { laneId: string; edge: "before" | "after" };
+export type TaskDestination =
+  | { viewId: string; edge: "append" }
+  | { viewId: string; taskId: string; edge: "before" | "after" | "nest" };
+
+export type TaskMoveUpdate = {
+  taskId: string;
+  patch: { -readonly [K in "rank" | "parentId" | "laneId" | "date" | "collapsed"]?: Task[K] };
+};
+
 export type LaneRankSwap = {
   laneId: string;
   rank: number;
@@ -94,20 +104,33 @@ export type LaneRankSwap = {
 export function planLaneMove(
   lanes: ReadonlyArray<Lane>,
   laneId: string,
-  direction: HorizontalDirection,
+  direction: HorizontalDirection | LaneDestination,
 ): ReadonlyArray<LaneRankSwap> | undefined {
   const ordered = persistedLanes(lanes);
   const index = ordered.findIndex((lane) => lane.id === laneId);
+  if (typeof direction !== "string") {
+    if (index < 0 || direction.laneId === laneId || isSystemLane({ id: direction.laneId }))
+      return undefined;
+    const remaining = ordered.filter((lane) => lane.id !== laneId);
+    const target = remaining.findIndex((lane) => lane.id === direction.laneId);
+    const current = ordered[index];
+    if (target < 0 || current === undefined) return undefined;
+    remaining.splice(target + (direction.edge === "after" ? 1 : 0), 0, current);
+    if (remaining.every((lane, i) => lane.id === ordered[i]?.id)) return undefined;
+    return remaining.flatMap((lane, rank) =>
+      lane.rank === rank ? [] : [{ laneId: lane.id, rank }],
+    );
+  }
   const neighbor = ordered[direction === "left" ? index - 1 : index + 1];
   const current = ordered[index];
   if (index < 0 || current === undefined || neighbor === undefined) {
     return undefined;
   }
 
-  return [
-    { laneId: current.id, rank: neighbor.rank },
-    { laneId: neighbor.id, rank: current.rank },
-  ];
+  return planLaneMove(lanes, laneId, {
+    laneId: neighbor.id,
+    edge: direction === "left" ? "before" : "after",
+  });
 }
 
 export function tasksInLane(tasks: ReadonlyArray<Task>, laneId: string): Task[] {
@@ -416,7 +439,10 @@ function resolveTaskParents(tasks: ReadonlyArray<Task>): Map<string, string | un
   return parents;
 }
 
-function descendantTaskIds(tasks: ReadonlyArray<Task>, rootId: string): string[] {
+function descendantTaskIds(
+  tasks: ReadonlyArray<Task>,
+  rootId: string | ReadonlyArray<string>,
+): string[] {
   const children = new Map<string, string[]>();
   for (const [id, parentId] of resolveTaskParents(tasks)) {
     if (parentId === undefined) {
@@ -429,8 +455,9 @@ function descendantTaskIds(tasks: ReadonlyArray<Task>, rootId: string): string[]
   }
 
   const descendants: string[] = [];
-  const seen = new Set<string>([rootId]);
-  const queue = [...(children.get(rootId) ?? [])];
+  const roots = typeof rootId === "string" ? [rootId] : rootId;
+  const seen = new Set<string>(roots);
+  const queue = roots.flatMap((id) => children.get(id) ?? []);
   while (queue.length > 0) {
     const id = queue.shift();
     if (id === undefined || seen.has(id)) {
@@ -453,7 +480,7 @@ export type TaskRankUpdate = {
   rank: number;
 };
 
-function taskSubtree(tasks: ReadonlyArray<Task>, rootId: string): Task[] {
+export function taskSubtree(tasks: ReadonlyArray<Task>, rootId: string): Task[] {
   const ids = new Set([rootId, ...descendantTaskIds(tasks, rootId)]);
   return uniqueTasks(tasks)
     .filter((task) => ids.has(task.id))
@@ -464,8 +491,12 @@ export function planTaskMove(
   visibleTasks: ReadonlyArray<Task>,
   allTasks: ReadonlyArray<Task>,
   taskId: string,
-  direction: VerticalDirection,
-): ReadonlyArray<TaskRankUpdate> | undefined {
+  direction: VerticalDirection | TaskDestination,
+  sourceViewId?: string,
+): ReadonlyArray<TaskMoveUpdate> | undefined {
+  if (typeof direction !== "string") {
+    return planTaskDestination(allTasks, taskId, sourceViewId ?? direction.viewId, direction);
+  }
   const ordered = visibleTasks.toSorted((left, right) => left.rank - right.rank);
   const task = ordered.find((candidate) => candidate.id === taskId);
   if (task === undefined) {
@@ -481,20 +512,93 @@ export function planTaskMove(
     return undefined;
   }
 
-  const selectedSubtree = taskSubtree(allTasks, taskId);
-  const neighborSubtree = taskSubtree(allTasks, neighbor.id);
-  const ranks = [...selectedSubtree, ...neighborSubtree]
-    .map((candidate) => candidate.rank)
-    .toSorted((left, right) => left - right);
-  const reordered =
-    direction === "up"
-      ? [...selectedSubtree, ...neighborSubtree]
-      : [...neighborSubtree, ...selectedSubtree];
+  const viewId = sourceViewId ?? currentViewId(task);
+  return planTaskDestination(allTasks, taskId, viewId, {
+    viewId,
+    taskId: neighbor.id,
+    edge: direction === "up" ? "before" : "after",
+  });
+}
 
-  return reordered.map((candidate, rankIndex) => ({
-    taskId: candidate.id,
-    rank: ranks[rankIndex] ?? candidate.rank,
-  }));
+/** Resolve an arbitrary drop against the full collection, including collapsed descendants. */
+export function planTaskDestination(
+  allTasks: ReadonlyArray<Task>,
+  taskId: string,
+  sourceViewId: string,
+  destination: TaskDestination,
+): ReadonlyArray<TaskMoveUpdate> | undefined {
+  const task = allTasks.find((item) => item.id === taskId);
+  if (task === undefined || task.completed || !isTaskInView(task, sourceViewId)) return undefined;
+  const subtree = taskSubtree(allTasks, taskId);
+  const movingIds = new Set(subtree.map((item) => item.id));
+  const target =
+    destination.edge === "append"
+      ? undefined
+      : allTasks.find((item) => item.id === destination.taskId);
+  if (
+    destination.edge !== "append" &&
+    (target === undefined ||
+      target.completed ||
+      movingIds.has(target.id) ||
+      !isTaskInView(target, destination.viewId))
+  )
+    return undefined;
+  const parentId = destination.edge === "nest" ? target?.id : target?.parentId;
+  const parent = parentId === undefined ? undefined : allTasks.find((item) => item.id === parentId);
+  if (
+    parentId !== undefined &&
+    (movingIds.has(parentId) || parent === undefined || parent.completed)
+  )
+    return undefined;
+  const placement =
+    parent !== undefined && parentId !== task.parentId
+      ? taskPlacement(parent)
+      : sourceViewId === destination.viewId
+        ? taskPlacement(task)
+        : parent !== undefined
+          ? taskPlacement(parent)
+          : placementForMove(destination.viewId, task);
+
+  const destinationTasks = allTasks.filter((item) => isTaskInView(item, destination.viewId));
+  const destinationIds = destinationTasks.map((item) => item.id);
+  const included = new Set([...destinationIds, ...descendantTaskIds(allTasks, destinationIds)]);
+  const ordered = allTasks
+    .filter((item) => included.has(item.id) && !movingIds.has(item.id))
+    .toSorted((a, b) => a.rank - b.rank || a.id.localeCompare(b.id));
+  let insertion = ordered.length;
+  if (target !== undefined) {
+    const targetIds = new Set(taskSubtree(allTasks, target.id).map((item) => item.id));
+    insertion =
+      destination.edge === "before"
+        ? ordered.findIndex((item) => item.id === target.id)
+        : ordered.reduce((last, item, index) => (targetIds.has(item.id) ? index + 1 : last), 0);
+  }
+  const next = [...ordered];
+  next.splice(insertion, 0, ...subtree);
+  const previous = [...ordered, ...subtree].toSorted(
+    (a, b) => a.rank - b.rank || a.id.localeCompare(b.id),
+  );
+  const orderUnchanged = next.every((item, index) => item.id === previous[index]?.id);
+  const ranks = previous.map((item) => item.rank);
+  const reuseRanks = sourceViewId === destination.viewId && new Set(ranks).size === ranks.length;
+  return next.flatMap((item, index) => {
+    const patch: TaskMoveUpdate["patch"] = {};
+    const rank =
+      orderUnchanged && sourceViewId === destination.viewId
+        ? item.rank
+        : reuseRanks
+          ? (ranks[index] ?? index)
+          : index;
+    if (item.rank !== rank) patch.rank = rank;
+    if (movingIds.has(item.id)) {
+      if (item.id === taskId && item.parentId !== parentId) patch.parentId = parentId;
+      if (item.laneId !== placement.laneId) patch.laneId = placement.laneId;
+      if (item.date !== placement.date) patch.date = placement.date;
+    }
+    if (destination.edge === "nest" && item.id === parentId && item.collapsed)
+      patch.collapsed = false;
+    return Object.keys(patch).length === 0 ? [] : [{ taskId: item.id, patch }];
+  });
 }
 
 export function projectTasksForView(
@@ -632,6 +736,13 @@ export function applySubtreeNest(
   const ids = [taskId, ...descendantTaskIds(tasks.toArray, taskId)];
 
   for (const id of ids) {
+    const current = tasks.get(id);
+    if (
+      current === undefined ||
+      ((id !== taskId || current.parentId === parentId) &&
+        (placement === undefined || placementsMatch(current, placement)))
+    )
+      continue;
     tasks.update(id, (draft) => {
       if (id === taskId) {
         if (parentId === undefined) {

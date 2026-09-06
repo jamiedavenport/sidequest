@@ -4,6 +4,8 @@ import { ChevronDown, ChevronRight, Ellipsis } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
+import { useTaskDrag, taskDragId } from "~/board/components/board-drag.tsrx";
+
 import { cn } from "@/lib/utils";
 
 import { useBoardClient } from "~/board/sync/client";
@@ -270,6 +272,7 @@ export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @
       snapshot.context.cursor.laneId === laneId,
   );
   const rowRef = useRef<HTMLLIElement>(null);
+  const dropEdge = useTaskDrag(laneId, task.id, rowRef);
   const hasChildren = hasActiveTaskChildren(client.tasks.toArray, task.id);
   const indentStyle: TaskIndentStyle = {
     "--task-indent": `${8 + task.visualDepth * 32}px`,
@@ -284,8 +287,15 @@ export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @
 
   <li
     ref={rowRef}
+    data-board-drop={taskDragId(laneId, task.id)}
+    data-drop-edge={dropEdge}
     className={cn(
       "relative",
+      dropEdge === "nest" && "rounded-lg bg-primary/10 ring-2 ring-primary/50 ring-inset",
+      dropEdge === "before" &&
+        "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-20 before:h-0.5 before:bg-primary",
+      dropEdge === "after" &&
+        "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:z-20 after:h-0.5 after:bg-primary",
       task.visualDepth > 0 && "pl-(--task-indent) sm:pl-(--task-indent-sm)",
     )}
     style={task.visualDepth === 0 ? undefined : indentStyle}

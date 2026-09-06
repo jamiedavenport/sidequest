@@ -1,3 +1,4 @@
+import { BoardDragProvider, useBoardDrag } from "~/board/components/board-drag.tsrx";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { Effect } from "effect";
 import { useEffect, useRef } from "react";
@@ -38,6 +39,7 @@ function useBoardHotkeys() {
   const { editingLaneId, removingLaneId, startRename, startRemove } = useLaneChrome();
   const mode = BoardActor.useSelector((snapshot) => snapshot.value);
   const selectedTaskId = BoardActor.useSelector((snapshot) => snapshot.context.cursor.taskId);
+  const { runMove } = useBoardDrag();
   const navigating = mode === "navigating";
   const laneCommandsEnabled = navigating && editingLaneId === null && removingLaneId === null;
   const taskEditEnabled = laneCommandsEnabled && selectedTaskId !== null;
@@ -136,7 +138,7 @@ function useBoardHotkeys() {
     () => {
       const { cursor } = actorRef.getSnapshot().context;
       if (cursor.taskId !== null) {
-        moveTaskInLane(client, cursor.taskId, "up", cursor.laneId);
+        runMove(moveTaskInLane(client, cursor.taskId, "up", cursor.laneId));
       }
     },
     { enabled: navigating, ignoreInputs: true, meta: { name: "Move up" } },
@@ -146,7 +148,7 @@ function useBoardHotkeys() {
     () => {
       const { cursor } = actorRef.getSnapshot().context;
       if (cursor.taskId !== null) {
-        moveTaskInLane(client, cursor.taskId, "down", cursor.laneId);
+        runMove(moveTaskInLane(client, cursor.taskId, "down", cursor.laneId));
       }
     },
     { enabled: navigating, ignoreInputs: true, meta: { name: "Move down" } },
@@ -156,10 +158,11 @@ function useBoardHotkeys() {
     () => {
       const { cursor } = actorRef.getSnapshot().context;
       if (cursor.taskId !== null) {
-        const laneId = moveTaskToLane(client, cursor.taskId, "left", cursor.laneId);
-        if (laneId !== undefined) {
-          actorRef.send({ type: "task.select", taskId: cursor.taskId, laneId });
-        }
+        const taskId = cursor.taskId;
+        runMove(moveTaskToLane(client, taskId, "left", cursor.laneId), (result) => {
+          if (result !== undefined)
+            actorRef.send({ type: "task.select", taskId, laneId: result.viewId });
+        });
       }
     },
     { enabled: navigating, ignoreInputs: true, meta: { name: "Move across left" } },
@@ -169,10 +172,11 @@ function useBoardHotkeys() {
     () => {
       const { cursor } = actorRef.getSnapshot().context;
       if (cursor.taskId !== null) {
-        const laneId = moveTaskToLane(client, cursor.taskId, "right", cursor.laneId);
-        if (laneId !== undefined) {
-          actorRef.send({ type: "task.select", taskId: cursor.taskId, laneId });
-        }
+        const taskId = cursor.taskId;
+        runMove(moveTaskToLane(client, taskId, "right", cursor.laneId), (result) => {
+          if (result !== undefined)
+            actorRef.send({ type: "task.select", taskId, laneId: result.viewId });
+        });
       }
     },
     { enabled: navigating, ignoreInputs: true, meta: { name: "Move across right" } },
@@ -199,14 +203,14 @@ function useBoardHotkeys() {
   useHotkey(
     "Mod+Alt+ArrowLeft",
     () => {
-      moveLane(client, currentLaneId(actorRef.getSnapshot().context), "left");
+      runMove(moveLane(client, currentLaneId(actorRef.getSnapshot().context), "left"));
     },
     { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Move lane left" } },
   );
   useHotkey(
     "Mod+Alt+ArrowRight",
     () => {
-      moveLane(client, currentLaneId(actorRef.getSnapshot().context), "right");
+      runMove(moveLane(client, currentLaneId(actorRef.getSnapshot().context), "right"));
     },
     { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Move lane right" } },
   );
@@ -232,7 +236,7 @@ function useBoardHotkeys() {
     () => {
       const { cursor } = actorRef.getSnapshot().context;
       if (cursor.taskId !== null) {
-        nestTask(client, cursor.taskId, 1, cursor.laneId);
+        runMove(nestTask(client, cursor.taskId, 1, cursor.laneId));
       }
     },
     { ignoreInputs: true, enabled: navigating, meta: { name: "Nest" } },
@@ -242,7 +246,7 @@ function useBoardHotkeys() {
     () => {
       const { cursor } = actorRef.getSnapshot().context;
       if (cursor.taskId !== null) {
-        nestTask(client, cursor.taskId, -1, cursor.laneId);
+        runMove(nestTask(client, cursor.taskId, -1, cursor.laneId));
       }
     },
     { ignoreInputs: true, enabled: navigating, meta: { name: "Unnest" } },
@@ -286,6 +290,7 @@ function BoardCanvas({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
       <section className="min-h-0 min-w-0 overflow-hidden" aria-label="Task lanes">
         <div
           ref={listboxRef}
+          data-board-focus=""
           className="flex h-full min-w-0 gap-3 overflow-x-auto overflow-y-hidden px-3 pb-4 sm:gap-0 sm:px-0 sm:pb-0"
           tabIndex={-1}
         >
@@ -304,7 +309,9 @@ function BoardCanvas({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
 
 function BoardShell({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
   <LaneChromeProvider>
-    <BoardCanvas lanes={lanes} />
+    <BoardDragProvider>
+      <BoardCanvas lanes={lanes} />
+    </BoardDragProvider>
   </LaneChromeProvider>;
 }
 

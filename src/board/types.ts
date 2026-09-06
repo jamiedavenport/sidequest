@@ -22,4 +22,5 @@ export type BoardContext = {
   lanes: BoardLane[];
   cursor: BoardCursor;
   detailTab: DetailTab;
+  drag?: { kind: "task"; taskId: string; viewId: string } | { kind: "lane"; viewId: string };
 };

@@ -4,34 +4,25 @@ import { playDoneSound } from "~/board/sound";
 import type { BoardClient } from "~/board/sync/client";
 import type { HorizontalDirection, Task, VerticalDirection } from "~/board/types";
 import {
-  applySubtreeMove,
   applySubtreeNest,
   boardViewIds,
   completeTaskAndDescendants,
   currentViewId,
   deleteTasksForDeletedLane,
-  inboxLaneId,
   isSystemLane,
   isTaskInView,
   placementForCreate,
-  placementForMove,
   planLaneMove,
   planNest,
   planTaskMove,
   randomLaneSymbol,
   rehomeTasksForDeletedLane,
-  todayLaneId,
+  type TaskDestination,
+  type TaskMoveUpdate,
+  type LaneDestination,
 } from "~/board/views";
 
 function laneTasks(client: BoardClient, viewId: string): Task[] {
-  if (viewId === inboxLaneId) {
-    return client.inbox.toArray;
-  }
-
-  if (viewId === todayLaneId) {
-    return client.today.toArray;
-  }
-
   return client.tasks.toArray
     .filter((task) => !task.completed && isTaskInView(task, viewId))
     .toSorted((left, right) => left.rank - right.rank);
@@ -203,24 +194,56 @@ export function updateLane(
   });
 }
 
-export function moveLane(client: BoardClient, laneId: string, direction: HorizontalDirection) {
-  if (isSystemLane({ id: laneId })) {
-    return;
-  }
+export class BoardMoveError extends Schema.TaggedError<BoardMoveError>()("BoardMoveError", {
+  cause: Schema.Defect(),
+}) {}
 
-  const swaps = planLaneMove(client.lanes.toArray, laneId, direction);
-  if (swaps === undefined) {
-    return;
-  }
+export class InvalidBoardMove extends Schema.TaggedError<InvalidBoardMove>()("InvalidBoardMove", {
+  message: Schema.String,
+}) {}
 
-  mutateBoard(client, () => {
-    for (const swap of swaps) {
-      client.lanes.update(swap.laneId, (draft) => {
-        draft.rank = swap.rank;
+// Return after optimistic application. The UI observes this Effect independently of interaction state.
+const applyBoardMove = Effect.fn("applyBoardMove")(function* (
+  client: BoardClient,
+  apply: () => void,
+) {
+  const transaction = yield* Effect.try({
+    try: () => {
+      const pending = client.offline.createOfflineTransaction({
+        autoCommit: false,
+        mutationFnName: "persistBoard",
       });
-    }
+      pending.mutate(apply);
+      return pending;
+    },
+    catch: (cause) => new BoardMoveError({ cause }),
   });
-}
+  const commit = transaction.commit();
+  // Attach a rejection observer immediately, even if the caller observes completion on the next tick.
+  void commit.catch(() => {});
+  return {
+    completion: Effect.tryPromise({
+      try: () => commit,
+      catch: (cause) => new BoardMoveError({ cause }),
+    }),
+  };
+});
+
+export const moveLane = Effect.fn("moveLane")(function* (
+  client: BoardClient,
+  laneId: string,
+  direction: HorizontalDirection | LaneDestination,
+) {
+  const updates = planLaneMove(client.lanes.toArray, laneId, direction);
+  if (updates === undefined || updates.length === 0) return undefined;
+  const { completion } = yield* applyBoardMove(client, () => {
+    for (const update of updates)
+      client.lanes.update(update.laneId, (draft) => {
+        draft.rank = update.rank;
+      });
+  });
+  return { viewId: laneId, completion };
+});
 
 export function deleteLane(client: BoardClient, laneId: string, input: { deleteTasks: boolean }) {
   if (isSystemLane({ id: laneId }) || !client.lanes.has(laneId)) {
@@ -335,81 +358,150 @@ export function completeTask(client: BoardClient, taskId: string) {
   playDoneSound();
 }
 
-export function nestTask(
+const applyTaskPlan = Effect.fn("applyTaskPlan")(function* (
+  client: BoardClient,
+  updates: ReadonlyArray<TaskMoveUpdate> | undefined,
+  viewId: string,
+) {
+  if (updates === undefined || updates.length === 0) return undefined;
+  const { completion } = yield* applyBoardMove(client, () => {
+    for (const update of updates)
+      client.tasks.update(update.taskId, (draft) => {
+        Object.assign(draft, update.patch);
+      });
+  });
+  return { viewId, completion };
+});
+
+export const nestTask = Effect.fn("nestTask")(function* (
   client: BoardClient,
   taskId: string,
-  delta: 1 | -1,
+  delta: 1 | -1 | TaskDestination,
   viewId?: string | null,
 ) {
+  if (typeof delta !== "number") return yield* moveTaskInLane(client, taskId, delta, viewId);
   const task = client.tasks.get(taskId);
-  if (task === undefined) {
-    return;
-  }
-
-  const update = planNest(
-    laneTasks(client, viewId ?? currentViewId(task)),
-    taskId,
-    delta,
-    client.tasks.toArray,
-  );
-  if (update === undefined) {
-    return;
-  }
-
-  mutateBoard(client, () => {
+  if (task === undefined || task.completed) return undefined;
+  const sourceViewId = viewId ?? currentViewId(task);
+  const update = planNest(laneTasks(client, sourceViewId), taskId, delta, client.tasks.toArray);
+  if (update === undefined) return undefined;
+  const { completion } = yield* applyBoardMove(client, () => {
     applySubtreeNest(client.tasks, taskId, update.parentId);
   });
-}
+  return { viewId: sourceViewId, completion };
+});
 
-export function moveTaskInLane(
+export const moveTaskInLane = Effect.fn("moveTaskInLane")(function* (
   client: BoardClient,
   taskId: string,
-  direction: VerticalDirection,
+  direction: VerticalDirection | TaskDestination,
   viewId?: string | null,
 ) {
   const task = client.tasks.get(taskId);
-  if (task === undefined) {
-    return;
+  if (task === undefined || task.completed) return undefined;
+  const sourceViewId = viewId ?? currentViewId(task);
+  if (
+    typeof direction !== "string" &&
+    !boardViewIds(client.lanes.toArray).includes(direction.viewId)
+  ) {
+    return yield* new InvalidBoardMove({ message: "The destination lane is no longer available." });
   }
+  const updates = planTaskMove(
+    laneTasks(client, sourceViewId),
+    client.tasks.toArray,
+    taskId,
+    direction,
+    sourceViewId,
+  );
+  return yield* applyTaskPlan(
+    client,
+    updates,
+    typeof direction === "string" ? sourceViewId : direction.viewId,
+  );
+});
 
-  const tasks = laneTasks(client, viewId ?? currentViewId(task));
-  const updates = planTaskMove(tasks, client.tasks.toArray, taskId, direction);
-  if (updates === undefined) {
-    return;
-  }
-
-  mutateBoard(client, () => {
-    for (const update of updates) {
-      client.tasks.update(update.taskId, (draft) => {
-        draft.rank = update.rank;
-      });
-    }
-  });
-}
-
-export function moveTaskToLane(
+export const moveTaskToLane = Effect.fn("moveTaskToLane")(function* (
   client: BoardClient,
   taskId: string,
-  direction: HorizontalDirection,
+  direction: HorizontalDirection | TaskDestination,
   viewId?: string | null,
-): string | undefined {
+) {
+  if (typeof direction !== "string")
+    return yield* moveTaskInLane(client, taskId, direction, viewId);
   const task = client.tasks.get(taskId);
-  if (task === undefined) {
-    return undefined;
-  }
-
+  if (task === undefined || task.completed) return undefined;
   const views = boardViewIds(client.lanes.toArray);
-  const index = views.indexOf(viewId ?? currentViewId(task));
+  const sourceViewId = viewId ?? currentViewId(task);
+  const index = views.indexOf(sourceViewId);
   const destination = views[direction === "left" ? index - 1 : index + 1];
-  if (index < 0 || destination === undefined) {
-    return undefined;
+  if (index < 0 || destination === undefined) return undefined;
+  return yield* moveTaskInLane(
+    client,
+    taskId,
+    { viewId: destination, edge: "append" },
+    sourceViewId,
+  );
+});
+
+export type BoardMoveResult = Effect.Success<ReturnType<typeof moveLane>>;
+export type RunBoardMove = <E>(
+  command: Effect.Effect<BoardMoveResult, E>,
+  onApplied?: (result: BoardMoveResult) => void,
+) => void;
+
+export const DragSource = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("task"), taskId: Schema.String, viewId: Schema.String }),
+  Schema.Struct({ kind: Schema.Literal("lane"), viewId: Schema.String }),
+]);
+export type DragSource = typeof DragSource.Type;
+
+export const DropTarget = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("task"),
+    taskId: Schema.String,
+    viewId: Schema.String,
+    edge: Schema.Literals(["before", "after", "nest"]),
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("view"),
+    viewId: Schema.String,
+    edge: Schema.Literal("append"),
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("lane"),
+    viewId: Schema.String,
+    edge: Schema.Literals(["before", "after"]),
+  }),
+]);
+export type BoardDropTarget = typeof DropTarget.Type;
+
+export const dropBoardEntity = Effect.fn("dropBoardEntity")(function* (
+  client: BoardClient,
+  sourceInput: unknown,
+  targetInput: unknown,
+) {
+  const source = yield* Schema.decodeUnknownEffect(DragSource)(sourceInput);
+  const target = yield* Schema.decodeUnknownEffect(DropTarget)(targetInput);
+  const views = boardViewIds(client.lanes.toArray);
+  if (!views.includes(source.viewId) || !views.includes(target.viewId)) {
+    return yield* new InvalidBoardMove({
+      message: "The dragged item or destination is no longer available.",
+    });
   }
-
-  const rank = nextRank(laneTasks(client, destination));
-  const placement = placementForMove(destination, task);
-  mutateBoard(client, () => {
-    applySubtreeMove(client.tasks, taskId, placement, rank);
-  });
-
-  return destination;
-}
+  if (source.kind === "lane") {
+    if (
+      target.kind !== "lane" ||
+      isSystemLane({ id: source.viewId }) ||
+      isSystemLane({ id: target.viewId })
+    )
+      return undefined;
+    return yield* moveLane(client, source.viewId, { laneId: target.viewId, edge: target.edge });
+  }
+  const task = client.tasks.get(source.taskId);
+  if (task === undefined || task.completed || !isTaskInView(task, source.viewId)) return undefined;
+  if (target.kind === "lane") return undefined;
+  if (target.edge === "nest") return yield* nestTask(client, source.taskId, target, source.viewId);
+  return yield* source.viewId === target.viewId
+    ? moveTaskInLane(client, source.taskId, target, source.viewId)
+    : moveTaskToLane(client, source.taskId, target, source.viewId);
+});

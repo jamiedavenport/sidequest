@@ -61,3 +61,75 @@ describe("syncBoard", () => {
     expect(next.cursor).toEqual({ laneId: "lane", taskId: "root" });
   });
 });
+
+describe("board dragging", () => {
+  function draggingActor() {
+    const actor = createActor(boardMachine).start();
+    actor.send({
+      type: "board.sync",
+      lanes: [{ ...lane([]), id: "today" }, lane([boardTask("first"), boardTask("second")])],
+    });
+    actor.send({ type: "drag.start", source: { kind: "task", taskId: "first", viewId: "lane" } });
+    return actor;
+  }
+
+  it("suppresses navigation and editing while processing board synchronization", () => {
+    const actor = draggingActor();
+    actor.send({ type: "navigate", direction: "down" });
+    actor.send({ type: "task.select", taskId: "second", laneId: "lane" });
+    actor.send({ type: "add.start", laneId: "lane" });
+    actor.send({ type: "edit.start", taskId: "second", laneId: "lane" });
+    actor.send({ type: "details.open", taskId: "second", laneId: "lane", tab: "notes" });
+    actor.send({ type: "board.sync", lanes: [lane([boardTask("first"), boardTask("new")])] });
+    expect(actor.getSnapshot().value).toBe("dragging");
+    expect(actor.getSnapshot().context.cursor.taskId).toBe("first");
+    expect(actor.getSnapshot().context.lanes[0]?.tasks[1]?.id).toBe("new");
+    actor.stop();
+  });
+
+  it("finishes in the destination view and clears the drag", () => {
+    const actor = draggingActor();
+    actor.send({ type: "drag.finish", viewId: "today" });
+    expect(actor.getSnapshot().value).toBe("navigating");
+    expect(actor.getSnapshot().context.cursor).toEqual({ laneId: "today", taskId: "first" });
+    expect(actor.getSnapshot().context.drag).toBeUndefined();
+    actor.stop();
+  });
+
+  it("cancels without moving selection", () => {
+    const actor = draggingActor();
+    actor.send({ type: "drag.cancel" });
+    expect(actor.getSnapshot().value).toBe("navigating");
+    expect(actor.getSnapshot().context.cursor.taskId).toBe("first");
+    expect(actor.getSnapshot().context.drag).toBeUndefined();
+    actor.stop();
+  });
+
+  it("cancels if synchronization removes the dragged entity", () => {
+    const actor = draggingActor();
+    actor.send({ type: "board.sync", lanes: [lane([boardTask("second")])] });
+    expect(actor.getSnapshot().value).toBe("navigating");
+    expect(actor.getSnapshot().context.drag).toBeUndefined();
+    expect(actor.getSnapshot().context.cursor.taskId).toBe("second");
+    actor.stop();
+  });
+
+  it.each(["editing", "adding", "details"] as const)("cannot start from %s", (mode) => {
+    const actor = createActor(boardMachine).start();
+    actor.send({ type: "board.sync", lanes: [lane([boardTask("first")])] });
+    if (mode === "editing") actor.send({ type: "edit.start", taskId: "first", laneId: "lane" });
+    if (mode === "adding") actor.send({ type: "add.start", laneId: "lane" });
+    if (mode === "details")
+      actor.send({ type: "details.open", taskId: "first", laneId: "lane", tab: "notes" });
+    actor.send({ type: "drag.start", source: { kind: "task", taskId: "first", viewId: "lane" } });
+    expect(actor.getSnapshot().value).toBe(mode);
+    actor.stop();
+  });
+
+  it("keeps system lanes fixed", () => {
+    const actor = createActor(boardMachine).start();
+    actor.send({ type: "drag.start", source: { kind: "lane", viewId: "today" } });
+    expect(actor.getSnapshot().value).toBe("navigating");
+    actor.stop();
+  });
+});

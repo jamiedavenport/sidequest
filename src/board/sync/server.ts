@@ -70,7 +70,8 @@ function replaceTask(draft: Partial<Task>, next: Task) {
   const preservedAttachments = draft.attachments;
   for (const key of optionalTaskKeys) {
     if (next[key] === undefined) {
-      delete draft[key];
+      // TanStack DB tracks assignments; deleting a key does not clear persisted placement.
+      Object.assign(draft, { [key]: undefined });
     }
   }
 
