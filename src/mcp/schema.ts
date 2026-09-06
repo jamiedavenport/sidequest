@@ -112,10 +112,6 @@ export const toolNames = [
 
 export const isToolName = Schema.is(Schema.Literals(toolNames));
 
-export function mcpEnabled(value: string | undefined): boolean {
-  return value === "true";
-}
-
 export const ToolOutput = Schema.Union([
   ToolResult,
   Schema.Struct({ error: Schema.Struct({ code: ToolError.fields.code, message: Schema.String }) }),

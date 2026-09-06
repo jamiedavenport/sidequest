@@ -3,7 +3,7 @@ import { createAuthEndpoint } from "better-auth/api";
 
 const mcpScopes = ["sidequest:read", "sidequest:write", "offline_access"];
 
-export function oauthOptions(baseURL: string, enabled = true): OAuthOptions<string[]> {
+export function oauthOptions(baseURL: string): OAuthOptions<string[]> {
   return {
     loginPage: "/login",
     consentPage: "/consent",
@@ -14,10 +14,10 @@ export function oauthOptions(baseURL: string, enabled = true): OAuthOptions<stri
     allowUnauthenticatedClientRegistration: true,
     clientRegistrationRequirePKCE: true,
     allowPublicClientPrelogin: true,
-    clientRegistrationDefaultResources: enabled ? [new URL("/mcp", baseURL).href] : [],
-    resources: enabled
-      ? [{ identifier: new URL("/mcp", baseURL).href, name: "Sidequest", allowedScopes: mcpScopes }]
-      : [],
+    clientRegistrationDefaultResources: [new URL("/mcp", baseURL).href],
+    resources: [
+      { identifier: new URL("/mcp", baseURL).href, name: "Sidequest", allowedScopes: mcpScopes },
+    ],
     accessTokenExpiresIn: 3600,
     refreshTokenExpiresIn: 2592000,
   };

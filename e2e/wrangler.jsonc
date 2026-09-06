@@ -27,7 +27,6 @@
     },
   ],
   "vars": {
-    "MCP_ENABLED": "true",
     "MCP_ALLOWED_ORIGINS": "",
     "BETTER_AUTH_URL": "http://127.0.0.1:4173",
     "BETTER_AUTH_SECRET": "sidequest-e2e-better-auth-secret-only",

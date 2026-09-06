@@ -3,7 +3,7 @@ import { Predicate } from "effect";
 import { auth } from "~/auth/server";
 import { env as appEnv } from "~/env";
 import { serveMcp } from "~/mcp/protocol";
-import { isWriteTool, isToolName, mcpEnabled, type ToolName, type ToolReply } from "~/mcp/schema";
+import { isWriteTool, isToolName, type ToolName, type ToolReply } from "~/mcp/schema";
 
 function challenge(resource: string, status: 401 | 403, write = false) {
   const metadata = new URL("/.well-known/oauth-protected-resource/mcp", resource).href;
@@ -20,7 +20,6 @@ function challenge(resource: string, status: 401 | 403, write = false) {
 }
 
 type McpBindings = {
-  MCP_ENABLED: string;
   MCP_ALLOWED_ORIGINS: string;
   BOARD: {
     getByName(name: string): {
@@ -42,7 +41,6 @@ export async function handleMcpRoutes(
     path === "/.well-known/oauth-authorization-server";
   const oauth = path.startsWith("/api/auth/oauth2/") || path.startsWith("/api/auth/admin/oauth2/");
   if (path !== "/mcp" && !discovery && !authorizationMetadata && !oauth) return undefined;
-  if (!mcpEnabled(env.MCP_ENABLED)) return new Response("Not found", { status: 404 });
   const resource = new URL("/mcp", appEnv.BETTER_AUTH_URL).href;
   const origin = request.headers.get("origin");
   const allowed = new Set([

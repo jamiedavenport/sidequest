@@ -92,14 +92,13 @@ editing, and local stdio are outside this release.
 
 ## Deployment and recovery
 
-1. Deploy the additive D1 migrations **before** enabling MCP:
-   `bun run db:migrate:remote`.
-2. Deploy the Worker with the endpoint disabled (the checked-in `MCP_ENABLED` is
-   `"false"`). Configure any browser origins.
-3. Set `MCP_ENABLED` to `"true"` and deploy. Verify discovery and a complete OAuth
-   connection before announcing availability.
-4. Roll back by setting `MCP_ENABLED` to `"false"` and redeploying. Keep the OAuth
-   tables and board data; disabling the endpoint does not delete connections.
+MCP and its OAuth endpoints are always available; no feature flag is required.
+
+1. Apply the additive D1 migrations before deploying: `bun run db:migrate:remote`.
+2. Configure any browser origins and deploy with `bun run deploy`.
+3. Verify discovery and a complete OAuth connection before announcing availability.
+
+If a deployment needs to be rolled back, retain the OAuth tables and board data.
 
 MCP and browser commits, reads, and enrichment persistence share a per-board
 serialization queue. Each MCP command durably records its fixed IDs, prepared

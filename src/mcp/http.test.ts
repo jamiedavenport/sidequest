@@ -15,7 +15,6 @@ vi.mock("~/env", () => ({ env: { BETTER_AUTH_URL: new URL("https://sdqst.app") }
 import { handleMcpRoutes } from "~/mcp/http";
 
 const env = {
-  MCP_ENABLED: "true",
   MCP_ALLOWED_ORIGINS: "https://client.example",
   BOARD: { getByName: mock.getByName },
 };
@@ -91,12 +90,11 @@ it("returns OAuth challenges for invalid tokens and missing scopes", async () =>
   expect(mock.call).not.toHaveBeenCalled();
 });
 
-it("gates disabled routes and separates browser CORS from login origins", async () => {
-  expect((await handleMcpRoutes(request(), { ...env, MCP_ENABLED: "false" }))?.status).toBe(404);
-  expect(mock.validate).not.toHaveBeenCalled();
+it("separates browser CORS from login origins", async () => {
   expect(
     (await handleMcpRoutes(request({ Origin: "https://attacker.example" }), env))?.status,
   ).toBe(403);
+  expect(mock.validate).not.toHaveBeenCalled();
   const response = await handleMcpRoutes(request({ Origin: "https://client.example" }), env);
   expect(response?.headers.get("Access-Control-Allow-Origin")).toBe("https://client.example");
   expect(response?.headers.has("Access-Control-Allow-Credentials")).toBe(false);
