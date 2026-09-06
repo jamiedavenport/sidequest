@@ -40,6 +40,7 @@ import { Separator } from "~/components/ui/separator.tsrx";
 import { Toggle } from "~/components/ui/toggle.tsrx";
 
 const unsupportedShapeTypes = new Set(["bookmark", "embed", "image", "video"]);
+
 const blockedActionIds = new Set([
   "convert-to-bookmark",
   "convert-to-embed",
@@ -51,6 +52,7 @@ const blockedActionIds = new Set([
   "open-embed-link",
   "video-replace",
 ]);
+
 const blockedToolIds = new Set(["asset", "embed"]);
 
 type WhiteboardTool =

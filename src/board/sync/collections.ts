@@ -15,10 +15,15 @@ import {
 } from "~/board/schema";
 
 const boardSchemaVersion = 1;
+
 export const laneCollectionId = "lanes";
+
 export const taskCollectionId = "tasks";
+
 export const noteCollectionId = "notes";
+
 export const whiteboardCollectionId = "whiteboards";
+
 export const boardCollectionIds = [
   laneCollectionId,
   taskCollectionId,

@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect";
 
 export const currentBoardDataVersion = 2;
+
 const initialBoardDataVersion = 1;
 
 export class BoardMigrationError extends Schema.TaggedError<BoardMigrationError>()(

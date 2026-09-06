@@ -10,6 +10,7 @@ import type {
 import type { HorizontalDirection, VerticalDirection } from "~/board/types";
 
 export const inboxLaneId = "inbox";
+
 export const todayLaneId = "today";
 
 export const systemLanes: ReadonlyArray<Lane> = [
@@ -87,6 +88,7 @@ function persistedLanes(lanes: ReadonlyArray<Lane>): Lane[] {
 }
 
 export type LaneDestination = { laneId: string; edge: "before" | "after" };
+
 export type TaskDestination =
   | { viewId: string; edge: "append" }
   | { viewId: string; taskId: string; edge: "before" | "after" | "nest" };
@@ -257,7 +259,7 @@ export function placementForCreate(viewId: string, date?: string, now = new Date
   };
 }
 
-export function placementForMove(
+function placementForMove(
   viewId: string,
   current: Pick<Task, "date">,
   now = new Date(),
@@ -474,11 +476,6 @@ function descendantTaskIds(
 
   return descendants;
 }
-
-export type TaskRankUpdate = {
-  taskId: string;
-  rank: number;
-};
 
 export function taskSubtree(tasks: ReadonlyArray<Task>, rootId: string): Task[] {
   const ids = new Set([rootId, ...descendantTaskIds(tasks, rootId)]);
@@ -699,31 +696,6 @@ function repairSubtreePlacements(tasks: {
   }
 
   return changed;
-}
-
-export function applySubtreeMove(
-  tasks: TaskWriteStore,
-  rootId: string,
-  placement: TaskPlacement,
-  startRank: number,
-): void {
-  const descendants = descendantTaskIds(tasks.toArray, rootId)
-    .map((id) => tasks.get(id))
-    .filter((task): task is Task => task !== undefined)
-    .toSorted((left, right) => left.rank - right.rank);
-
-  tasks.update(rootId, (draft) => {
-    applyPlacement(draft, placement);
-    draft.rank = startRank;
-    clearOptional(draft, "parentId");
-  });
-
-  for (const [index, child] of descendants.entries()) {
-    tasks.update(child.id, (draft) => {
-      applyPlacement(draft, placement);
-      draft.rank = startRank + 1 + index;
-    });
-  }
 }
 
 export function applySubtreeNest(

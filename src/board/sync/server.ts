@@ -40,6 +40,7 @@ const optionalTaskKeys = [
   "date",
   "attachments",
 ] as const satisfies ReadonlyArray<keyof Task>;
+
 const boardDataVersionKey = "board:data-version";
 
 type PreparedMutation =

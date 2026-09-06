@@ -7,7 +7,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { useBoardClient } from "~/board/sync/client";
 import { isCaretOnFirstLine } from "~/board/caret";
 import { formatTaskDate } from "~/board/date";
-import { BoardActor } from "~/board/navigation/machine";
+import { useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
+import { BoardEvent, currentLaneId } from "~/board/navigation/model";
 import { addTask } from "~/board/data/mutations";
 import { taskFormSchema } from "~/board/schema";
 import { dateHotkey, saveHotkey, ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
@@ -24,10 +25,10 @@ import type { BoardLane } from "~/board/types";
 import { cn } from "@/lib/utils";
 
 export function QuickAdd({ className, lane }: { className?: string; lane: BoardLane }) @{
-  const actorRef = BoardActor.useActorRef();
+  const store = useBoardStore();
   const client = useBoardClient();
-  const adding = BoardActor.useSelector(
-    (snapshot) => snapshot.value === "adding" && snapshot.context.cursor.laneId === lane.id,
+  const adding = useBoardSelector(
+    (snapshot) => snapshot.interaction._tag === "Adding" && currentLaneId(snapshot) === lane.id,
   );
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -49,7 +50,7 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
         title: value.title,
         date: value.date === undefined ? undefined : formatTaskDate(value.date),
       });
-      actorRef.send({ type: "task.created", taskId: id, laneId: lane.id });
+      store.send(BoardEvent.TaskCreated({ target: { viewId: lane.id, taskId: id } }));
       form.reset();
     },
   });
@@ -64,11 +65,11 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
   }, [adding]);
 
   function focusAdd() {
-    actorRef.send({ type: "add.start", laneId: lane.id });
+    store.send(BoardEvent.AddStart({ viewId: lane.id }));
   }
 
   function cancelAdd() {
-    actorRef.send({ type: "add.cancel" });
+    store.send(BoardEvent.AddCancel({}));
     form.reset();
     setCalendarOpen(false);
     titleRef.current?.blur();
@@ -98,7 +99,7 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
               }
 
               event.preventDefault();
-              actorRef.send({ type: "navigate", direction: "up" });
+              store.send(BoardEvent.Navigate({ direction: "up" }));
             },
             options: {
               enabled: !calendarOpen,

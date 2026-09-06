@@ -27,5 +27,7 @@
 
 ## Validation
 
+- Separate top-level declarations with a blank line. Keep a schema value next to its matching type alias, and keep function overloads together.
+- The format and lint scripts enforce declaration spacing with `scripts/declaration-spacing.ts`, using the installed TSRX parser on authored source. Their `:fix` variants insert missing blank lines; Oxfmt handles the remaining formatting.
 - Prefer the smallest relevant check while iterating, then run all appropriate checks: `bun run format`, `bun run lint`, `bun run typecheck`, `bun run test`, and `bun run build`.
 - Run `bun run format:fix` or `bun run lint:fix` only when intending to modify files.

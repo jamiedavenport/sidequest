@@ -1,11 +1,13 @@
 // oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
+import { Option } from "effect";
 import { ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import type { EditorSaveStatus } from "~/board/components/editor-save-status";
 import { NoteEditor } from "~/board/components/note-editor.tsrx";
-import { BoardActor } from "~/board/navigation/machine";
-import type { BoardTask } from "~/board/types";
+import { useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
+import { BoardEvent } from "~/board/navigation/model";
+import type { Task, DetailTab } from "~/board/types";
 import {
   Sheet,
   SheetContent,
@@ -22,7 +24,8 @@ const LazyWhiteboardEditor = lazy(async () => {
 
 type OpenDetailTask = {
   laneId: string;
-  task: BoardTask;
+  task: Task;
+  tab: DetailTab;
 };
 
 function SaveStatusLabel({ status }: { status: EditorSaveStatus }) @{
@@ -53,24 +56,28 @@ function WhiteboardLoading() @{
 }
 
 export function DetailSheet() @{
-  const actorRef = BoardActor.useActorRef();
-  const mode = BoardActor.useSelector((snapshot) => snapshot.value);
-  const context = BoardActor.useSelector((snapshot) => snapshot.context);
+  const store = useBoardStore();
+  const mode = useBoardSelector((snapshot) => snapshot.interaction._tag);
+  const context = useBoardSelector((snapshot) => snapshot);
   const [noteSaveStatus, setNoteSaveStatus] = useState<EditorSaveStatus>("idle");
   const [whiteboardSaveStatus, setWhiteboardSaveStatus] = useState<EditorSaveStatus>("idle");
   const lastTaskRef = useRef<OpenDetailTask | undefined>(undefined);
-  const lane = context.lanes.find((candidate) => candidate.id === context.cursor.laneId);
-  const task = lane?.tasks.find((candidate) => candidate.id === context.cursor.taskId);
+  const details = context.interaction._tag === "Details" ? context.interaction : undefined;
+  const node =
+    details === undefined
+      ? undefined
+      : Option.getOrUndefined(context.graph.visibleTask(details.target));
   const currentOpenTask = useMemo<OpenDetailTask | undefined>(
     () =>
-      mode === "details" && task !== undefined && lane !== undefined
-        ? { laneId: lane.id, task }
+      details !== undefined && node !== undefined
+        ? { laneId: node.target.viewId, task: node.task, tab: details.tab }
         : undefined,
-    [lane, mode, task],
+    [details, node],
   );
   const openTask = currentOpenTask ?? lastTaskRef.current;
-  const open = mode === "details" && openTask !== undefined;
-  const activeStatus = context.detailTab === "notes" ? noteSaveStatus : whiteboardSaveStatus;
+  const open = mode === "Details" && openTask !== undefined;
+  const detailTab = details?.tab ?? openTask?.tab ?? "notes";
+  const activeStatus = detailTab === "notes" ? noteSaveStatus : whiteboardSaveStatus;
 
   useEffect(() => {
     if (currentOpenTask !== undefined) {
@@ -87,7 +94,7 @@ export function DetailSheet() @{
     open={open}
     onOpenChange={(nextOpen) => {
       if (!nextOpen) {
-        actorRef.send({ type: "details.close" });
+        store.send(BoardEvent.DetailsClose({}));
       }
     }}
   >
@@ -98,7 +105,7 @@ export function DetailSheet() @{
         overlayClassName="bg-black/10 backdrop-blur-none"
         initialFocus={() =>
           document.querySelector<HTMLElement>(
-            context.detailTab === "notes"
+            detailTab === "notes"
               ? "[data-note-editor]"
               : '[data-detail-tab="whiteboard"], [data-whiteboard-editor]',
           )
@@ -117,10 +124,10 @@ export function DetailSheet() @{
         </SheetHeader>
         <Tabs
           className="min-h-0 flex-1 flex-col gap-0 overflow-hidden"
-          value={context.detailTab}
+          value={detailTab}
           onValueChange={(value) => {
             if (value === "notes" || value === "whiteboard") {
-              actorRef.send({ type: "details.tab.select", tab: value });
+              store.send(BoardEvent.DetailsTabSelect({ tab: value }));
             }
           }}
         >
@@ -133,7 +140,7 @@ export function DetailSheet() @{
             </TabsList>
             <div className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
               <SaveStatusLabel status={activeStatus} />
-              @if (context.detailTab === "notes") {
+              @if (detailTab === "notes") {
                 <>
                   <span aria-hidden="true">·</span>
                   <span>Markdown Supported</span>
@@ -141,7 +148,7 @@ export function DetailSheet() @{
               }
             </div>
           </div>
-          @if (open && context.detailTab === "notes") {
+          @if (open && detailTab === "notes") {
             <TabsContent
               className="flex min-h-0 flex-1 basis-0 flex-col overflow-hidden"
               value="notes"
@@ -153,7 +160,7 @@ export function DetailSheet() @{
               />
             </TabsContent>;
           }
-          @if (open && context.detailTab === "whiteboard") {
+          @if (open && detailTab === "whiteboard") {
             <TabsContent
               className="flex min-h-0 flex-1 basis-0 flex-col overflow-hidden"
               value="whiteboard"

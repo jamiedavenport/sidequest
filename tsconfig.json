@@ -1,5 +1,12 @@
 {
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.tsrx", "*.ts", "*.d.ts"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.tsrx",
+    "*.ts",
+    "*.d.ts",
+    "scripts/declaration-spacing*.ts"
+  ],
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "esModuleInterop": true,

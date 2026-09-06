@@ -11,6 +11,7 @@ import { verification } from "~/db/schema";
 import { env } from "~/env";
 
 const EMAIL_CODE_EXPIRY_MINUTES = 5;
+
 const EMAIL_SENDER = "Sidequest <login@sdqst.app>";
 
 const resend = new Resend(env.RESEND_API_KEY);

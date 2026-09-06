@@ -4,6 +4,7 @@ import { pauseAt } from "./support/pause";
 import { createSession, deleteUser } from "./support/session";
 
 const SYNC_TIMEOUT = 15_000;
+
 const ADD_TASK_SHORTCUT = process.platform === "darwin" ? "Meta+Enter" : "Control+Enter";
 
 function requirePage(page: Page | undefined, device: "A" | "B"): Page {

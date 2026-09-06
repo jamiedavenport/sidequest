@@ -3,6 +3,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
 import { createSession, deleteUser } from "./support/session";
 
 const HANDOFF_TIMEOUT = 15_000;
+
 const ADD_TASK_SHORTCUT = process.platform === "darwin" ? "Meta+Enter" : "Control+Enter";
 
 type SessionCookies = Parameters<BrowserContext["addCookies"]>[0];

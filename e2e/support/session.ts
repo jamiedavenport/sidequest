@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext, type BrowserContext } from "@playwright/test";
 
 const E2E_SESSION_SECRET = "sidequest-e2e-session-helper-secret";
+
 const E2E_SECRET_HEADER = "x-sidequest-e2e-secret";
 
 type E2ESession = {

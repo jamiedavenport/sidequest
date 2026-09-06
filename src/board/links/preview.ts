@@ -6,6 +6,7 @@ import { isPublicHttpUrl } from "~/board/links/extract";
 import type { Attachment } from "~/board/schema";
 
 const previewTimeout = "3 seconds";
+
 const previewUserAgent = "Sidequest/0.0 (link preview)";
 
 export function fallbackAttachment(url: URL): Attachment {

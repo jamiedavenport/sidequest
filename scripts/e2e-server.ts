@@ -2,7 +2,9 @@ import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const projectRoot = process.cwd();
+
 const expectedPersistencePath = resolve(projectRoot, ".playwright/e2e-state");
+
 const persistencePath = resolve(process.env.E2E_PERSISTENCE_PATH ?? expectedPersistencePath);
 
 if (persistencePath !== expectedPersistencePath) {
@@ -33,6 +35,7 @@ const migration = Bun.spawn(
 );
 
 const migrationExitCode = await migration.exited;
+
 if (migrationExitCode !== 0) {
   await rm(persistencePath, { force: true, recursive: true });
   throw new Error(`E2E migrations failed with exit code ${migrationExitCode}`);
@@ -52,6 +55,7 @@ const server = Bun.spawn(
 );
 
 let stopping = false;
+
 let cleanupPromise: Promise<void> | undefined;
 
 function cleanup(): Promise<void> {
@@ -77,5 +81,6 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 }
 
 const serverExitCode = await server.exited;
+
 await cleanup();
 process.exitCode = serverExitCode;

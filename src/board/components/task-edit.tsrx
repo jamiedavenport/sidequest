@@ -7,7 +7,8 @@ import type { RefObject } from "react";
 
 import { formatTaskDate, parseTaskDate } from "~/board/date";
 import { updateTask } from "~/board/data/mutations";
-import { BoardActor } from "~/board/navigation/machine";
+import { useBoardStore } from "~/board/navigation/provider.tsrx";
+import { BoardEvent } from "~/board/navigation/model";
 import { taskFormSchema } from "~/board/schema";
 import { dateHotkey, saveHotkey, ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
 import { useBoardClient } from "~/board/sync/client";
@@ -98,7 +99,7 @@ function TaskDatePicker({
 }
 
 export function TaskEdit({ laneId, task }: { laneId: string; task: Task }) @{
-  const actorRef = BoardActor.useActorRef();
+  const store = useBoardStore();
   const client = useBoardClient();
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -116,7 +117,7 @@ export function TaskEdit({ laneId, task }: { laneId: string; task: Task }) @{
         title: value.title,
         date: value.date === undefined ? undefined : formatTaskDate(value.date),
       });
-      actorRef.send({ type: "edit.save" });
+      store.send(BoardEvent.EditSave({}));
       focusTask(laneId, task.id);
     },
   });
@@ -133,7 +134,7 @@ export function TaskEdit({ laneId, task }: { laneId: string; task: Task }) @{
   }, []);
 
   function cancel() {
-    actorRef.send({ type: "edit.cancel" });
+    store.send(BoardEvent.EditCancel({}));
     focusTask(laneId, task.id);
   }
 

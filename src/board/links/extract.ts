@@ -1,6 +1,7 @@
 import { Effect, Option, Schema } from "effect";
 
 const httpUrlPattern = /https?:\/\/[^\s<>"'`]+/gi;
+
 const trailingPunctuation = /[.,);!?'"`]+$/;
 
 const PublicHttpUrlFromString = Schema.URLFromString.check(

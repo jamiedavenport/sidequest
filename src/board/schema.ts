@@ -138,6 +138,7 @@ export const Whiteboard = Schema.Struct({
   document: Schema.JsonObject,
 });
 export type Whiteboard = typeof Whiteboard.Type;
+
 export type WhiteboardDocument = Schema.JsonObject;
 
 export const emptyNoteDocument = (): NoteDocument => ({
@@ -163,8 +164,11 @@ export type BoardLane = Lane & {
 };
 
 export const laneSchema: StandardSchemaV1<Lane, Lane> = Schema.toStandardSchemaV1(Lane);
+
 export const taskSchema = Schema.toStandardSchemaV1(Task);
+
 export const noteSchema: StandardSchemaV1<Note, Note> = Schema.toStandardSchemaV1(Note);
+
 export const whiteboardSchema: StandardSchemaV1<Whiteboard, Whiteboard> =
   Schema.toStandardSchemaV1(Whiteboard);
 

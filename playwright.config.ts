@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 import { resolve } from "node:path";
 
 const baseURL = "http://127.0.0.1:4173";
+
 const persistencePath = resolve(".playwright/e2e-state");
 
 export default defineConfig({

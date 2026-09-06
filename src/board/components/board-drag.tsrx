@@ -13,7 +13,7 @@ import {
   useDroppable,
   type UseDroppableInput,
 } from "@dnd-kit/react";
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import {
   createContext,
   useCallback,
@@ -33,11 +33,13 @@ import {
   type BoardDropTarget,
   type RunBoardMove,
 } from "../data/mutations";
-import { BoardActor } from "../navigation/machine";
+import { useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
+import { DragSource as NavigationDragSource, BoardEvent } from "~/board/navigation/model";
 import { useBoardClient } from "../sync/client";
 import { isSystemLane, planTaskDestination, taskSubtree } from "../views";
 
 type DragContext = { target: BoardDropTarget | null; runMove: RunBoardMove; enabled: boolean };
+
 const BoardDragContext = createContext<DragContext | null>(null);
 
 export function useBoardDrag() {
@@ -69,6 +71,7 @@ const plugins: Parameters<typeof DragDropProvider>[0]["plugins"] = (defaults) =>
 export function taskDragId(viewId: string, taskId: string) {
   return JSON.stringify([viewId, taskId]);
 }
+
 export function laneDragId(viewId: string) {
   return JSON.stringify([viewId]);
 }
@@ -96,8 +99,8 @@ export function useTaskDrag(
   element: RefObject<HTMLLIElement | null>,
 ) {
   const { enabled, target } = useBoardDrag();
-  const lane = BoardActor.useSelector((snapshot) =>
-    snapshot.context.lanes.find((item) => item.id === viewId),
+  const lane = useBoardSelector(
+    (snapshot) => Option.getOrUndefined(snapshot.graph.lane(viewId))?.lane,
   );
   const id = taskDragId(viewId, taskId);
   const data = useMemo(() => ({ kind: "task", taskId, viewId }), [taskId, viewId]);
@@ -126,8 +129,8 @@ export function useLaneDrag(
 
 export function BoardDragProvider({ children }: { children: ReactNode }) @{
   const client = useBoardClient();
-  const actorRef = BoardActor.useActorRef();
-  const mode = BoardActor.useSelector((snapshot) => snapshot.value);
+  const store = useBoardStore();
+  const mode = useBoardSelector((snapshot) => snapshot.interaction._tag);
   const { editingLaneId, removingLaneId } = useLaneChrome();
   const [target, setTarget] = useState<BoardDropTarget | null>(null);
   const [label, setLabel] = useState("");
@@ -135,7 +138,7 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
   const managerRef = useRef<DragDropManager | null>(null);
   const suppressClick = useRef(false);
   const enabled =
-    (mode === "navigating" || mode === "dragging") &&
+    (mode === "Navigating" || mode === "Dragging") &&
     editingLaneId === null &&
     removingLaneId === null;
 
@@ -162,7 +165,7 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
   useEffect(() => {
     function onClick(event: MouseEvent) {
       if (
-        actorRef.getSnapshot().matches("dragging") ||
+        store.getSnapshot().interaction._tag === "Dragging" ||
         (suppressClick.current && event.detail > 0)
       ) {
         event.preventDefault();
@@ -179,11 +182,11 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("pointerdown", onPointerDown, true);
     };
-  }, [actorRef]);
+  }, [store]);
 
   useEffect(() => {
     const manager = managerRef.current;
-    if (mode !== "dragging" && manager?.dragOperation.status.dragging)
+    if (mode !== "Dragging" && manager?.dragOperation.status.dragging)
       manager.actions.stop({ canceled: true });
   }, [mode]);
 
@@ -256,7 +259,9 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
   function finish(viewId?: string) {
     setTarget(null);
     suppressClick.current = true;
-    actorRef.send(viewId === undefined ? { type: "drag.cancel" } : { type: "drag.finish", viewId });
+    store.send(
+      viewId === undefined ? BoardEvent.DragCancel({}) : BoardEvent.DragFinish({ viewId }),
+    );
     document.querySelector<HTMLElement>("[data-board-focus]")?.focus({ preventScroll: true });
   }
 
@@ -270,14 +275,23 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
         const source = event.operation.source?.data;
         if (
           !enabled ||
-          !actorRef.getSnapshot().matches("navigating") ||
+          !(store.getSnapshot().interaction._tag === "Navigating") ||
           !Schema.is(DragSource)(source)
         ) {
           event.preventDefault();
           return;
         }
-        actorRef.send({ type: "drag.start", source });
-        if (!actorRef.getSnapshot().matches("dragging")) event.preventDefault();
+        store.send(
+          BoardEvent.DragStart({
+            source:
+              source.kind === "task"
+                ? NavigationDragSource.Task({
+                    target: { viewId: source.viewId, taskId: source.taskId },
+                  })
+                : NavigationDragSource.Lane({ viewId: source.viewId }),
+          }),
+        );
+        if (!(store.getSnapshot().interaction._tag === "Dragging")) event.preventDefault();
       }}
       onDragStart={({ operation }, manager) => {
         managerRef.current = manager;
@@ -301,7 +315,7 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
             ? { x: nativeEvent.clientX, y: nativeEvent.clientY }
             : operation.position.current;
         const next = canceled ? null : resolveTarget(operation, coordinates);
-        if (!actorRef.getSnapshot().matches("dragging") || next === null) {
+        if (!(store.getSnapshot().interaction._tag === "Dragging") || next === null) {
           finish();
           return;
         }

@@ -3,9 +3,14 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { Effect } from "effect";
 import { useEffect, useRef } from "react";
 
-import { currentLaneId } from "~/board/navigation/commands";
 import { SyncClientProvider, useBoardClient } from "~/board/sync/client";
-import { BoardActor } from "~/board/navigation/machine";
+import { BoardProvider, useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
+import {
+  BoardEvent,
+  currentLaneId,
+  selectedTarget,
+  selectedTaskId,
+} from "~/board/navigation/model";
 import {
   addLane,
   completeTask,
@@ -35,76 +40,71 @@ import {
 import type { BoardLane } from "~/board/types";
 
 function useBoardHotkeys() {
-  const actorRef = BoardActor.useActorRef();
+  const store = useBoardStore();
   const client = useBoardClient();
   const { editingLaneId, removingLaneId, startRename, startRemove } = useLaneChrome();
-  const mode = BoardActor.useSelector((snapshot) => snapshot.value);
-  const selectedTaskId = BoardActor.useSelector((snapshot) => snapshot.context.cursor.taskId);
+  const mode = useBoardSelector((snapshot) => snapshot.interaction._tag);
+  const taskIdSelected = useBoardSelector(selectedTaskId);
   const { runMove } = useBoardDrag();
-  const navigating = mode === "navigating";
+  const navigating = mode === "Navigating";
   const laneCommandsEnabled = navigating && editingLaneId === null && removingLaneId === null;
-  const taskEditEnabled = laneCommandsEnabled && selectedTaskId !== null;
+  const taskEditEnabled = laneCommandsEnabled && taskIdSelected !== null;
 
   useHotkey(
     "ArrowUp",
     () => {
-      actorRef.send({ type: "navigate", direction: "up" });
+      store.send(BoardEvent.Navigate({ direction: "up" }));
     },
     { enabled: navigating, meta: { name: "Navigate up" } },
   );
   useHotkey(
     "ArrowDown",
     () => {
-      actorRef.send({ type: "navigate", direction: "down" });
+      store.send(BoardEvent.Navigate({ direction: "down" }));
     },
     { enabled: navigating, meta: { name: "Navigate down" } },
   );
   useHotkey(
     "ArrowLeft",
     () => {
-      actorRef.send({ type: "navigate", direction: "left" });
+      store.send(BoardEvent.Navigate({ direction: "left" }));
     },
     { enabled: navigating, meta: { name: "Navigate left" } },
   );
   useHotkey(
     "ArrowRight",
     () => {
-      actorRef.send({ type: "navigate", direction: "right" });
+      store.send(BoardEvent.Navigate({ direction: "right" }));
     },
     { enabled: navigating, meta: { name: "Navigate right" } },
   );
   useHotkey(
     "I",
     () => {
-      actorRef.send({ type: "lane.select", laneId: inboxLaneId });
+      store.send(BoardEvent.LaneSelect({ viewId: inboxLaneId }));
     },
     { enabled: navigating, ignoreInputs: true, meta: { name: "Go to Inbox" } },
   );
   useHotkey(
     "T",
     () => {
-      actorRef.send({ type: "lane.select", laneId: todayLaneId });
+      store.send(BoardEvent.LaneSelect({ viewId: todayLaneId }));
     },
     { enabled: navigating, ignoreInputs: true, meta: { name: "Go to Today" } },
   );
   useHotkey(
     "C",
     () => {
-      actorRef.send({ type: "add.start", laneId: currentLaneId(actorRef.getSnapshot().context) });
+      store.send(BoardEvent.AddStart({ viewId: currentLaneId(store.getSnapshot()) }));
     },
     { enabled: navigating, ignoreInputs: true, meta: { name: "Create" } },
   );
   useHotkey(
     notesHotkey,
     () => {
-      const { cursor } = actorRef.getSnapshot().context;
-      if (cursor.taskId !== null) {
-        actorRef.send({
-          type: "details.open",
-          taskId: cursor.taskId,
-          laneId: cursor.laneId,
-          tab: "notes",
-        });
+      const target = selectedTarget(store.getSnapshot());
+      if (target !== undefined) {
+        store.send(BoardEvent.DetailsOpen({ target, tab: "notes" }));
       }
     },
     { enabled: taskEditEnabled, ignoreInputs: true, meta: { name: "Open notes" } },
@@ -112,14 +112,9 @@ function useBoardHotkeys() {
   useHotkey(
     whiteboardHotkey,
     () => {
-      const { cursor } = actorRef.getSnapshot().context;
-      if (cursor.taskId !== null) {
-        actorRef.send({
-          type: "details.open",
-          taskId: cursor.taskId,
-          laneId: cursor.laneId,
-          tab: "whiteboard",
-        });
+      const target = selectedTarget(store.getSnapshot());
+      if (target !== undefined) {
+        store.send(BoardEvent.DetailsOpen({ target, tab: "whiteboard" }));
       }
     },
     { enabled: taskEditEnabled, ignoreInputs: true, meta: { name: "Open whiteboard" } },
@@ -127,9 +122,9 @@ function useBoardHotkeys() {
   useHotkey(
     editHotkey,
     () => {
-      const { cursor } = actorRef.getSnapshot().context;
-      if (cursor.taskId !== null) {
-        actorRef.send({ type: "edit.start", taskId: cursor.taskId, laneId: cursor.laneId });
+      const target = selectedTarget(store.getSnapshot());
+      if (target !== undefined) {
+        store.send(BoardEvent.EditStart({ target }));
       }
     },
     { enabled: taskEditEnabled, ignoreInputs: true, meta: { name: "Edit task" } },
@@ -137,9 +132,9 @@ function useBoardHotkeys() {
   useHotkey(
     "Mod+Shift+ArrowUp",
     () => {
-      const { cursor } = actorRef.getSnapshot().context;
-      if (cursor.taskId !== null) {
-        runMove(moveTaskInLane(client, cursor.taskId, "up", cursor.laneId));
+      const target = selectedTarget(store.getSnapshot());
+      if (target !== undefined) {
+        runMove(moveTaskInLane(client, target.taskId, "up", target.viewId));
       }
     },
     { enabled: navigating, ignoreInputs: true, meta: { name: "Move up" } },
@@ -147,9 +142,9 @@ function useBoardHotkeys() {
   useHotkey(
     "Mod+Shift+ArrowDown",
     () => {
-      const { cursor } = actorRef.getSnapshot().context;
-      if (cursor.taskId !== null) {
-        runMove(moveTaskInLane(client, cursor.taskId, "down", cursor.laneId));
+      const target = selectedTarget(store.getSnapshot());
+      if (target !== undefined) {
+        runMove(moveTaskInLane(client, target.taskId, "down", target.viewId));
       }
     },
     { enabled: navigating, ignoreInputs: true, meta: { name: "Move down" } },
@@ -157,12 +152,12 @@ function useBoardHotkeys() {
   useHotkey(
     "Mod+Shift+ArrowLeft",
     () => {
-      const { cursor } = actorRef.getSnapshot().context;
-      if (cursor.taskId !== null) {
-        const taskId = cursor.taskId;
-        runMove(moveTaskToLane(client, taskId, "left", cursor.laneId), (result) => {
+      const target = selectedTarget(store.getSnapshot());
+      if (target !== undefined) {
+        const taskId = target.taskId;
+        runMove(moveTaskToLane(client, taskId, "left", target.viewId), (result) => {
           if (result !== undefined)
-            actorRef.send({ type: "task.select", taskId, laneId: result.viewId });
+            store.send(BoardEvent.TaskSelect({ target: { viewId: result.viewId, taskId } }));
         });
       }
     },
@@ -171,12 +166,12 @@ function useBoardHotkeys() {
   useHotkey(
     "Mod+Shift+ArrowRight",
     () => {
-      const { cursor } = actorRef.getSnapshot().context;
-      if (cursor.taskId !== null) {
-        const taskId = cursor.taskId;
-        runMove(moveTaskToLane(client, taskId, "right", cursor.laneId), (result) => {
+      const target = selectedTarget(store.getSnapshot());
+      if (target !== undefined) {
+        const taskId = target.taskId;
+        runMove(moveTaskToLane(client, taskId, "right", target.viewId), (result) => {
           if (result !== undefined)
-            actorRef.send({ type: "task.select", taskId, laneId: result.viewId });
+            store.send(BoardEvent.TaskSelect({ target: { viewId: result.viewId, taskId } }));
         });
       }
     },
@@ -186,7 +181,7 @@ function useBoardHotkeys() {
     "L",
     () => {
       const laneId = addLane(client);
-      actorRef.send({ type: "lane.select", laneId });
+      store.send(BoardEvent.LaneSelect({ viewId: laneId }));
       startRename(laneId);
     },
     { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "New lane" } },
@@ -194,7 +189,7 @@ function useBoardHotkeys() {
   useHotkey(
     "R",
     () => {
-      const laneId = currentLaneId(actorRef.getSnapshot().context);
+      const laneId = currentLaneId(store.getSnapshot());
       if (!isSystemLane({ id: laneId })) {
         startRename(laneId);
       }
@@ -204,28 +199,28 @@ function useBoardHotkeys() {
   useHotkey(
     "Mod+Alt+ArrowLeft",
     () => {
-      runMove(moveLane(client, currentLaneId(actorRef.getSnapshot().context), "left"));
+      runMove(moveLane(client, currentLaneId(store.getSnapshot()), "left"));
     },
     { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Move lane left" } },
   );
   useHotkey(
     "Mod+Alt+ArrowRight",
     () => {
-      runMove(moveLane(client, currentLaneId(actorRef.getSnapshot().context), "right"));
+      runMove(moveLane(client, currentLaneId(store.getSnapshot()), "right"));
     },
     { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Move lane right" } },
   );
   useHotkey(
     "Mod+Backspace",
     () => {
-      requestRemoveLane(client, currentLaneId(actorRef.getSnapshot().context), startRemove);
+      requestRemoveLane(client, currentLaneId(store.getSnapshot()), startRemove);
     },
     { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Remove lane" } },
   );
   useHotkey(
     completeHotkey,
     () => {
-      const taskId = actorRef.getSnapshot().context.cursor.taskId;
+      const taskId = selectedTaskId(store.getSnapshot());
       if (taskId !== null) {
         completeTask(client, taskId);
       }
@@ -235,9 +230,9 @@ function useBoardHotkeys() {
   useHotkey(
     "Tab",
     () => {
-      const { cursor } = actorRef.getSnapshot().context;
-      if (cursor.taskId !== null) {
-        runMove(nestTask(client, cursor.taskId, 1, cursor.laneId));
+      const target = selectedTarget(store.getSnapshot());
+      if (target !== undefined) {
+        runMove(nestTask(client, target.taskId, 1, target.viewId));
       }
     },
     { ignoreInputs: true, enabled: navigating, meta: { name: "Nest" } },
@@ -245,9 +240,9 @@ function useBoardHotkeys() {
   useHotkey(
     "Shift+Tab",
     () => {
-      const { cursor } = actorRef.getSnapshot().context;
-      if (cursor.taskId !== null) {
-        runMove(nestTask(client, cursor.taskId, -1, cursor.laneId));
+      const target = selectedTarget(store.getSnapshot());
+      if (target !== undefined) {
+        runMove(nestTask(client, target.taskId, -1, target.viewId));
       }
     },
     { ignoreInputs: true, enabled: navigating, meta: { name: "Unnest" } },
@@ -255,8 +250,8 @@ function useBoardHotkeys() {
   useHotkey(
     collapseHotkey,
     () => {
-      const { cursor } = actorRef.getSnapshot().context;
-      const task = cursor.taskId === null ? undefined : client.tasks.get(cursor.taskId);
+      const target = selectedTarget(store.getSnapshot());
+      const task = target === undefined ? undefined : client.tasks.get(target.taskId);
       if (task !== undefined && hasActiveTaskChildren(client.tasks.toArray, task.id)) {
         void Effect.runPromise(setTaskCollapsed(client, task.id, !task.collapsed)).catch(
           (error: unknown) => {
@@ -270,18 +265,18 @@ function useBoardHotkeys() {
 }
 
 function BoardCanvas({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
-  const mode = BoardActor.useSelector((snapshot) => snapshot.value);
+  const mode = useBoardSelector((snapshot) => snapshot.interaction._tag);
   const listboxRef = useRef<HTMLDivElement>(null);
   const wasAdding = useRef(false);
 
   useBoardHotkeys();
 
   useEffect(() => {
-    if (wasAdding.current && mode === "navigating") {
+    if (wasAdding.current && mode === "Navigating") {
       listboxRef.current?.focus({ preventScroll: true });
     }
 
-    wasAdding.current = mode === "adding";
+    wasAdding.current = mode === "Adding";
   }, [mode]);
 
   <>
@@ -318,14 +313,14 @@ function BoardShell({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
 
 function SyncedBoard() @{
   const client = useBoardClient();
-  const actorRef = BoardActor.useActorRef();
-  const { isReady, lanes } = useBoardLanes(client);
+  const store = useBoardStore();
+  const { isReady, lanes, tasks } = useBoardLanes(client);
 
   useEffect(() => {
     if (isReady) {
-      actorRef.send({ type: "board.sync", lanes });
+      store.send(BoardEvent.BoardSync({ lanes, tasks }));
     }
-  }, [actorRef, isReady, lanes]);
+  }, [store, isReady, lanes, tasks]);
 
   @if (!isReady) {
     <BoardBooting />;
@@ -335,9 +330,9 @@ function SyncedBoard() @{
 }
 
 export function TaskBoard() @{
-  <BoardActor.Provider>
+  <BoardProvider>
     <SyncClientProvider>
       <SyncedBoard />
     </SyncClientProvider>
-  </BoardActor.Provider>;
+  </BoardProvider>;
 }

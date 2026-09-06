@@ -9,7 +9,8 @@ import { useTaskDrag, taskDragId } from "~/board/components/board-drag.tsrx";
 import { cn } from "@/lib/utils";
 
 import { useBoardClient } from "~/board/sync/client";
-import { BoardActor } from "~/board/navigation/machine";
+import { useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
+import { BoardEvent, currentLaneId, selectedTaskId } from "~/board/navigation/model";
 import { completeTask, setTaskCollapsed } from "~/board/data/mutations";
 import { TaskEdit } from "~/board/components/task-edit.tsrx";
 import {
@@ -95,11 +96,11 @@ function TaskMetadata({ task }: { task: BoardTask }) @{
 
 function CompleteTaskButton({ task }: { task: Task }) @{
   const client = useBoardClient();
-  const actorRef = BoardActor.useActorRef();
+  const store = useBoardStore();
 
   function onComplete(event: { stopPropagation: () => void }) {
     event.stopPropagation();
-    actorRef.send({ type: "edit.cancel" });
+    store.send(BoardEvent.EditCancel({}));
     completeTask(client, task.id);
   }
 
@@ -119,14 +120,14 @@ function CompleteTaskButton({ task }: { task: Task }) @{
 }
 
 function SelectTaskButton({ laneId, task }: { laneId: string; task: Task }) @{
-  const actorRef = BoardActor.useActorRef();
+  const store = useBoardStore();
 
   function onSelect(event: { button: number }) {
     if (event.button !== 0) {
       return;
     }
 
-    actorRef.send({ type: "task.select", taskId: task.id, laneId });
+    store.send(BoardEvent.TaskSelect({ target: { viewId: laneId, taskId: task.id } }));
   }
 
   <button
@@ -141,11 +142,11 @@ function SelectTaskButton({ laneId, task }: { laneId: string; task: Task }) @{
 
 function toggleTaskSubtree(
   client: ReturnType<typeof useBoardClient>,
-  actorRef: ReturnType<typeof BoardActor.useActorRef>,
+  store: ReturnType<typeof useBoardStore>,
   laneId: string,
   task: BoardTask,
 ) {
-  actorRef.send({ type: "task.select", taskId: task.id, laneId });
+  store.send(BoardEvent.TaskSelect({ target: { viewId: laneId, taskId: task.id } }));
   void Effect.runPromise(setTaskCollapsed(client, task.id, !task.collapsed)).catch(
     (error: unknown) => {
       console.error("Failed to toggle task subtree", error);
@@ -163,7 +164,7 @@ function TaskDisclosure({
   task: BoardTask;
 }) @{
   const client = useBoardClient();
-  const actorRef = BoardActor.useActorRef();
+  const store = useBoardStore();
 
   @if (hasChildren) {
     <Button
@@ -173,7 +174,7 @@ function TaskDisclosure({
       variant="ghost"
       aria-expanded={!task.collapsed}
       aria-label={`${task.collapsed ? "Expand" : "Collapse"} ${task.title}`}
-      onClick={() => toggleTaskSubtree(client, actorRef, laneId, task)}
+      onClick={() => toggleTaskSubtree(client, store, laneId, task)}
     >
       @if (task.collapsed) {
         <ChevronRight aria-hidden="true" />;
@@ -194,7 +195,7 @@ function TaskOptions({
   task: BoardTask;
 }) @{
   const client = useBoardClient();
-  const actorRef = BoardActor.useActorRef();
+  const store = useBoardStore();
 
   <DropdownMenu>
     <DropdownMenuTrigger
@@ -217,7 +218,9 @@ function TaskOptions({
     <DropdownMenuContent align="end">
       <DropdownMenuItem
         onClick={() => {
-          actorRef.send({ type: "details.open", taskId: task.id, laneId, tab: "notes" });
+          store.send(
+            BoardEvent.DetailsOpen({ target: { viewId: laneId, taskId: task.id }, tab: "notes" }),
+          );
         }}
       >
         Notes
@@ -227,7 +230,12 @@ function TaskOptions({
       </DropdownMenuItem>
       <DropdownMenuItem
         onClick={() => {
-          actorRef.send({ type: "details.open", taskId: task.id, laneId, tab: "whiteboard" });
+          store.send(
+            BoardEvent.DetailsOpen({
+              target: { viewId: laneId, taskId: task.id },
+              tab: "whiteboard",
+            }),
+          );
         }}
       >
         Whiteboard
@@ -237,7 +245,7 @@ function TaskOptions({
       </DropdownMenuItem>
       <DropdownMenuItem
         onClick={() => {
-          actorRef.send({ type: "edit.start", taskId: task.id, laneId });
+          store.send(BoardEvent.EditStart({ target: { viewId: laneId, taskId: task.id } }));
         }}
       >
         Edit
@@ -246,7 +254,7 @@ function TaskOptions({
         </DropdownMenuShortcut>
       </DropdownMenuItem>
       @if (hasChildren) {
-        <DropdownMenuItem onClick={() => toggleTaskSubtree(client, actorRef, laneId, task)}>
+        <DropdownMenuItem onClick={() => toggleTaskSubtree(client, store, laneId, task)}>
           {task.collapsed ? "Expand subtree" : "Collapse subtree"}
           <DropdownMenuShortcut>
             <ShortcutKeys hotkeys={collapseHotkeys} />
@@ -259,17 +267,17 @@ function TaskOptions({
 
 export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @{
   const client = useBoardClient();
-  const editing = BoardActor.useSelector(
+  const editing = useBoardSelector(
     (snapshot) =>
-      snapshot.value === "editing" &&
-      snapshot.context.cursor.taskId === task.id &&
-      snapshot.context.cursor.laneId === laneId,
+      snapshot.interaction._tag === "Editing" &&
+      selectedTaskId(snapshot) === task.id &&
+      currentLaneId(snapshot) === laneId,
   );
-  const highlighted = BoardActor.useSelector(
+  const highlighted = useBoardSelector(
     (snapshot) =>
-      snapshot.value === "navigating" &&
-      snapshot.context.cursor.taskId === task.id &&
-      snapshot.context.cursor.laneId === laneId,
+      snapshot.interaction._tag === "Navigating" &&
+      selectedTaskId(snapshot) === task.id &&
+      currentLaneId(snapshot) === laneId,
   );
   const rowRef = useRef<HTMLLIElement>(null);
   const dropEdge = useTaskDrag(laneId, task.id, rowRef);

@@ -8,6 +8,7 @@ import * as schema from "~/db/schema";
 import { env } from "~/env";
 
 const E2E_SECRET_HEADER = "x-sidequest-e2e-secret";
+
 const LOCAL_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
 
 const e2eAuth = betterAuth({

@@ -1,7 +1,7 @@
 import { useLiveQuery } from "@tanstack/react-db";
 
 import type { BoardClient } from "~/board/sync/client";
-import type { BoardLane } from "~/board/schema";
+import type { BoardLane, Task } from "~/board/schema";
 import { inboxLaneId, projectTasksForView, systemLanes, todayLaneId } from "~/board/views";
 
 function viewLane(id: typeof inboxLaneId | typeof todayLaneId): BoardLane {
@@ -15,6 +15,7 @@ function viewLane(id: typeof inboxLaneId | typeof todayLaneId): BoardLane {
 
 export function useBoardLanes(client: BoardClient): {
   lanes: BoardLane[];
+  tasks: readonly Task[];
   isReady: boolean;
 } {
   const inboxQuery = useLiveQuery(client.inbox);
@@ -27,6 +28,7 @@ export function useBoardLanes(client: BoardClient): {
   const allTasks = tasksQuery.data ?? [];
 
   return {
+    tasks: allTasks,
     isReady:
       inboxQuery.isReady && todayQuery.isReady && projectsQuery.isReady && tasksQuery.isReady,
     lanes: [

@@ -1,267 +1,203 @@
-import type {
-  BoardContext,
-  BoardCursor,
-  BoardLane,
-  HorizontalDirection,
-  Task,
-  VerticalDirection,
-} from "~/board/types";
-import { emptySystemBoardLanes, todayLaneId } from "~/board/views";
-
-type TaskLocation = {
-  laneIndex: number;
-  taskIndex: number;
-  lane: BoardLane;
-  task: Task;
-};
+import { Effect, Option } from "effect";
+import { emptySystemBoardLanes, isSystemLane, todayLaneId } from "~/board/views";
+import { buildBoardGraph, type BoardGraph, type LaneNode } from "./graph";
+import {
+  Interaction,
+  Selection,
+  currentLaneId,
+  selectionOf,
+  viewIdOf,
+  type BoardContext,
+  type BoardEvent,
+  type DragSource,
+} from "./model";
 
 export function initialBoardContext(): BoardContext {
   return {
-    lanes: emptySystemBoardLanes(),
-    cursor: { laneId: todayLaneId, taskId: null },
-    detailTab: "notes",
+    graph: buildBoardGraph(emptySystemBoardLanes(), []),
+    interaction: Interaction.Navigating({ selection: Selection.Lane({ viewId: todayLaneId }) }),
   };
 }
 
-function findTask(
-  lanes: ReadonlyArray<BoardLane>,
-  taskId: string,
-  preferredLaneId?: string,
-): TaskLocation | undefined {
-  if (preferredLaneId !== undefined) {
-    const laneIndex = lanes.findIndex((lane) => lane.id === preferredLaneId);
-    const lane = lanes[laneIndex];
-    if (lane !== undefined) {
-      const taskIndex = lane.tasks.findIndex((task) => task.id === taskId);
-      const task = lane.tasks[taskIndex];
-      if (task !== undefined) {
-        return { laneIndex, taskIndex, lane, task };
+function onLane(lane: LaneNode | undefined): Selection {
+  return lane?.firstVisible
+    ? Selection.Task({ target: lane.firstVisible.target })
+    : Selection.Lane({ viewId: lane?.id ?? todayLaneId });
+}
+
+function reconcile(context: BoardContext, graph: BoardGraph): Selection {
+  const selected = selectionOf(context.interaction);
+  const viewId = viewIdOf(selected);
+  const lane = Option.getOrUndefined(graph.lane(viewId));
+  if (!lane) {
+    const previousLane = Option.getOrUndefined(context.graph.lane(viewId));
+    const right = previousLane?.next;
+    const left = previousLane?.previous;
+    return onLane(
+      (right && Option.getOrUndefined(graph.lane(right.id))) ??
+        (left && Option.getOrUndefined(graph.lane(left.id))) ??
+        graph.firstLane,
+    );
+  }
+  if (selected._tag === "Task") {
+    const current =
+      Option.getOrUndefined(graph.visibleTask(selected.target)) ??
+      Option.getOrUndefined(graph.firstVisibleOccurrence(selected.target.taskId));
+    if (current) return Selection.Task({ target: current.target });
+    let ancestor = Option.getOrUndefined(context.graph.task(selected.target))?.parent;
+    while (ancestor) {
+      if (Option.isSome(graph.visibleTask(ancestor.target)))
+        return Selection.Task({ target: ancestor.target });
+      ancestor = ancestor.parent;
+    }
+  }
+  return onLane(lane);
+}
+
+function sourceExists(graph: BoardGraph, source: DragSource): boolean {
+  return source._tag === "Task"
+    ? Option.isSome(graph.visibleTask(source.target))
+    : Option.isSome(graph.lane(source.viewId));
+}
+
+export const syncBoard = Effect.fn("syncBoard")(
+  (
+    context: BoardContext,
+    event: Extract<BoardEvent, { _tag: "BoardSync" }>,
+  ): Effect.Effect<BoardContext> =>
+    Effect.sync(() => {
+      const graph = buildBoardGraph(event.lanes, event.tasks);
+      const selection = reconcile(context, graph);
+      const previous = context.interaction;
+      const interaction = Interaction.match<Interaction>(previous, {
+        Navigating: () => Interaction.Navigating({ selection }),
+        Adding: () =>
+          Option.isSome(graph.lane(currentLaneId(context)))
+            ? Interaction.Adding({ selection })
+            : Interaction.Navigating({ selection }),
+        Editing: (editing) =>
+          Option.isSome(graph.visibleTask(editing.target))
+            ? editing
+            : Interaction.Navigating({ selection }),
+        Details: (details) =>
+          Option.isSome(graph.visibleTask(details.target))
+            ? details
+            : Interaction.Navigating({ selection }),
+        Dragging: (dragging) =>
+          sourceExists(graph, dragging.source)
+            ? Interaction.Dragging({ selection, source: dragging.source })
+            : Interaction.Navigating({ selection }),
+      });
+      return { graph, interaction };
+    }),
+);
+
+export const selectLane = Effect.fn("selectLane")(
+  (context: BoardContext, viewId: string): Effect.Effect<Selection> =>
+    Effect.sync(() => {
+      const selection = selectionOf(context.interaction);
+      if (
+        selection._tag === "Task" &&
+        selection.target.viewId === viewId &&
+        Option.isSome(context.graph.visibleTask(selection.target))
+      )
+        return selection;
+      const lane = Option.getOrUndefined(context.graph.lane(viewId));
+      return lane ? onLane(lane) : Selection.Lane({ viewId });
+    }),
+);
+
+export const startAdding = Effect.fn("startAdding")(
+  (context: BoardContext, viewId: string): Effect.Effect<Interaction> =>
+    Effect.sync(() => {
+      const selected = selectionOf(context.interaction);
+      const selection =
+        selected._tag === "Task" &&
+        selected.target.viewId === viewId &&
+        Option.isSome(context.graph.visibleTask(selected.target))
+          ? selected
+          : Selection.Lane({ viewId });
+      return Interaction.Adding({ selection });
+    }),
+);
+
+export const leaveAdding = Effect.fn("leaveAdding")(
+  (context: BoardContext): Effect.Effect<Interaction> =>
+    Effect.sync(() => {
+      const viewId = currentLaneId(context);
+      const last = Option.getOrUndefined(context.graph.lane(viewId))?.lastVisible;
+      return Interaction.Navigating({
+        selection: last ? Selection.Task({ target: last.target }) : Selection.Lane({ viewId }),
+      });
+    }),
+);
+
+export const navigate = Effect.fn("navigate")(
+  (
+    context: BoardContext,
+    direction: Extract<BoardEvent, { _tag: "Navigate" }>["direction"],
+  ): Effect.Effect<Interaction> =>
+    Effect.sync(() => {
+      const selection = selectionOf(context.interaction);
+      const lane = Option.getOrUndefined(context.graph.lane(viewIdOf(selection)));
+      if (!lane) return Interaction.Navigating({ selection: onLane(context.graph.firstLane) });
+      if (direction === "left" || direction === "right") {
+        const destination = direction === "left" ? lane.previous : lane.next;
+        return destination
+          ? Interaction.Navigating({ selection: onLane(destination) })
+          : context.interaction;
       }
-    }
-  }
+      const node =
+        selection._tag === "Task"
+          ? Option.getOrUndefined(context.graph.visibleTask(selection.target))
+          : undefined;
+      if (direction === "down") {
+        const next = node ? node.nextVisible : lane.firstVisible;
+        return next
+          ? Interaction.Navigating({ selection: Selection.Task({ target: next.target }) })
+          : Interaction.Adding({
+              selection: node ? selection : Selection.Lane({ viewId: lane.id }),
+            });
+      }
+      return node?.previousVisible
+        ? Interaction.Navigating({
+            selection: Selection.Task({ target: node.previousVisible.target }),
+          })
+        : context.interaction;
+    }),
+);
 
-  for (const [laneIndex, lane] of lanes.entries()) {
-    const taskIndex = lane.tasks.findIndex((task) => task.id === taskId);
-    const task = lane.tasks[taskIndex];
-    if (task !== undefined) {
-      return { laneIndex, taskIndex, lane, task };
-    }
-  }
+export const openDetails = Effect.fn("openDetails")(
+  (event: Extract<BoardEvent, { _tag: "DetailsOpen" }>) =>
+    Effect.sync(() => {
+      return Interaction.Details({ target: event.target, tab: event.tab });
+    }),
+);
 
-  return undefined;
-}
-
-function selectedTask(context: BoardContext): TaskLocation | undefined {
-  return context.cursor.taskId === null
-    ? undefined
-    : findTask(context.lanes, context.cursor.taskId, context.cursor.laneId);
-}
-
-function cursorOnLane(lane: BoardLane): BoardCursor {
-  return { laneId: lane.id, taskId: lane.tasks[0]?.id ?? null };
-}
-
-function fallbackCursor(lanes: ReadonlyArray<BoardLane>): BoardCursor {
-  const lane = lanes[0];
-  return lane === undefined ? { laneId: todayLaneId, taskId: null } : cursorOnLane(lane);
-}
-
-function nearestRemainingLane(
-  previous: ReadonlyArray<BoardLane>,
-  next: ReadonlyArray<BoardLane>,
-  removedId: string,
-): BoardLane | undefined {
-  const oldIndex = previous.findIndex((lane) => lane.id === removedId);
-  const right = oldIndex >= 0 ? previous[oldIndex + 1] : undefined;
-  const left = oldIndex >= 0 ? previous[oldIndex - 1] : undefined;
-
-  return (
-    (right === undefined ? undefined : next.find((lane) => lane.id === right.id)) ??
-    (left === undefined ? undefined : next.find((lane) => lane.id === left.id)) ??
-    next[0]
-  );
-}
-
-function nearestVisibleAncestor(context: BoardContext, lane: BoardLane): Task | undefined {
-  const previous = selectedTask(context);
-  if (previous === undefined) {
-    return undefined;
-  }
-
-  const previousById = new Map(previous.lane.tasks.map((task) => [task.id, task]));
-  const visibleById = new Map(lane.tasks.map((task) => [task.id, task]));
-  const seen = new Set<string>([previous.task.id]);
-  let parentId = previous.task.parentId;
-  while (parentId !== undefined && !seen.has(parentId)) {
-    const parent = visibleById.get(parentId);
-    if (parent !== undefined) {
-      return parent;
-    }
-
-    seen.add(parentId);
-    parentId = previousById.get(parentId)?.parentId;
-  }
-
-  return undefined;
-}
-
-export function syncBoard(context: BoardContext, lanes: ReadonlyArray<BoardLane>): BoardContext {
-  const nextLanes = [...lanes];
-  const currentLane = lanes.find((lane) => lane.id === context.cursor.laneId);
-
-  if (currentLane === undefined) {
-    const nearest = nearestRemainingLane(context.lanes, lanes, context.cursor.laneId);
-    return {
-      ...context,
-      lanes: nextLanes,
-      cursor: nearest === undefined ? fallbackCursor(lanes) : cursorOnLane(nearest),
-    };
-  }
-
-  if (context.cursor.taskId !== null) {
-    const location = findTask(lanes, context.cursor.taskId, currentLane.id);
-    if (location !== undefined) {
-      return {
-        ...context,
-        lanes: nextLanes,
-        cursor: { laneId: location.lane.id, taskId: location.task.id },
-      };
-    }
-
-    const ancestor = nearestVisibleAncestor(context, currentLane);
-    if (ancestor !== undefined) {
-      return {
-        ...context,
-        lanes: nextLanes,
-        cursor: { laneId: currentLane.id, taskId: ancestor.id },
-      };
-    }
-  }
-
-  return { ...context, lanes: nextLanes, cursor: cursorOnLane(currentLane) };
-}
-
-export function isLastTaskInLane(context: BoardContext): boolean {
-  const location = selectedTask(context);
-  return location !== undefined && location.taskIndex === location.lane.tasks.length - 1;
-}
-
-export function isEmptySelectedLane(context: BoardContext): boolean {
-  const lane = context.lanes.find((candidate) => candidate.id === context.cursor.laneId);
-  return lane !== undefined && lane.tasks.length === 0;
-}
-
-function focus(context: BoardContext, taskId: string | null): BoardContext {
-  if (taskId === null) {
-    return { ...context, cursor: fallbackCursor(context.lanes) };
-  }
-
-  const location = findTask(context.lanes, taskId);
-  return location === undefined
-    ? { ...context, cursor: fallbackCursor(context.lanes) }
-    : { ...context, cursor: { laneId: location.lane.id, taskId: location.task.id } };
-}
-
-export function selectTask(context: BoardContext, taskId: string, laneId?: string): BoardContext {
-  const location = findTask(context.lanes, taskId, laneId ?? context.cursor.laneId);
-  const resolvedLaneId =
-    laneId !== undefined && context.lanes.some((lane) => lane.id === laneId)
-      ? laneId
-      : (location?.lane.id ?? context.cursor.laneId);
-
-  return { ...context, cursor: { laneId: resolvedLaneId, taskId } };
-}
-
-export function currentLaneId(context: BoardContext): string {
-  return context.cursor.laneId;
-}
-
-export function selectLaneById(context: BoardContext, laneId: string): BoardContext {
-  const lane = context.lanes.find((candidate) => candidate.id === laneId);
-  if (lane === undefined) {
-    return { ...context, cursor: { laneId, taskId: null } };
-  }
-
-  if (selectedTask(context)?.lane.id === laneId) {
-    return { ...context, cursor: { laneId, taskId: context.cursor.taskId } };
-  }
-
-  return { ...context, cursor: cursorOnLane(lane) };
-}
-
-export function startAdding(context: BoardContext, laneId: string): BoardContext {
-  const taskId =
-    context.cursor.laneId === laneId &&
-    context.cursor.taskId !== null &&
-    findTask(context.lanes, context.cursor.taskId, laneId) !== undefined
-      ? context.cursor.taskId
-      : null;
-
-  return { ...context, cursor: { laneId, taskId } };
-}
-
-export function leaveAdding(context: BoardContext): BoardContext {
-  const lane = context.lanes.find((candidate) => candidate.id === context.cursor.laneId);
-  const lastTask = lane === undefined ? undefined : lastTaskInLane(lane);
-  return lastTask === undefined || lane === undefined
-    ? { ...context, cursor: { laneId: context.cursor.laneId, taskId: null } }
-    : selectTask(context, lastTask.id, lane.id);
-}
-
-function lastTaskInLane(lane: BoardLane): Task | undefined {
-  return lane.tasks[lane.tasks.length - 1];
-}
-
-export function selectVertical(context: BoardContext, direction: VerticalDirection): BoardContext {
-  const location = selectedTask(context);
-  if (location === undefined) {
-    const lane = context.lanes.find((candidate) => candidate.id === context.cursor.laneId);
-    if (lane === undefined) {
-      return focus(context, fallbackCursor(context.lanes).taskId);
-    }
-
-    if (direction === "down") {
-      const firstTask = lane.tasks[0];
-      return firstTask === undefined
-        ? startAdding(context, lane.id)
-        : selectTask(context, firstTask.id, lane.id);
-    }
-
-    return context;
-  }
-
-  if (direction === "down") {
-    const nextTask = location.lane.tasks[location.taskIndex + 1];
-    return nextTask === undefined
-      ? startAdding(context, location.lane.id)
-      : selectTask(context, nextTask.id, location.lane.id);
-  }
-
-  const previousTask = location.lane.tasks[location.taskIndex - 1];
-  return previousTask === undefined
-    ? context
-    : selectTask(context, previousTask.id, location.lane.id);
-}
-
-export function selectHorizontal(
+export const startDrag = Effect.fn("startDrag")(function* (
   context: BoardContext,
-  direction: HorizontalDirection,
-): BoardContext {
-  const location = selectedTask(context);
-  const laneIndex =
-    location?.laneIndex ??
-    context.lanes.findIndex((candidate) => candidate.id === context.cursor.laneId);
-  if (laneIndex < 0) {
-    return focus(context, fallbackCursor(context.lanes).taskId);
-  }
+  source: DragSource,
+): Effect.fn.Return<Interaction> {
+  if (
+    !sourceExists(context.graph, source) ||
+    (source._tag === "Lane" && isSystemLane({ id: source.viewId }))
+  )
+    return context.interaction;
+  const selection =
+    source._tag === "Task"
+      ? Selection.Task({ target: source.target })
+      : yield* selectLane(context, source.viewId);
+  return Interaction.Dragging({ selection, source });
+});
 
-  const nextLane = context.lanes[direction === "left" ? laneIndex - 1 : laneIndex + 1];
-  if (nextLane === undefined) {
-    return context;
-  }
-
-  const nextTask = nextLane.tasks[0];
-  return nextTask === undefined
-    ? selectLaneById(context, nextLane.id)
-    : selectTask(context, nextTask.id, nextLane.id);
-}
+export const finishDrag = Effect.fn("finishDrag")(function* (
+  graph: BoardGraph,
+  dragging: Extract<Interaction, { _tag: "Dragging" }>,
+  viewId: string,
+) {
+  const selection =
+    dragging.source._tag === "Task"
+      ? Selection.Task({ target: { taskId: dragging.source.target.taskId, viewId } })
+      : yield* selectLane({ graph, interaction: dragging }, viewId);
+  return Interaction.Navigating({ selection });
+});

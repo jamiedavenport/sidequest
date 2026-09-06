@@ -15,11 +15,11 @@
     "db:migrate:local": "wrangler d1 migrations apply sidequest-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply sidequest-db --remote",
     "dev": "bun run cf-typegen && vite dev",
-    "format": "oxfmt --check .",
-    "format:fix": "oxfmt --write .",
+    "format": "oxfmt --check . && bun run scripts/declaration-spacing.ts --check",
+    "format:fix": "bun run scripts/declaration-spacing.ts --write && oxfmt --write .",
     "knip": "knip",
-    "lint": "oxlint --type-aware --deny-warnings .",
-    "lint:fix": "oxlint --type-aware --deny-warnings --fix .",
+    "lint": "oxlint --type-aware --deny-warnings . && bun run scripts/declaration-spacing.ts --check",
+    "lint:fix": "bun run scripts/declaration-spacing.ts --write && oxlint --type-aware --deny-warnings --fix .",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
     "test:e2e:debug": "E2E_INTERACTIVE=1 playwright test --debug",
@@ -57,7 +57,6 @@
     "@tiptap/react": "^3.31.3",
     "@tsrx/react": "0.2.63",
     "@tsrx/vite-plugin-react": "0.0.96",
-    "@xstate/react": "^6.1.0",
     "better-auth": "1.7.2",
     "class-variance-authority": "0.7.1",
     "cnfast": "0.1.0",
@@ -69,8 +68,7 @@
     "react-day-picker": "^10.0.1",
     "react-dom": "19.2.8",
     "resend": "^6.25.0",
-    "tldraw": "5.4.0",
-    "xstate": "^5.32.6"
+    "tldraw": "5.4.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.54.2",

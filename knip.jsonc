@@ -1,5 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
-  "entry": ["scripts/e2e-server.ts"],
+  "entry": [
+    "scripts/e2e-server.ts",
+    // Loaded by a browser-side dynamic import in board-navigation.e2e.ts.
+    "e2e/support/navigation-harness.tsrx",
+  ],
   "ignoreDependencies": ["cloudflare"],
 }

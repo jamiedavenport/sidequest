@@ -194,11 +194,11 @@ export function updateLane(
   });
 }
 
-export class BoardMoveError extends Schema.TaggedError<BoardMoveError>()("BoardMoveError", {
+class BoardMoveError extends Schema.TaggedError<BoardMoveError>()("BoardMoveError", {
   cause: Schema.Defect(),
 }) {}
 
-export class InvalidBoardMove extends Schema.TaggedError<InvalidBoardMove>()("InvalidBoardMove", {
+class InvalidBoardMove extends Schema.TaggedError<InvalidBoardMove>()("InvalidBoardMove", {
   message: Schema.String,
 }) {}
 
@@ -443,7 +443,8 @@ export const moveTaskToLane = Effect.fn("moveTaskToLane")(function* (
   );
 });
 
-export type BoardMoveResult = Effect.Success<ReturnType<typeof moveLane>>;
+type BoardMoveResult = Effect.Success<ReturnType<typeof moveLane>>;
+
 export type RunBoardMove = <E>(
   command: Effect.Effect<BoardMoveResult, E>,
   onApplied?: (result: BoardMoveResult) => void,
@@ -455,7 +456,7 @@ export const DragSource = Schema.Union([
 ]);
 export type DragSource = typeof DragSource.Type;
 
-export const DropTarget = Schema.Union([
+const DropTarget = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("task"),
     taskId: Schema.String,
@@ -473,6 +474,7 @@ export const DropTarget = Schema.Union([
     edge: Schema.Literals(["before", "after"]),
   }),
 ]);
+
 export type BoardDropTarget = typeof DropTarget.Type;
 
 export const dropBoardEntity = Effect.fn("dropBoardEntity")(function* (

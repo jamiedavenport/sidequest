@@ -25,8 +25,8 @@ import {
 } from "~/board/components/shortcut-keys.tsrx";
 import { TaskRow } from "~/board/components/task-row.tsrx";
 import { addLane, moveLane, requestRemoveLane, updateLane } from "~/board/data/mutations";
-import { currentLaneId } from "~/board/navigation/commands";
-import { BoardActor } from "~/board/navigation/machine";
+import { useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
+import { BoardEvent, currentLaneId, selectedTaskId } from "~/board/navigation/model";
 import { useBoardClient } from "~/board/sync/client";
 import type { BoardLane } from "~/board/types";
 import { activeTaskCountForView, isSystemLane, planLaneMove } from "~/board/views";
@@ -54,7 +54,7 @@ function StartAddButton({
   className,
   ...props
 }: ComponentProps<"button"> & { lane: BoardLane }) @{
-  const actorRef = BoardActor.useActorRef();
+  const store = useBoardStore();
 
   function onStartAdd(event: { button: number; preventDefault: () => void }) {
     if (event.button !== 0) {
@@ -62,7 +62,7 @@ function StartAddButton({
     }
 
     event.preventDefault();
-    actorRef.send({ type: "add.start", laneId: lane.id });
+    store.send(BoardEvent.AddStart({ viewId: lane.id }));
   }
 
   <button
@@ -153,7 +153,7 @@ function LaneTitle({ lane }: { lane: BoardLane }) @{
 
 function LaneOptions({ lane }: { lane: BoardLane }) @{
   const client = useBoardClient();
-  const actorRef = BoardActor.useActorRef();
+  const store = useBoardStore();
   const { startRename, startRemove } = useLaneChrome();
   const { runMove } = useBoardDrag();
   const canMoveLeft = planLaneMove(client.lanes.toArray, lane.id, "left") !== undefined;
@@ -170,7 +170,7 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
     <DropdownMenuContent align="end" className="min-w-48">
       <DropdownMenuItem
         onClick={() => {
-          actorRef.send({ type: "edit.cancel" });
+          store.send(BoardEvent.EditCancel({}));
           startRename(lane.id);
         }}
       >
@@ -182,7 +182,7 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
       <DropdownMenuItem
         disabled={!canMoveLeft}
         onClick={() => {
-          actorRef.send({ type: "edit.cancel" });
+          store.send(BoardEvent.EditCancel({}));
           runMove(moveLane(client, lane.id, "left"));
         }}
       >
@@ -194,7 +194,7 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
       <DropdownMenuItem
         disabled={!canMoveRight}
         onClick={() => {
-          actorRef.send({ type: "edit.cancel" });
+          store.send(BoardEvent.EditCancel({}));
           runMove(moveLane(client, lane.id, "right"));
         }}
       >
@@ -207,7 +207,7 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
       <DropdownMenuItem
         variant="destructive"
         onClick={() => {
-          actorRef.send({ type: "edit.cancel" });
+          store.send(BoardEvent.EditCancel({}));
           requestRemoveLane(client, lane.id, startRemove);
         }}
       >
@@ -221,14 +221,12 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
 }
 
 export function TaskLane({ lane }: { lane: BoardLane }) @{
-  const selected = BoardActor.useSelector(
-    (snapshot) => currentLaneId(snapshot.context) === lane.id,
-  );
-  const selectedTaskId = BoardActor.useSelector((snapshot) => snapshot.context.cursor.taskId);
-  const editingTask = BoardActor.useSelector((snapshot) => snapshot.value === "editing");
+  const selected = useBoardSelector((snapshot) => currentLaneId(snapshot) === lane.id);
+  const taskIdSelected = useBoardSelector(selectedTaskId);
+  const editingTask = useBoardSelector((snapshot) => snapshot.interaction._tag === "Editing");
   const quickAddActive = selected && !editingTask;
   const focusedWithoutTask =
-    selected && (selectedTaskId === null || !lane.tasks.some((task) => task.id === selectedTaskId));
+    selected && (taskIdSelected === null || !lane.tasks.some((task) => task.id === taskIdSelected));
   const articleRef = useRef<HTMLElement>(null);
   const system = isSystemLane(lane);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -298,13 +296,13 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
 
 export function AddLaneButton() @{
   const client = useBoardClient();
-  const actorRef = BoardActor.useActorRef();
+  const store = useBoardStore();
   const { startRename } = useLaneChrome();
 
   function onAdd() {
-    actorRef.send({ type: "edit.cancel" });
+    store.send(BoardEvent.EditCancel({}));
     const laneId = addLane(client);
-    actorRef.send({ type: "lane.select", laneId });
+    store.send(BoardEvent.LaneSelect({ viewId: laneId }));
     startRename(laneId);
   }
 

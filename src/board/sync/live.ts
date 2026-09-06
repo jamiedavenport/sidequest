@@ -8,6 +8,7 @@ import type { SyncedTaskCollection } from "~/board/sync/collections";
 import { inboxLaneId, todayLaneId } from "~/board/views";
 
 const todayDateLabel = "Today";
+
 const todayWrittenLabel = format(new Date(), "d MMM");
 
 export function createDerivedBoardCollections(
