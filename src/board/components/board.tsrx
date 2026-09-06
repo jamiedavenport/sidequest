@@ -27,6 +27,7 @@ import { AddLaneButton, TaskLane } from "~/board/components/lane.tsrx";
 import { LaneRemoveDialog } from "~/board/components/lane-remove-dialog.tsrx";
 import {
   collapseHotkey,
+  completeHotkey,
   editHotkey,
   notesHotkey,
   whiteboardHotkey,
@@ -222,7 +223,7 @@ function useBoardHotkeys() {
     { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Remove lane" } },
   );
   useHotkey(
-    "Mod+Enter",
+    completeHotkey,
     () => {
       const taskId = actorRef.getSnapshot().context.cursor.taskId;
       if (taskId !== null) {

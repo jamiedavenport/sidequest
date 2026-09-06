@@ -10,7 +10,7 @@ import { formatTaskDate } from "~/board/date";
 import { BoardActor } from "~/board/navigation/machine";
 import { addTask } from "~/board/data/mutations";
 import { taskFormSchema } from "~/board/schema";
-import { saveHotkey, ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
+import { dateHotkey, saveHotkey, ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
 import { Calendar } from "~/components/ui/calendar.tsrx";
 import { Field, FieldLabel } from "~/components/ui/field.tsrx";
 import {
@@ -110,7 +110,7 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
             },
           },
           {
-            hotkey: "/",
+            hotkey: dateHotkey,
             callback: () => {
               setCalendarOpen(true);
             },
@@ -185,6 +185,7 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
                       {dateField.state.value === undefined
                         ? "No due date"
                         : formatTaskDate(dateField.state.value)}
+                      <ShortcutLabel hotkey={dateHotkey} />
                     </PopoverTrigger>
                     <PopoverContent
                       className="w-auto p-0"

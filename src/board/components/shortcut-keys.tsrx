@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { Kbd, KbdGroup } from "~/components/ui/kbd.tsrx";
 
 export const navigateHotkeys = ["ArrowUp", "ArrowDown"];
-export const completeHotkeys = ["Mod+Enter"];
+export const completeHotkey = "Enter";
+export const completeHotkeys = [completeHotkey];
+export const dateHotkey = "Mod+Shift+D";
 export const editHotkey = "E";
 export const editHotkeys = [editHotkey];
 export const notesHotkey = "N";

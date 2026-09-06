@@ -9,7 +9,7 @@ import { formatTaskDate, parseTaskDate } from "~/board/date";
 import { updateTask } from "~/board/data/mutations";
 import { BoardActor } from "~/board/navigation/machine";
 import { taskFormSchema } from "~/board/schema";
-import { saveHotkey } from "~/board/components/shortcut-keys.tsrx";
+import { dateHotkey, saveHotkey, ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
 import { useBoardClient } from "~/board/sync/client";
 import type { Task } from "~/board/types";
 import { Button } from "~/components/ui/button.tsrx";
@@ -57,6 +57,7 @@ function TaskDatePicker({
         aria-hidden="true"
       />
       {value === undefined ? "No due date" : formatTaskDate(value)}
+      <ShortcutLabel hotkey={dateHotkey} />
     </PopoverTrigger>
     <PopoverContent
       className="w-auto gap-0 p-0"
@@ -149,7 +150,7 @@ export function TaskEdit({ laneId, task }: { laneId: string; task: Task }) @{
       },
     },
     {
-      hotkey: "/",
+      hotkey: dateHotkey,
       callback: () => {
         setCalendarOpen(true);
       },
