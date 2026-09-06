@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { and, eq } from "drizzle-orm";
 import { Schema } from "effect";
-import { auth } from "~/auth/server";
+import { createAuth } from "~/auth/server";
 import { env } from "~/env";
 import { db } from "~/db/client";
 import { oauthAccessToken, oauthClient, oauthConsent, oauthRefreshToken } from "~/db/schema";
@@ -18,7 +18,7 @@ async function oauthRedirect(path: "consent" | "continue", body: object): Promis
   headers.set("content-type", "application/json");
   headers.set("origin", env.BETTER_AUTH_URL.origin);
   // Authorize's nested dispatch requires a Request, including for server-side continuation calls.
-  const response = await auth.handler(
+  const response = await createAuth().handler(
     new Request(new URL(`/api/auth/oauth2/${path}`, env.BETTER_AUTH_URL), {
       method: "POST",
       headers,
@@ -39,7 +39,7 @@ export const getConsentRequest = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const params = new URLSearchParams(data.oauthQuery);
     // This provider endpoint verifies the signature and expiry server-side before returning metadata.
-    const client = await auth.api.getOAuthClientPublicPrelogin({
+    const client = await createAuth().api.getOAuthClientPublicPrelogin({
       headers: oauthRequestHeaders(),
       body: { client_id: params.get("client_id") ?? "", oauth_query: data.oauthQuery },
     });
@@ -76,7 +76,7 @@ export const decideConsent = createServerFn({ method: "POST" })
   });
 
 export const listConnections = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await auth.api.getSession({ headers: getRequestHeaders() });
+  const session = await createAuth().api.getSession({ headers: getRequestHeaders() });
   if (!session) throw new Error("Sign in to manage connected apps.");
   const rows = await db
     .select({
@@ -96,7 +96,7 @@ export const listConnections = createServerFn({ method: "GET" }).handler(async (
 export const revokeConnection = createServerFn({ method: "POST" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ clientId: Schema.String })))
   .handler(async ({ data }) => {
-    const session = await auth.api.getSession({ headers: getRequestHeaders() });
+    const session = await createAuth().api.getSession({ headers: getRequestHeaders() });
     if (!session) throw new Error("Sign in to manage connected apps.");
     const userId = session.user.id;
     // D1 batch is transactional: access, refresh, and consent are revoked together.

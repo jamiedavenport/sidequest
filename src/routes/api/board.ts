@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { env } from "cloudflare:workers";
 
-import { auth } from "~/auth/server";
+import { createAuth } from "~/auth/server";
 import { handleBoardRequest } from "~/board/sync/server";
 
 export const Route = createFileRoute("/api/board")({
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/api/board")({
           return new Response("Expected Upgrade: websocket", { status: 426 });
         }
 
-        const session = await auth.api.getSession({ headers: request.headers });
+        const session = await createAuth().api.getSession({ headers: request.headers });
         if (session === null) {
           return new Response("Unauthorized", { status: 401 });
         }

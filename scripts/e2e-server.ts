@@ -7,6 +7,8 @@ const expectedPersistencePath = resolve(projectRoot, ".playwright/e2e-state");
 
 const persistencePath = resolve(process.env.E2E_PERSISTENCE_PATH ?? expectedPersistencePath);
 
+const builtWorker = process.env.E2E_BUILT_WORKER === "1";
+
 if (persistencePath !== expectedPersistencePath) {
   throw new Error(`Refusing to use unexpected E2E persistence path: ${persistencePath}`);
 }
@@ -41,8 +43,48 @@ if (migrationExitCode !== 0) {
   throw new Error(`E2E migrations failed with exit code ${migrationExitCode}`);
 }
 
+if (builtWorker) {
+  // Loading the built Worker at startup enforces Workers' global-scope I/O restrictions.
+  const build = Bun.spawn(["bunx", "vite", "build", "--mode", "e2e"], {
+    cwd: projectRoot,
+    stderr: "inherit",
+    stdout: "inherit",
+  });
+  const buildExitCode = await build.exited;
+  if (buildExitCode !== 0) {
+    await rm(persistencePath, { force: true, recursive: true });
+    throw new Error(`E2E build failed with exit code ${buildExitCode}`);
+  }
+}
+
 const server = Bun.spawn(
-  ["bunx", "vite", "dev", "--mode", "e2e", "--host", "127.0.0.1", "--port", "4173", "--strictPort"],
+  builtWorker
+    ? [
+        "bunx",
+        "wrangler",
+        "dev",
+        "--config",
+        "dist/server/wrangler.json",
+        "--local",
+        "--persist-to",
+        persistencePath,
+        "--ip",
+        "127.0.0.1",
+        "--port",
+        "4173",
+      ]
+    : [
+        "bunx",
+        "vite",
+        "dev",
+        "--mode",
+        "e2e",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "4173",
+        "--strictPort",
+      ],
   {
     cwd: projectRoot,
     env: {

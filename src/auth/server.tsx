@@ -48,39 +48,42 @@ function deleteSignInCode(email: string): Promise<unknown> {
 
 const providerOptions = oauthOptions(env.BETTER_AUTH_URL.href);
 
-export const auth = betterAuth({
-  baseURL: env.BETTER_AUTH_URL.href,
-  database: drizzleAdapter(db, {
-    provider: "sqlite",
-    schema,
-  }),
-  secret: env.BETTER_AUTH_SECRET,
-  plugins: [
-    oauthProvider(providerOptions),
-    mcpTokenPlugin(providerOptions),
-    emailOTP({
-      allowedAttempts: 3,
-      disableSignUp: false,
-      expiresIn: EMAIL_CODE_EXPIRY_MINUTES * 60,
-      otpLength: 6,
-      resendStrategy: "rotate",
-      async sendVerificationOTP({ email, otp }) {
-        try {
-          await deliverSignInCode(email, otp);
-        } catch (error) {
-          await deleteSignInCode(email);
-          throw error;
-        }
-      },
-      storeOTP: "hashed",
+// OAuth initialization queries D1, so create auth inside the request that uses it.
+export function createAuth() {
+  return betterAuth({
+    baseURL: env.BETTER_AUTH_URL.href,
+    database: drizzleAdapter(db, {
+      provider: "sqlite",
+      schema,
     }),
-    tanstackStartCookies(),
-  ],
-});
+    secret: env.BETTER_AUTH_SECRET,
+    plugins: [
+      oauthProvider(providerOptions),
+      mcpTokenPlugin(providerOptions),
+      emailOTP({
+        allowedAttempts: 3,
+        disableSignUp: false,
+        expiresIn: EMAIL_CODE_EXPIRY_MINUTES * 60,
+        otpLength: 6,
+        resendStrategy: "rotate",
+        async sendVerificationOTP({ email, otp }) {
+          try {
+            await deliverSignInCode(email, otp);
+          } catch (error) {
+            await deleteSignInCode(email);
+            throw error;
+          }
+        },
+        storeOTP: "hashed",
+      }),
+      tanstackStartCookies(),
+    ],
+  });
+}
 
 export async function issueSignInCode(email: string): Promise<boolean> {
   await deleteSignInCode(email);
-  const otp = await auth.api.createVerificationOTP({
+  const otp = await createAuth().api.createVerificationOTP({
     body: { email, type: "sign-in" },
   });
 

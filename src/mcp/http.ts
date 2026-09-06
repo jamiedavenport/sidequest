@@ -1,6 +1,6 @@
 import { oauthProviderAuthServerMetadata } from "@better-auth/oauth-provider";
 import { Predicate } from "effect";
-import { auth } from "~/auth/server";
+import { createAuth } from "~/auth/server";
 import { env as appEnv } from "~/env";
 import { serveMcp } from "~/mcp/protocol";
 import { isWriteTool, isToolName, type ToolName, type ToolReply } from "~/mcp/schema";
@@ -84,6 +84,7 @@ export async function handleMcpRoutes(
         resource_name: "Sidequest",
       }),
     );
+  const auth = createAuth();
   if (authorizationMetadata) return cors(await oauthProviderAuthServerMetadata(auth)(request));
   if (oauth) return cors(await auth.handler(request));
   let token;

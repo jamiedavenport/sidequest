@@ -8,7 +8,7 @@ const mock = vi.hoisted(() => ({
 }));
 
 vi.mock("~/auth/server", () => ({
-  auth: { api: { validateMcpToken: mock.validate }, handler: mock.handler },
+  createAuth: () => ({ api: { validateMcpToken: mock.validate }, handler: mock.handler }),
 }));
 vi.mock("~/env", () => ({ env: { BETTER_AUTH_URL: new URL("https://sdqst.app") } }));
 

@@ -22,6 +22,7 @@
     "lint:fix": "bun run scripts/declaration-spacing.ts --write && oxlint --type-aware --deny-warnings --fix .",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
+    "test:e2e:mcp": "E2E_BUILT_WORKER=1 playwright test e2e/mcp.e2e.ts",
     "test:e2e:debug": "E2E_INTERACTIVE=1 playwright test --debug",
     "test:e2e:headed": "E2E_INTERACTIVE=1 playwright test --headed",
     "test:e2e:trace": "playwright test --trace on",
