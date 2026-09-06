@@ -1,4 +1,5 @@
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { Effect } from "effect";
 import { useEffect, useRef } from "react";
 
 import { currentLaneId } from "~/board/navigation/commands";
@@ -12,9 +13,10 @@ import {
   moveTaskToLane,
   nestTask,
   requestRemoveLane,
+  setTaskCollapsed,
 } from "~/board/data/mutations";
 import { useBoardLanes } from "~/board/data/queries";
-import { inboxLaneId, isSystemLane, todayLaneId } from "~/board/views";
+import { hasActiveTaskChildren, inboxLaneId, isSystemLane, todayLaneId } from "~/board/views";
 import { BoardBooting } from "~/board/components/booting.tsrx";
 import { ShortcutFooter } from "~/board/components/footer.tsrx";
 import { AppHeader } from "~/board/components/header.tsrx";
@@ -22,9 +24,12 @@ import { DetailSheet } from "~/board/components/detail-sheet.tsrx";
 import { LaneChromeProvider, useLaneChrome } from "~/board/components/lane-chrome.tsrx";
 import { AddLaneButton, TaskLane } from "~/board/components/lane.tsrx";
 import { LaneRemoveDialog } from "~/board/components/lane-remove-dialog.tsrx";
-import { editHotkey } from "~/board/components/shortcut-keys.tsrx";
-import { notesHotkey } from "~/board/components/shortcut-keys.tsrx";
-import { whiteboardHotkey } from "~/board/components/shortcut-keys.tsrx";
+import {
+  collapseHotkey,
+  editHotkey,
+  notesHotkey,
+  whiteboardHotkey,
+} from "~/board/components/shortcut-keys.tsrx";
 import type { BoardLane } from "~/board/types";
 
 function useBoardHotkeys() {
@@ -241,6 +246,21 @@ function useBoardHotkeys() {
       }
     },
     { ignoreInputs: true, enabled: navigating, meta: { name: "Unnest" } },
+  );
+  useHotkey(
+    collapseHotkey,
+    () => {
+      const { cursor } = actorRef.getSnapshot().context;
+      const task = cursor.taskId === null ? undefined : client.tasks.get(cursor.taskId);
+      if (task !== undefined && hasActiveTaskChildren(client.tasks.toArray, task.id)) {
+        void Effect.runPromise(setTaskCollapsed(client, task.id, !task.collapsed)).catch(
+          (error: unknown) => {
+            console.error("Failed to toggle task subtree", error);
+          },
+        );
+      }
+    },
+    { ignoreInputs: true, enabled: taskEditEnabled, meta: { name: "Toggle subtree" } },
   );
 }
 

@@ -194,6 +194,18 @@ export function isTaskInView(task: Task, viewId: string, now = new Date()): bool
   return projectLaneId(task) === viewId;
 }
 
+export function activeTaskCountForView(
+  tasks: ReadonlyArray<Task>,
+  viewId: string,
+  now = new Date(),
+): number {
+  return tasks.filter((task) => !task.completed && isTaskInView(task, viewId, now)).length;
+}
+
+export function hasActiveTaskChildren(tasks: ReadonlyArray<Task>, taskId: string): boolean {
+  return tasks.some((task) => !task.completed && task.parentId === taskId);
+}
+
 export function currentViewId(task: Task, now = new Date()): string {
   const assigned = projectLaneId(task);
   if (assigned !== undefined) {
@@ -491,9 +503,26 @@ export function projectTasksForView(
 ): BoardTask[] {
   const parents = resolveTaskParents(allTasks);
   const ids = new Set(viewTasks.map((task) => task.id));
+  const byId = new Map(viewTasks.map((task) => [task.id, task]));
+
+  function isHidden(task: Task): boolean {
+    const seen = new Set<string>([task.id]);
+    let parentId = parents.get(task.id);
+    while (parentId !== undefined && ids.has(parentId) && !seen.has(parentId)) {
+      seen.add(parentId);
+      const parent = byId.get(parentId);
+      if (parent?.collapsed === true) {
+        return true;
+      }
+      parentId = parents.get(parentId);
+    }
+
+    return false;
+  }
 
   return viewTasks
     .toSorted((left, right) => left.rank - right.rank)
+    .filter((task) => !isHidden(task))
     .map((task) => ({
       ...task,
       visualDepth: visualTaskDepth(task, ids, parents),

@@ -119,6 +119,45 @@ export const saveWhiteboard = Effect.fn("saveWhiteboard")(function* (
   });
 });
 
+class TaskCollapseSaveError extends Schema.TaggedError<TaskCollapseSaveError>()(
+  "TaskCollapseSaveError",
+  {
+    cause: Schema.Defect(),
+  },
+) {}
+
+export const setTaskCollapsed = Effect.fn("setTaskCollapsed")(function* (
+  client: BoardClient,
+  taskId: string,
+  collapsed: boolean,
+) {
+  const task = client.tasks.get(taskId);
+  if (task === undefined || task.collapsed === collapsed) {
+    return false;
+  }
+
+  const transaction = client.offline.createOfflineTransaction({
+    autoCommit: false,
+    mutationFnName: "persistBoard",
+  });
+  yield* Effect.try({
+    try: () => {
+      transaction.mutate(() => {
+        client.tasks.update(taskId, (draft) => {
+          draft.collapsed = collapsed;
+        });
+      });
+    },
+    catch: (cause) => new TaskCollapseSaveError({ cause }),
+  });
+  yield* Effect.tryPromise({
+    try: () => transaction.commit(),
+    catch: (cause) => new TaskCollapseSaveError({ cause }),
+  });
+
+  return true;
+});
+
 export function addLane(client: BoardClient, title = "New lane"): string {
   const rank = client.lanes.toArray.reduce((max, lane) => Math.max(max, lane.rank), -1) + 1;
   const id = crypto.randomUUID();
@@ -246,6 +285,7 @@ export function addTask(
       title,
       rank,
       completed: false,
+      collapsed: false,
       ...placement,
     });
     client.notes.insert({ taskId: input.id, content: emptyNoteDocument() });

@@ -20,6 +20,7 @@ import {
   noteCollectionId,
   taskCollectionId,
   whiteboardCollectionId,
+  type SyncedTaskCollection,
 } from "~/board/sync/collections";
 import {
   decodeLaneSync,
@@ -28,7 +29,7 @@ import {
   decodeWhiteboardSync,
 } from "~/board/sync/codec";
 import { createDerivedBoardCollections } from "~/board/sync/live";
-import { Lane, Note, Task, Whiteboard } from "~/board/schema";
+import { Lane, Note, Whiteboard } from "~/board/schema";
 import { boardNeedsNormalize, normalizeStoredBoard } from "~/board/views";
 import { collectionSync, SyncTransport, transactionMutations } from "~/sync/transport";
 
@@ -36,7 +37,7 @@ type DerivedBoardCollections = ReturnType<typeof createDerivedBoardCollections>;
 
 export type BoardClient = {
   lanes: Collection<Lane, string>;
-  tasks: Collection<Task, string>;
+  tasks: SyncedTaskCollection;
   notes: Collection<Note, string>;
   whiteboards: Collection<Whiteboard, string>;
   inbox: DerivedBoardCollections["inbox"];

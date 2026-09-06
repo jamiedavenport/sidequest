@@ -1,5 +1,5 @@
 import { BasicIndex, createCollection } from "@tanstack/db";
-import type { Collection, SyncConfig } from "@tanstack/db";
+import type { SyncConfig } from "@tanstack/db";
 import type { PersistedCollectionPersistence } from "@tanstack/db-sqlite-persistence-core";
 import { persistedCollectionOptions } from "@tanstack/db-sqlite-persistence-core";
 
@@ -68,11 +68,6 @@ function whiteboardOptions(persistence: PersistedCollectionPersistence) {
   };
 }
 
-function indexTasks<TCollection extends Collection<Task, string>>(collection: TCollection) {
-  collection.createIndex((task) => task.laneId, { indexType: BasicIndex });
-  return collection;
-}
-
 export function createLaneCollection(persistence: PersistedCollectionPersistence) {
   const options = persistedCollectionOptions<Lane, string, typeof laneSchema>(
     laneOptions(persistence),
@@ -84,7 +79,9 @@ export function createTaskCollection(persistence: PersistedCollectionPersistence
   const options = persistedCollectionOptions<Task, string, typeof taskSchema>(
     taskOptions(persistence),
   );
-  return indexTasks(createCollection({ ...options, schema: taskSchema }));
+  const collection = createCollection({ ...options, schema: taskSchema });
+  collection.createIndex((task) => task.laneId, { indexType: BasicIndex });
+  return collection;
 }
 
 export function createNoteCollection(persistence: PersistedCollectionPersistence) {
@@ -120,8 +117,12 @@ export function createSyncedTaskCollection(
     ...taskOptions(persistence),
     sync,
   });
-  return indexTasks(createCollection({ ...options, schema: taskSchema }));
+  const collection = createCollection({ ...options, schema: taskSchema });
+  collection.createIndex((task) => task.laneId, { indexType: BasicIndex });
+  return collection;
 }
+
+export type SyncedTaskCollection = ReturnType<typeof createSyncedTaskCollection>;
 
 export function createSyncedNoteCollection(
   persistence: PersistedCollectionPersistence,

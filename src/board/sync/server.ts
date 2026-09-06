@@ -2,10 +2,15 @@ import { createCloudflareDOSQLitePersistence } from "@tanstack/cloudflare-durabl
 import { createTransaction } from "@tanstack/db";
 import { Effect } from "effect";
 
+import {
+  BoardMigrationError,
+  materializeTaskCollapse,
+  runBoardMigrations,
+} from "~/board/data/migrations";
 import { attachmentsForTitle } from "~/board/links/enrich";
 import { titleMayContainHttpUrl } from "~/board/links/extract";
 import { linkPreviewRuntime } from "~/board/links/runtime";
-import { decodeLane, decodeNote, decodeTask, decodeWhiteboard } from "~/board/sync/codec";
+import { decodeLane, decodeNote, decodeTaskMutation, decodeWhiteboard } from "~/board/sync/codec";
 import {
   createLaneCollection,
   createNoteCollection,
@@ -35,6 +40,7 @@ const optionalTaskKeys = [
   "date",
   "attachments",
 ] as const satisfies ReadonlyArray<keyof Task>;
+const boardDataVersionKey = "board:data-version";
 
 type PreparedMutation =
   | { collection: typeof laneCollectionId; mutation: Mutation; value?: Lane }
@@ -60,7 +66,7 @@ function logBoardSync(event: string, annotations: Record<string, string | number
   );
 }
 
-function replaceTask(draft: Task, next: Task) {
+function replaceTask(draft: Partial<Task>, next: Task) {
   const preservedAttachments = draft.attachments;
   for (const key of optionalTaskKeys) {
     if (next[key] === undefined) {
@@ -94,6 +100,7 @@ export class BoardObject extends SyncDurableObject<Env> {
       this.notes.preload(),
       this.whiteboards.preload(),
     ]);
+    await serverRuntime.runPromise(this.#runMigrations());
     await serverRuntime.runPromise(
       this.#persist(() => {
         normalizeStoredBoard({ lanes: this.lanes, tasks: this.tasks });
@@ -115,6 +122,29 @@ export class BoardObject extends SyncDurableObject<Env> {
       }, "initialize"),
     );
   }
+
+  #runMigrations = Effect.fn("BoardObject.runMigrations")(function* (this: BoardObject) {
+    yield* runBoardMigrations({
+      readVersion: () =>
+        Effect.tryPromise({
+          try: () => this.ctx.storage.get<number>(boardDataVersionKey),
+          catch: (cause) => new BoardMigrationError({ cause, operation: "read-version" }),
+        }),
+      materializeTaskCollapse: () =>
+        this.#persist(() => {
+          materializeTaskCollapse(this.tasks);
+        }, "migrate_task_collapse").pipe(
+          Effect.mapError(
+            (cause) => new BoardMigrationError({ cause, operation: "materialize-collapse" }),
+          ),
+        ),
+      writeVersion: (version) =>
+        Effect.tryPromise({
+          try: () => this.ctx.storage.put(boardDataVersionKey, version),
+          catch: (cause) => new BoardMigrationError({ cause, operation: "write-version" }),
+        }),
+    });
+  });
 
   protected override async readSyncSnapshot(): Promise<ReadonlyArray<SyncSnapshot>> {
     await Promise.all([
@@ -315,6 +345,7 @@ export class BoardObject extends SyncDurableObject<Env> {
   });
 
   #prepareTaskMutation = Effect.fn("BoardObject.prepareTaskMutation")(function* (
+    this: BoardObject,
     mutation: Mutation,
   ) {
     if (mutation.collection !== taskCollectionId) {
@@ -330,7 +361,12 @@ export class BoardObject extends SyncDurableObject<Env> {
       return yield* new SyncProtocolError({ message: `Missing value for ${mutation.type}` });
     }
 
-    const task = normalizeTask(yield* decodeTask(mutation.value));
+    const task = normalizeTask(
+      yield* decodeTaskMutation(
+        mutation.value,
+        mutation.type === "update" ? this.tasks.get(mutation.key) : undefined,
+      ),
+    );
     if (task.id !== mutation.key) {
       return yield* new SyncProtocolError({ message: "Task mutation key does not match value" });
     }

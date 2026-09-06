@@ -3,7 +3,8 @@ import type { Collection } from "@tanstack/db";
 
 import { format } from "date-fns";
 
-import type { Lane, Task } from "~/board/schema";
+import type { Lane } from "~/board/schema";
+import type { SyncedTaskCollection } from "~/board/sync/collections";
 import { inboxLaneId, todayLaneId } from "~/board/views";
 
 const todayDateLabel = "Today";
@@ -11,7 +12,7 @@ const todayWrittenLabel = format(new Date(), "d MMM");
 
 export function createDerivedBoardCollections(
   lanes: Collection<Lane, string>,
-  tasks: Collection<Task, string>,
+  tasks: SyncedTaskCollection,
 ) {
   const inbox = createLiveQueryCollection({
     id: "inbox-tasks",

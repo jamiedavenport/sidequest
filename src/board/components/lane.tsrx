@@ -28,7 +28,7 @@ import { currentLaneId } from "~/board/navigation/commands";
 import { BoardActor } from "~/board/navigation/machine";
 import { useBoardClient } from "~/board/sync/client";
 import type { BoardLane } from "~/board/types";
-import { isSystemLane, planLaneMove } from "~/board/views";
+import { activeTaskCountForView, isSystemLane, planLaneMove } from "~/board/views";
 import { Button } from "~/components/ui/button.tsrx";
 import {
   DropdownMenu,
@@ -80,6 +80,7 @@ function LaneTitle({ lane }: { lane: BoardLane }) @{
   const [draft, setDraft] = useState(lane.title);
   const titleRef = useRef<HTMLInputElement>(null);
   const cancelledRef = useRef(false);
+  const taskCount = activeTaskCountForView(client.tasks.toArray, lane.id);
 
   useLayoutEffect(() => {
     if (!editing) {
@@ -140,9 +141,7 @@ function LaneTitle({ lane }: { lane: BoardLane }) @{
       >
         {lane.title}
       </h2>
-      <span className="tabular-nums text-sm text-muted-foreground sm:text-xs">
-        {lane.tasks.length}
-      </span>
+      <span className="tabular-nums text-sm text-muted-foreground sm:text-xs">{taskCount}</span>
     </StartAddButton>;
   }
 }

@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Effect, Predicate, Schema } from "effect";
 
 import { Lane, Note, Task, Whiteboard } from "~/board/schema";
 
@@ -6,8 +6,18 @@ export const decodeLane = Effect.fn("decodeLane")(function* (input: unknown) {
   return yield* Schema.decodeUnknownEffect(Lane)(input);
 });
 
-export const decodeTask = Effect.fn("decodeTask")(function* (input: unknown) {
+const decodeTask = Effect.fn("decodeTask")(function* (input: unknown) {
   return yield* Schema.decodeUnknownEffect(Task)(input);
+});
+
+export const decodeTaskMutation = Effect.fn("decodeTaskMutation")(function* (
+  input: unknown,
+  existing?: Task,
+) {
+  const task = yield* decodeTask(input);
+  return existing !== undefined && !Predicate.hasProperty(input, "collapsed")
+    ? { ...task, collapsed: existing.collapsed }
+    : task;
 });
 
 export const decodeNote = Effect.fn("decodeNote")(function* (input: unknown) {

@@ -4,6 +4,7 @@ import { pauseAt } from "./support/pause";
 import { createSession, deleteUser } from "./support/session";
 
 const SYNC_TIMEOUT = 15_000;
+const ADD_TASK_SHORTCUT = process.platform === "darwin" ? "Meta+Enter" : "Control+Enter";
 
 function requirePage(page: Page | undefined, device: "A" | "B"): Page {
   if (page === undefined) {
@@ -11,6 +12,13 @@ function requirePage(page: Page | undefined, device: "A" | "B"): Page {
   }
 
   return page;
+}
+
+async function addTodayTask(page: Page, title: string): Promise<void> {
+  const input = page.getByRole("textbox", { name: "Add a task to Today" });
+  await input.fill(title);
+  await input.press(ADD_TASK_SHORTCUT);
+  await expect(page.getByText(title, { exact: true })).toBeVisible();
 }
 
 test("live task changes propagate between devices and into a fresh snapshot", async ({
@@ -174,6 +182,87 @@ test("live task changes propagate between devices and into a fresh snapshot", as
     });
   } finally {
     await Promise.all([deviceA?.close(), deviceB?.close()]);
+    if (userId !== undefined) {
+      await deleteUser(request, userId);
+    }
+  }
+});
+
+test("collapsed task subtrees sync and preserve nested collapse state", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  test.setTimeout(60_000);
+
+  let deviceA: BrowserContext | undefined;
+  let deviceB: BrowserContext | undefined;
+  let deviceC: BrowserContext | undefined;
+  let userId: string | undefined;
+  const suffix = crypto.randomUUID();
+  const rootTitle = `Root task ${suffix}`;
+  const childTitle = `Child task ${suffix}`;
+  const grandchildTitle = `Grandchild task ${suffix}`;
+
+  try {
+    const session = await createSession(request);
+    userId = session.user.id;
+    deviceA = await browser.newContext({ baseURL });
+    deviceB = await browser.newContext({ baseURL });
+    await Promise.all([deviceA.addCookies(session.cookies), deviceB.addCookies(session.cookies)]);
+    const pageA = await deviceA.newPage();
+    const pageB = await deviceB.newPage();
+    await Promise.all([pageA.goto("/"), pageB.goto("/")]);
+    await Promise.all([
+      expect(pageA.getByRole("heading", { name: "Sidequest task board" })).toBeVisible(),
+      expect(pageB.getByRole("heading", { name: "Sidequest task board" })).toBeVisible(),
+    ]);
+
+    await addTodayTask(pageA, rootTitle);
+    await addTodayTask(pageA, childTitle);
+    await pageA.getByRole("button", { name: `Select ${childTitle}` }).click();
+    await pageA.keyboard.press("Tab");
+    await expect(pageA.getByRole("button", { name: `Collapse ${rootTitle}` })).toBeVisible();
+
+    await addTodayTask(pageA, grandchildTitle);
+    await pageA.getByRole("button", { name: `Select ${grandchildTitle}` }).click();
+    await pageA.keyboard.press("Tab");
+    await pageA.keyboard.press("Tab");
+    await expect(pageA.getByRole("button", { name: `Collapse ${childTitle}` })).toBeVisible();
+    await expect(pageB.getByRole("button", { name: `Collapse ${childTitle}` })).toBeVisible({
+      timeout: SYNC_TIMEOUT,
+    });
+
+    await pageA.getByRole("button", { name: `Collapse ${childTitle}` }).click();
+    await expect(pageA.getByText(grandchildTitle, { exact: true })).toHaveCount(0);
+    await expect(pageB.getByText(grandchildTitle, { exact: true })).toHaveCount(0, {
+      timeout: SYNC_TIMEOUT,
+    });
+
+    await pageA.getByRole("button", { name: `Select ${rootTitle}` }).click();
+    await pageA.keyboard.press("Space");
+    await expect(pageA.getByText(childTitle, { exact: true })).toHaveCount(0);
+    await expect(pageB.getByText(childTitle, { exact: true })).toHaveCount(0, {
+      timeout: SYNC_TIMEOUT,
+    });
+
+    await pageB.getByRole("button", { name: `Expand ${rootTitle}` }).click();
+    await expect(pageA.getByText(childTitle, { exact: true })).toBeVisible({
+      timeout: SYNC_TIMEOUT,
+    });
+    await expect(pageA.getByText(grandchildTitle, { exact: true })).toHaveCount(0);
+
+    deviceC = await browser.newContext({ baseURL });
+    await deviceC.addCookies(session.cookies);
+    const pageC = await deviceC.newPage();
+    await pageC.goto("/");
+    await expect(pageC.getByText(childTitle, { exact: true })).toBeVisible({
+      timeout: SYNC_TIMEOUT,
+    });
+    await expect(pageC.getByText(grandchildTitle, { exact: true })).toHaveCount(0);
+    await expect(pageC.getByRole("button", { name: `Expand ${childTitle}` })).toBeVisible();
+  } finally {
+    await Promise.all([deviceA?.close(), deviceB?.close(), deviceC?.close()]);
     if (userId !== undefined) {
       await deleteUser(request, userId);
     }

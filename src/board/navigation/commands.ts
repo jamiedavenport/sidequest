@@ -82,6 +82,29 @@ function nearestRemainingLane(
   );
 }
 
+function nearestVisibleAncestor(context: BoardContext, lane: BoardLane): Task | undefined {
+  const previous = selectedTask(context);
+  if (previous === undefined) {
+    return undefined;
+  }
+
+  const previousById = new Map(previous.lane.tasks.map((task) => [task.id, task]));
+  const visibleById = new Map(lane.tasks.map((task) => [task.id, task]));
+  const seen = new Set<string>([previous.task.id]);
+  let parentId = previous.task.parentId;
+  while (parentId !== undefined && !seen.has(parentId)) {
+    const parent = visibleById.get(parentId);
+    if (parent !== undefined) {
+      return parent;
+    }
+
+    seen.add(parentId);
+    parentId = previousById.get(parentId)?.parentId;
+  }
+
+  return undefined;
+}
+
 export function syncBoard(context: BoardContext, lanes: ReadonlyArray<BoardLane>): BoardContext {
   const nextLanes = [...lanes];
   const currentLane = lanes.find((lane) => lane.id === context.cursor.laneId);
@@ -102,6 +125,15 @@ export function syncBoard(context: BoardContext, lanes: ReadonlyArray<BoardLane>
         ...context,
         lanes: nextLanes,
         cursor: { laneId: location.lane.id, taskId: location.task.id },
+      };
+    }
+
+    const ancestor = nearestVisibleAncestor(context, currentLane);
+    if (ancestor !== undefined) {
+      return {
+        ...context,
+        lanes: nextLanes,
+        cursor: { laneId: currentLane.id, taskId: ancestor.id },
       };
     }
   }

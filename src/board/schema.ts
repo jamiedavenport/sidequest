@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import type { StandardSchemaV1 } from "effect/StandardSchema";
 
 export const LaneSymbolColour = Schema.Literals(["green", "amber", "blue", "violet"]);
@@ -35,6 +35,7 @@ export const Task = Schema.Struct({
   title: Schema.String,
   rank: Schema.Number,
   completed: Schema.Boolean,
+  collapsed: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
   date: Schema.optional(Schema.String),
   attachments: Schema.optionalKey(Schema.Array(Attachment)),
 });
@@ -162,7 +163,7 @@ export type BoardLane = Lane & {
 };
 
 export const laneSchema: StandardSchemaV1<Lane, Lane> = Schema.toStandardSchemaV1(Lane);
-export const taskSchema: StandardSchemaV1<Task, Task> = Schema.toStandardSchemaV1(Task);
+export const taskSchema = Schema.toStandardSchemaV1(Task);
 export const noteSchema: StandardSchemaV1<Note, Note> = Schema.toStandardSchemaV1(Note);
 export const whiteboardSchema: StandardSchemaV1<Whiteboard, Whiteboard> =
   Schema.toStandardSchemaV1(Whiteboard);

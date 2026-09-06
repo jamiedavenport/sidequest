@@ -1,6 +1,13 @@
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { completeTask, moveTaskInLane, moveTaskToLane, nestTask } from "~/board/data/mutations";
+import {
+  completeTask,
+  moveTaskInLane,
+  moveTaskToLane,
+  nestTask,
+  setTaskCollapsed,
+} from "~/board/data/mutations";
 import type { BoardClient } from "~/board/sync/client";
 import type { Task } from "~/board/types";
 import { completeTasks } from "~/board/views";
@@ -37,6 +44,7 @@ function materializeTasks(fixtures: ReadonlyArray<TaskFixture>): Task[] {
         title: node.id,
         rank,
         completed: false,
+        collapsed: false,
         laneId,
         ...(parentId === undefined ? {} : { parentId }),
       });
@@ -143,6 +151,23 @@ describe("task completion", () => {
     completeTask(client, "parent");
 
     expect(completionState(client)).toEqual({ parent: true, child: true });
+  });
+});
+
+describe("task collapse", () => {
+  it("persists a requested collapse state and is idempotent", async () => {
+    const client = testClient([task("parent", [task("child")])]);
+
+    await expect(Effect.runPromise(setTaskCollapsed(client, "parent", true))).resolves.toBe(true);
+    await expect(Effect.runPromise(setTaskCollapsed(client, "parent", true))).resolves.toBe(false);
+
+    expect(client.tasks.get("parent")?.collapsed).toBe(true);
+  });
+
+  it("does not create an update for a missing task", async () => {
+    const client = testClient([]);
+
+    await expect(Effect.runPromise(setTaskCollapsed(client, "missing", true))).resolves.toBe(false);
   });
 });
 

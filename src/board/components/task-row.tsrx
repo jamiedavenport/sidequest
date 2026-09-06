@@ -1,5 +1,6 @@
 // oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
-import { Ellipsis } from "lucide-react";
+import { Effect } from "effect";
+import { ChevronDown, ChevronRight, Ellipsis } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
@@ -7,9 +8,10 @@ import { cn } from "@/lib/utils";
 
 import { useBoardClient } from "~/board/sync/client";
 import { BoardActor } from "~/board/navigation/machine";
-import { completeTask } from "~/board/data/mutations";
+import { completeTask, setTaskCollapsed } from "~/board/data/mutations";
 import { TaskEdit } from "~/board/components/task-edit.tsrx";
 import {
+  collapseHotkeys,
   editHotkeys,
   notesHotkeys,
   ShortcutKeys,
@@ -32,6 +34,7 @@ import {
   ItemTitle,
 } from "~/components/ui/item.tsrx";
 import type { Attachment, BoardTask, Task } from "~/board/types";
+import { hasActiveTaskChildren } from "~/board/views";
 
 type TaskIndentStyle = CSSProperties & {
   "--task-indent": string;
@@ -134,7 +137,61 @@ function SelectTaskButton({ laneId, task }: { laneId: string; task: Task }) @{
   />;
 }
 
-function TaskOptions({ laneId, task }: { laneId: string; task: Task }) @{
+function toggleTaskSubtree(
+  client: ReturnType<typeof useBoardClient>,
+  actorRef: ReturnType<typeof BoardActor.useActorRef>,
+  laneId: string,
+  task: BoardTask,
+) {
+  actorRef.send({ type: "task.select", taskId: task.id, laneId });
+  void Effect.runPromise(setTaskCollapsed(client, task.id, !task.collapsed)).catch(
+    (error: unknown) => {
+      console.error("Failed to toggle task subtree", error);
+    },
+  );
+}
+
+function TaskDisclosure({
+  hasChildren,
+  laneId,
+  task,
+}: {
+  hasChildren: boolean;
+  laneId: string;
+  task: BoardTask;
+}) @{
+  const client = useBoardClient();
+  const actorRef = BoardActor.useActorRef();
+
+  @if (hasChildren) {
+    <Button
+      className="relative z-10 size-5 shrink-0 p-0 sm:size-4"
+      size="icon"
+      type="button"
+      variant="ghost"
+      aria-expanded={!task.collapsed}
+      aria-label={`${task.collapsed ? "Expand" : "Collapse"} ${task.title}`}
+      onClick={() => toggleTaskSubtree(client, actorRef, laneId, task)}
+    >
+      @if (task.collapsed) {
+        <ChevronRight aria-hidden="true" />;
+      } @else {
+        <ChevronDown aria-hidden="true" />;
+      }
+    </Button>;
+  }
+}
+
+function TaskOptions({
+  hasChildren,
+  laneId,
+  task,
+}: {
+  hasChildren: boolean;
+  laneId: string;
+  task: BoardTask;
+}) @{
+  const client = useBoardClient();
   const actorRef = BoardActor.useActorRef();
 
   <DropdownMenu>
@@ -186,11 +243,20 @@ function TaskOptions({ laneId, task }: { laneId: string; task: Task }) @{
           <ShortcutKeys hotkeys={editHotkeys} />
         </DropdownMenuShortcut>
       </DropdownMenuItem>
+      @if (hasChildren) {
+        <DropdownMenuItem onClick={() => toggleTaskSubtree(client, actorRef, laneId, task)}>
+          {task.collapsed ? "Expand subtree" : "Collapse subtree"}
+          <DropdownMenuShortcut>
+            <ShortcutKeys hotkeys={collapseHotkeys} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>;
+      }
     </DropdownMenuContent>
   </DropdownMenu>;
 }
 
 export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @{
+  const client = useBoardClient();
   const editing = BoardActor.useSelector(
     (snapshot) =>
       snapshot.value === "editing" &&
@@ -204,6 +270,7 @@ export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @
       snapshot.context.cursor.laneId === laneId,
   );
   const rowRef = useRef<HTMLLIElement>(null);
+  const hasChildren = hasActiveTaskChildren(client.tasks.toArray, task.id);
   const indentStyle: TaskIndentStyle = {
     "--task-indent": `${8 + task.visualDepth * 32}px`,
     "--task-indent-sm": `${8 + task.visualDepth * 28}px`,
@@ -246,6 +313,9 @@ export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @
       }
       <div className="pointer-events-none relative flex min-w-0 items-start gap-2.5 sm:gap-2">
         <div className="pointer-events-auto flex h-6 items-center sm:h-4.25">
+          <TaskDisclosure hasChildren={hasChildren} laneId={laneId} task={task} />
+        </div>
+        <div className="pointer-events-auto flex h-6 items-center sm:h-4.25">
           <CompleteTaskButton task={task} />
         </div>
         @if (editing) {
@@ -269,7 +339,7 @@ export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @
               }
             </div>
             <div className="pointer-events-auto absolute top-0 right-0 flex h-6 items-center sm:h-4.25">
-              <TaskOptions laneId={laneId} task={task} />
+              <TaskOptions hasChildren={hasChildren} laneId={laneId} task={task} />
             </div>
           </>;
         }
