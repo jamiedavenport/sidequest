@@ -21,7 +21,12 @@ type VerificationCodeValues = typeof VerificationCodeValues.Type;
 
 export const verificationCodeFormSchema = Schema.toStandardSchemaV1(VerificationCodeValues);
 
+export const loginSearchSchema = Schema.toStandardSchemaV1(
+  Schema.Struct({ oauthQuery: Schema.optionalKey(Schema.String) }),
+);
+
 const CodeSearch = Schema.Struct({
+  oauthQuery: Schema.optionalKey(Schema.String),
   email: Schema.optionalKey(Schema.String),
 });
 

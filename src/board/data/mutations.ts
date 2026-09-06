@@ -1,3 +1,4 @@
+import { planTaskCreate, planTaskUpdate } from "~/board/data/task-planning";
 import { emptyNoteDocument, Note, Whiteboard, type Lane } from "~/board/schema";
 import { Effect, Schema } from "effect";
 import { playDoneSound } from "~/board/sound";
@@ -11,7 +12,6 @@ import {
   deleteTasksForDeletedLane,
   isSystemLane,
   isTaskInView,
-  placementForCreate,
   planLaneMove,
   planNest,
   planTaskMove,
@@ -26,10 +26,6 @@ function laneTasks(client: BoardClient, viewId: string): Task[] {
   return client.tasks.toArray
     .filter((task) => !task.completed && isTaskInView(task, viewId))
     .toSorted((left, right) => left.rank - right.rank);
-}
-
-function nextRank(tasks: ReadonlyArray<Task>): number {
-  return tasks.reduce((max, task) => Math.max(max, task.rank), -1) + 1;
 }
 
 function mutateBoard(client: BoardClient, apply: () => void) {
@@ -300,17 +296,9 @@ export function addTask(
     return;
   }
 
-  const rank = nextRank(laneTasks(client, input.laneId));
-  const placement = placementForCreate(input.laneId, input.date);
+  const task = planTaskCreate(client.tasks.toArray, { ...input, viewId: input.laneId });
   mutateBoard(client, () => {
-    client.tasks.insert({
-      id: input.id,
-      title,
-      rank,
-      completed: false,
-      collapsed: false,
-      ...placement,
-    });
+    client.tasks.insert(task);
     client.notes.insert({ taskId: input.id, content: emptyNoteDocument() });
   });
 }
@@ -333,15 +321,7 @@ export function updateTask(
 
   mutateBoard(client, () => {
     client.tasks.update(taskId, (draft) => {
-      draft.title = title;
-      if (input.date === undefined) {
-        delete draft.date;
-      } else {
-        draft.date = input.date;
-      }
-      if (titleChanged) {
-        draft.attachments = [];
-      }
+      Object.assign(draft, planTaskUpdate(task, { title, date: input.date ?? null }));
     });
   });
 }

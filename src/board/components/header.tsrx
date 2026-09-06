@@ -1,5 +1,3 @@
-import { Ellipsis } from "lucide-react";
-
 import logoUrl from "~/assets/logo.svg?url";
 import { ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
 import { Button } from "~/components/ui/button.tsrx";
@@ -36,9 +34,9 @@ export function AppHeader() @{
         <span className="hidden sm:inline">Search</span>
         <ShortcutLabel hotkey="Mod+K" />
       </Button>
-      <Button size="icon" type="button" variant="ghost" aria-label="More options">
-        <Ellipsis aria-hidden="true" />
-      </Button>
+      <a href="/connections" className="text-xs text-muted-foreground hover:text-foreground">
+        Connected apps
+      </a>
     </div>
   </header>;
 }

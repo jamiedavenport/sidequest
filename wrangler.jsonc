@@ -40,6 +40,8 @@
     },
   ],
   "vars": {
+    "MCP_ENABLED": "false",
+    "MCP_ALLOWED_ORIGINS": "",
     "BETTER_AUTH_URL": "https://sdqst.app",
   },
   "secrets": {

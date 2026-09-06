@@ -1,10 +1,16 @@
+import { continueOAuth, getConsentRequest } from "~/auth/connections";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { codeSearchSchema } from "~/auth/schema";
 import { Component } from "~/routes/code.tsrx";
 
 export const Route = createFileRoute("/code")({
-  beforeLoad: ({ context, search }) => {
+  beforeLoad: async ({ context, search }) => {
+    if (search.oauthQuery) {
+      await getConsentRequest({ data: { oauthQuery: search.oauthQuery } });
+      if (context.session)
+        throw redirect({ href: await continueOAuth({ data: { oauthQuery: search.oauthQuery } }) });
+    }
     if (context.session !== null) {
       throw redirect({ to: "/" });
     }
@@ -17,7 +23,7 @@ export const Route = createFileRoute("/code")({
 });
 
 function CodeRoute() {
-  const { email } = Route.useSearch();
+  const { email, oauthQuery } = Route.useSearch();
 
-  return <Component email={email ?? ""} />;
+  return <Component email={email ?? ""} oauthQuery={oauthQuery} />;
 }

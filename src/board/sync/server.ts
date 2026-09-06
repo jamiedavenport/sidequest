@@ -1,6 +1,9 @@
+import { CommandJournal } from "~/mcp/journal";
+import { digest, normalizedInput, planCommand, queryBoard } from "~/mcp/domain";
+import { ToolError, ToolReply, isWriteTool, type ToolName } from "~/mcp/schema";
 import { createCloudflareDOSQLitePersistence } from "@tanstack/cloudflare-durable-objects-db-sqlite-persistence";
 import { createTransaction } from "@tanstack/db";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
   BoardMigrationError,
@@ -95,6 +98,104 @@ export class BoardObject extends SyncDurableObject<Env> {
 
   whiteboards = createWhiteboardCollection(this.persistence);
 
+  #revision = 0;
+
+  #journal = new CommandJournal<ReadonlyArray<PreparedMutation>>(
+    this.ctx.storage,
+    async (entry) => {
+      const applied = entry.prepared.map((p) => p.mutation);
+      await serverRuntime.runPromise(
+        this.#persist(
+          () => {
+            for (const mutation of entry.prepared) this.#applyMutation(mutation);
+            this.#enforcedTaskNoteMutations(applied);
+            this.#enforcedTaskWhiteboardMutations(applied);
+          },
+          "mcp_command",
+          entry.operationId,
+        ),
+      );
+    },
+    () => this.broadcastSyncSnapshot(),
+  );
+
+  protected override recoverPendingWork(): Promise<void> {
+    return this.#journal.recover();
+  }
+
+  async callTool(clientId: string, name: ToolName, raw: unknown): Promise<ToolReply> {
+    const startedAt = Date.now();
+    let reply: ToolReply;
+    try {
+      reply = await this.serialized(async () => {
+        const input = normalizedInput(name, raw);
+        const state = {
+          lanes: this.lanes.toArray,
+          tasks: this.tasks.toArray,
+          revision: this.#revision,
+        };
+        if (!isWriteTool(name))
+          return { ok: true as const, result: await queryBoard(state, name, raw), replay: false };
+        if (!("idempotencyKey" in input))
+          throw new ToolError({
+            code: "invalid_input",
+            message: "Writes require an idempotencyKey.",
+          });
+        const key = `mcp:command:${await digest({ clientId, key: input.idempotencyKey })}`;
+        const hash = await digest({ name, input });
+        const outcome = await this.#journal.execute(key, hash, async () => {
+          const operationId = crypto.randomUUID();
+          const plan = planCommand(state, name, raw, operationId);
+          const mutations = plan.tasks.map(
+            (task) =>
+              new Mutation({
+                collection: taskCollectionId,
+                type: this.tasks.has(task.id) ? "update" : "insert",
+                key: task.id,
+                value: task,
+              }),
+          );
+          const prepared = await serverRuntime.runPromise(this.#prepareMutations(mutations));
+          return { operationId, result: plan.result, prepared };
+        });
+        const mutations = (outcome.result.affectedTaskIds ?? []).map(
+          (id) =>
+            new Mutation({
+              collection: taskCollectionId,
+              key: id,
+              type: "update",
+              value: this.tasks.get(id),
+            }),
+        );
+        this.#enqueueLinkEnrichment(mutations, outcome.result.operationId ?? "");
+        return { ok: true as const, ...outcome };
+      });
+    } catch (error) {
+      reply = {
+        ok: false,
+        error:
+          error instanceof ToolError
+            ? { code: error.code, message: error.message }
+            : {
+                code: "internal_error",
+                message: "Board operation failed. Retry with the same idempotency key.",
+              },
+      };
+    }
+    await serverRuntime.runPromise(
+      Effect.logInfo("mcp.tool").pipe(
+        Effect.annotateLogs({
+          tool: name,
+          durationMs: Date.now() - startedAt,
+          outcome: reply.ok ? "success" : reply.error.code,
+          operationId: reply.ok ? (reply.result.operationId ?? "") : "",
+          replay: reply.ok && reply.replay,
+        }),
+      ),
+    );
+    return Schema.decodeUnknownSync(ToolReply)(reply);
+  }
+
   protected override async initializeSync() {
     await Promise.all([
       this.lanes.preload(),
@@ -102,7 +203,9 @@ export class BoardObject extends SyncDurableObject<Env> {
       this.notes.preload(),
       this.whiteboards.preload(),
     ]);
+    this.#revision = (await this.ctx.storage.get<number>("board:revision")) ?? 0;
     await serverRuntime.runPromise(this.#runMigrations());
+    await this.#journal.recover();
     await serverRuntime.runPromise(
       this.#persist(() => {
         normalizeStoredBoard({ lanes: this.lanes, tasks: this.tasks });
@@ -122,6 +225,13 @@ export class BoardObject extends SyncDurableObject<Env> {
           }
         }
       }, "initialize"),
+    );
+    this.#enqueueLinkEnrichment(
+      this.tasks.toArray.map(
+        (task) =>
+          new Mutation({ collection: taskCollectionId, type: "update", key: task.id, value: task }),
+      ),
+      "initialize",
     );
   }
 
@@ -208,6 +318,8 @@ export class BoardObject extends SyncDurableObject<Env> {
         });
         transaction.mutate(mutate);
         await transaction.commit();
+        this.#revision += 1;
+        await this.ctx.storage.put("board:revision", this.#revision);
       },
       catch: (cause) => new SyncProtocolError({ message: String(cause) }),
     });
@@ -769,7 +881,11 @@ export class BoardObject extends SyncDurableObject<Env> {
       outcome: "started",
       taskCount: taskIds.length,
     });
-    const updates: Array<{ id: string; attachments: NonNullable<Task["attachments"]> }> = [];
+    const updates: Array<{
+      id: string;
+      title: string;
+      attachments: NonNullable<Task["attachments"]>;
+    }> = [];
     for (const taskId of taskIds) {
       const task = this.tasks.get(taskId);
       if (task === undefined || (task.attachments !== undefined && task.attachments.length > 0)) {
@@ -781,7 +897,7 @@ export class BoardObject extends SyncDurableObject<Env> {
         continue;
       }
 
-      updates.push({ id: taskId, attachments });
+      updates.push({ id: taskId, title: task.title, attachments });
     }
 
     if (updates.length === 0) {
@@ -796,45 +912,58 @@ export class BoardObject extends SyncDurableObject<Env> {
       return;
     }
 
-    yield* this.#persist(() => {
-      for (const update of updates) {
-        const current = this.tasks.get(update.id);
-        if (
-          current === undefined ||
-          (current.attachments !== undefined && current.attachments.length > 0)
-        ) {
-          continue;
-        }
+    yield* Effect.tryPromise({
+      try: () =>
+        this.serialized(() =>
+          serverRuntime.runPromise(
+            Effect.gen(
+              function* (this: BoardObject) {
+                yield* this.#persist(() => {
+                  for (const update of updates) {
+                    const current = this.tasks.get(update.id);
+                    if (
+                      current === undefined ||
+                      current.title !== update.title ||
+                      (current.attachments !== undefined && current.attachments.length > 0)
+                    ) {
+                      continue;
+                    }
 
-        this.tasks.update(update.id, (draft) => {
-          draft.attachments = [...update.attachments];
-        });
-      }
-    }, "server_enrichment");
+                    this.tasks.update(update.id, (draft) => {
+                      draft.attachments = [...update.attachments];
+                    });
+                  }
+                }, "server_enrichment");
 
-    const outgoing = updates.flatMap((update) => {
-      const task = this.tasks.get(update.id);
-      if (task?.attachments === undefined || task.attachments.length === 0) {
-        return [];
-      }
+                const outgoing = updates.flatMap((update) => {
+                  const task = this.tasks.get(update.id);
+                  if (task?.attachments === undefined || task.attachments.length === 0) {
+                    return [];
+                  }
 
-      return [
-        new Mutation({
-          collection: taskCollectionId,
-          type: "update",
-          key: task.id,
-          value: task,
-        }),
-      ];
+                  return [
+                    new Mutation({
+                      collection: taskCollectionId,
+                      type: "update",
+                      key: task.id,
+                      value: task,
+                    }),
+                  ];
+                });
+                yield* this.broadcastSyncMutations(outgoing);
+              }.bind(this),
+            ),
+          ),
+        ),
+      catch: (cause) => new SyncProtocolError({ message: String(cause) }),
     });
-    yield* this.broadcastSyncMutations(outgoing);
     yield* logBoardSync("enrichment_finished", {
       durationMs: Date.now() - startedAt,
       enrichmentId,
       originatingTransactionId,
       outcome: "success",
       taskCount: taskIds.length,
-      updateCount: outgoing.length,
+      updateCount: updates.length,
     });
   });
 }

@@ -1,8 +1,9 @@
 // oxlint-disable react-perf/jsx-no-new-function-as-prop
 import { useForm } from "@tanstack/react-form";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
+import { continueOAuth } from "~/auth/connections";
 import { authClient } from "~/auth/client";
 import { AuthShell } from "~/auth/components/auth-shell.tsrx";
 import { sendSignInCode } from "~/auth/middleware";
@@ -26,8 +27,9 @@ function verificationErrorMessage(code: string | undefined): string {
   }
 }
 
-export function Component({ email }: { email: string }) @{
+export function Component({ email, oauthQuery }: { email: string; oauthQuery?: string }) @{
   const navigate = useNavigate();
+  const loginSearch = useMemo(() => ({ oauthQuery }), [oauthQuery]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
@@ -43,15 +45,22 @@ export function Component({ email }: { email: string }) @{
     onSubmit: async ({ value }) => {
       setSubmitError(null);
       try {
-        const { error } = await authClient.signIn.emailOtp({
-          email,
-          otp: value.code,
-        });
+        const { data, error } = await authClient.$fetch<{ url?: string }, { code?: string }>(
+          "/sign-in/email-otp",
+          {
+            method: "POST",
+            body: { email, otp: value.code, ...(oauthQuery ? { oauth_query: oauthQuery } : {}) },
+          },
+        );
         if (error !== null) {
           setSubmitError(verificationErrorMessage(error.code));
           return;
         }
 
+        if (oauthQuery) {
+          window.location.assign(data?.url ?? (await continueOAuth({ data: { oauthQuery } })));
+          return;
+        }
         await navigate({ to: "/" });
       } catch {
         setSubmitError("We couldn’t verify that code. Check your connection and try again.");
@@ -183,6 +192,7 @@ export function Component({ email }: { email: string }) @{
       <Link
         className="w-fit font-medium text-foreground underline-offset-4 hover:underline"
         to="/login"
+        search={loginSearch}
       >
         Use a different email
       </Link>

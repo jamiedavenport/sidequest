@@ -1,3 +1,6 @@
+import { mcpEnabled } from "~/mcp/schema";
+import { oauthProvider } from "@better-auth/oauth-provider";
+import { mcpTokenPlugin, oauthOptions } from "~/mcp/oauth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { emailOTP } from "better-auth/plugins";
@@ -44,6 +47,8 @@ function deleteSignInCode(email: string): Promise<unknown> {
   return db.delete(verification).where(eq(verification.identifier, signInCodeIdentifier(email)));
 }
 
+const providerOptions = oauthOptions(env.BETTER_AUTH_URL.href, mcpEnabled(process.env.MCP_ENABLED));
+
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL.href,
   database: drizzleAdapter(db, {
@@ -52,6 +57,8 @@ export const auth = betterAuth({
   }),
   secret: env.BETTER_AUTH_SECRET,
   plugins: [
+    oauthProvider(providerOptions),
+    mcpTokenPlugin(providerOptions),
     emailOTP({
       allowedAttempts: 3,
       disableSignUp: false,

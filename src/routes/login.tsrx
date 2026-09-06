@@ -1,6 +1,7 @@
+import { oauthQueryFromSearch } from "~/auth/oauth-continuation";
 // oxlint-disable react-perf/jsx-no-new-function-as-prop
 import { useForm } from "@tanstack/react-form";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { AuthShell } from "~/auth/components/auth-shell.tsrx";
@@ -12,6 +13,7 @@ import { Input } from "~/components/ui/input.tsrx";
 
 export function Component() @{
   const navigate = useNavigate();
+  const oauthQuery = oauthQueryFromSearch(useLocation().searchStr);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const form = useForm({
     defaultValues: {
@@ -31,7 +33,7 @@ export function Component() @{
           return;
         }
 
-        await navigate({ search: { email }, to: "/code" });
+        await navigate({ search: { email, oauthQuery }, to: "/code" });
       } catch {
         setSubmitError("We couldn’t send a sign-in code. Check your connection and try again.");
       }

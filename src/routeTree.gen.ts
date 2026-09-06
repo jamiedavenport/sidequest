@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CodeRouteImport } from './routes/code'
+import { Route as ConnectionsRouteImport } from './routes/connections'
+import { Route as ConsentRouteImport } from './routes/consent'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ApiBoardRouteImport } from './routes/api/board'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
@@ -24,6 +26,16 @@ const IndexRoute = IndexRouteImport.update({
 const CodeRoute = CodeRouteImport.update({
   id: '/code',
   path: '/code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectionsRoute = ConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConsentRoute = ConsentRouteImport.update({
+  id: '/consent',
+  path: '/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -50,6 +62,8 @@ const ApiE2eSessionRoute = ApiE2eSessionRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/code': typeof CodeRoute
+  '/connections': typeof ConnectionsRoute
+  '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/api/board': typeof ApiBoardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -58,6 +72,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/code': typeof CodeRoute
+  '/connections': typeof ConnectionsRoute
+  '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/api/board': typeof ApiBoardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -67,6 +83,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/code': typeof CodeRoute
+  '/connections': typeof ConnectionsRoute
+  '/consent': typeof ConsentRoute
   '/login': typeof LoginRoute
   '/api/board': typeof ApiBoardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -75,14 +93,30 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/code' | '/login' | '/api/board' | '/api/auth/$' | '/api/e2e/session'
+    | '/'
+    | '/code'
+    | '/connections'
+    | '/consent'
+    | '/login'
+    | '/api/board'
+    | '/api/auth/$'
+    | '/api/e2e/session'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/code' | '/login' | '/api/board' | '/api/auth/$' | '/api/e2e/session'
+    | '/'
+    | '/code'
+    | '/connections'
+    | '/consent'
+    | '/login'
+    | '/api/board'
+    | '/api/auth/$'
+    | '/api/e2e/session'
   id:
     | '__root__'
     | '/'
     | '/code'
+    | '/connections'
+    | '/consent'
     | '/login'
     | '/api/board'
     | '/api/auth/$'
@@ -92,6 +126,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CodeRoute: typeof CodeRoute
+  ConnectionsRoute: typeof ConnectionsRoute
+  ConsentRoute: typeof ConsentRoute
   LoginRoute: typeof LoginRoute
   ApiBoardRoute: typeof ApiBoardRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -112,6 +148,20 @@ declare module '@tanstack/react-router' {
       path: '/code'
       fullPath: '/code'
       preLoaderRoute: typeof CodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connections': {
+      id: '/connections'
+      path: '/connections'
+      fullPath: '/connections'
+      preLoaderRoute: typeof ConnectionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/consent': {
+      id: '/consent'
+      path: '/consent'
+      fullPath: '/consent'
+      preLoaderRoute: typeof ConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -148,6 +198,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CodeRoute: CodeRoute,
+  ConnectionsRoute: ConnectionsRoute,
+  ConsentRoute: ConsentRoute,
   LoginRoute: LoginRoute,
   ApiBoardRoute: ApiBoardRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

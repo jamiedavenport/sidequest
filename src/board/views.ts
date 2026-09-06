@@ -240,7 +240,12 @@ export function currentViewId(task: Task, now = new Date()): string {
   return isTodayTask(task, now) ? todayLaneId : inboxLaneId;
 }
 
-export function placementForCreate(viewId: string, date?: string, now = new Date()): TaskPlacement {
+export function placementForCreate(
+  viewId: string,
+  date?: string,
+  now = new Date(),
+  today = formatTaskDate(now, now),
+): TaskPlacement {
   if (viewId === inboxLaneId) {
     if (date !== undefined && date !== "" && !isTaskDateToday(date, now)) {
       return { date };
@@ -250,7 +255,7 @@ export function placementForCreate(viewId: string, date?: string, now = new Date
   }
 
   if (viewId === todayLaneId) {
-    return { date: formatTaskDate(now, now) };
+    return { date: today };
   }
 
   return {
@@ -263,13 +268,14 @@ function placementForMove(
   viewId: string,
   current: Pick<Task, "date">,
   now = new Date(),
+  today = formatTaskDate(now, now),
 ): TaskPlacement {
   if (viewId === inboxLaneId) {
     return {};
   }
 
   if (viewId === todayLaneId) {
-    return { date: formatTaskDate(now, now) };
+    return { date: today };
   }
 
   return {
@@ -523,9 +529,12 @@ export function planTaskDestination(
   taskId: string,
   sourceViewId: string,
   destination: TaskDestination,
+  now = new Date(),
+  today = formatTaskDate(now, now),
 ): ReadonlyArray<TaskMoveUpdate> | undefined {
   const task = allTasks.find((item) => item.id === taskId);
-  if (task === undefined || task.completed || !isTaskInView(task, sourceViewId)) return undefined;
+  if (task === undefined || task.completed || !isTaskInView(task, sourceViewId, now))
+    return undefined;
   const subtree = taskSubtree(allTasks, taskId);
   const movingIds = new Set(subtree.map((item) => item.id));
   const target =
@@ -537,7 +546,7 @@ export function planTaskDestination(
     (target === undefined ||
       target.completed ||
       movingIds.has(target.id) ||
-      !isTaskInView(target, destination.viewId))
+      !isTaskInView(target, destination.viewId, now))
   )
     return undefined;
   const parentId = destination.edge === "nest" ? target?.id : target?.parentId;
@@ -554,9 +563,9 @@ export function planTaskDestination(
         ? taskPlacement(task)
         : parent !== undefined
           ? taskPlacement(parent)
-          : placementForMove(destination.viewId, task);
+          : placementForMove(destination.viewId, task, now, today);
 
-  const destinationTasks = allTasks.filter((item) => isTaskInView(item, destination.viewId));
+  const destinationTasks = allTasks.filter((item) => isTaskInView(item, destination.viewId, now));
   const destinationIds = destinationTasks.map((item) => item.id);
   const included = new Set([...destinationIds, ...descendantTaskIds(allTasks, destinationIds)]);
   const ordered = allTasks

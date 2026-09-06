@@ -8,6 +8,13 @@
       "when": 1788105062056,
       "tag": "0000_magenta_johnny_blaze",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788730009400,
+      "tag": "0001_oauth_provider",
+      "breakpoints": true
     }
   ]
 }

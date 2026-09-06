@@ -44,6 +44,31 @@ function logServerSync(event: string, annotations: Record<string, string | numbe
 export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
   #ready: Promise<void> | undefined;
 
+  #queue: Promise<unknown> = Promise.resolve();
+
+  protected async recoverPendingWork(): Promise<void> {}
+
+  protected async serialized<T>(work: () => Promise<T>): Promise<T> {
+    await this.#ensureReady();
+    const pending = this.#queue.then(async () => {
+      await this.recoverPendingWork();
+      return work();
+    });
+    this.#queue = pending.catch(() => {});
+    return pending;
+  }
+
+  protected async broadcastSyncSnapshot(): Promise<void> {
+    const snapshot = await serverRuntime.runPromise(this.#snapshot());
+    for (const socket of this.ctx.getWebSockets()) {
+      try {
+        send(socket, snapshot);
+      } catch {
+        socket.close(1011, "Snapshot delivery failed");
+      }
+    }
+  }
+
   constructor(ctx: DurableObjectState, env: TEnv) {
     super(ctx, env);
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
@@ -84,7 +109,7 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
     }
 
     try {
-      await serverRuntime.runPromise(this.#handleMessage(ws, parsed));
+      await this.serialized(() => serverRuntime.runPromise(this.#handleMessage(ws, parsed)));
     } catch (error) {
       const transactionId =
         typeof parsed === "object" &&
@@ -108,7 +133,10 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
   }
 
   #ensureReady(): Promise<void> {
-    this.#ready ??= this.initializeSync();
+    this.#ready ??= this.initializeSync().catch((error: unknown) => {
+      this.#ready = undefined;
+      throw error;
+    });
     return this.#ready;
   }
 
