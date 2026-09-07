@@ -5,18 +5,72 @@ import { betterAuth } from "better-auth";
 import { emailOTP } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { eq } from "drizzle-orm";
+import { Effect, Schema } from "effect";
 import { Resend } from "resend";
 
 import { db } from "~/db/client";
 import * as schema from "~/db/schema";
 import { verification } from "~/db/schema";
 import { env } from "~/env";
+import { serverRuntime } from "~/server/runtime";
 
 const EMAIL_CODE_EXPIRY_MINUTES = 5;
 
 const EMAIL_SENDER = "Sidequest <login@sdqst.app>";
 
 const resend = new Resend(env.RESEND_API_KEY);
+
+function createWelcomeEmailText(): string {
+  return [
+    "Hey,",
+    "",
+    "I'm Jamie, the person building Sidequest. Thanks for giving it a go.",
+    "",
+    "I'd love to hear what you're using it for, what feels good, and what",
+    "gets in your way. If you have an idea, a question, or just a thought,",
+    "hit reply. It'll come straight to me at x@jxd.dev.",
+    "",
+    "You're welcome to join the community too:",
+    "https://sdqst.communities.buzz.xyz/invite/v2.v823vjCjiGvULFJUy6v0l87YMoSKo5sRlT8nhVRsS84",
+    "",
+    "And if you're curious about the code:",
+    "https://github.com/jamiedavenport/sidequest",
+    "",
+    "Hope Sidequest helps make a little more room in your day.",
+    "",
+    "Jamie",
+  ].join("\n");
+}
+
+class WelcomeEmailError extends Schema.TaggedError<WelcomeEmailError>()("WelcomeEmailError", {
+  message: Schema.String,
+}) {}
+
+const sendWelcomeEmail = Effect.fn("sendWelcomeEmail")(function* (
+  email: string,
+): Effect.fn.Return<void, WelcomeEmailError> {
+  const { error } = yield* Effect.tryPromise({
+    try: () =>
+      resend.emails.send({
+        from: "Jamie from Sidequest <login@sdqst.app>",
+        replyTo: "x@jxd.dev",
+        subject: "A quick hello from Jamie",
+        text: createWelcomeEmailText(),
+        to: email,
+      }),
+    catch: () => new WelcomeEmailError({ message: "Could not reach Resend." }),
+  }).pipe(
+    Effect.timeout("5 seconds"),
+    Effect.catchTag("TimeoutError", () =>
+      Effect.fail(new WelcomeEmailError({ message: "Welcome email delivery timed out." })),
+    ),
+  );
+
+  if (error !== null) {
+    return yield* new WelcomeEmailError({ message: `Resend rejected the email: ${error.name}.` });
+  }
+  return undefined;
+});
 
 async function deliverSignInCode(email: string, otp: string): Promise<void> {
   const { error } = await resend.emails.send({
@@ -56,6 +110,24 @@ export function createAuth() {
       provider: "sqlite",
       schema,
     }),
+    databaseHooks: {
+      user: {
+        create: {
+          async after(user) {
+            if (!user.emailVerified) {
+              return;
+            }
+            await serverRuntime.runPromise(
+              sendWelcomeEmail(user.email).pipe(
+                Effect.catchTag("WelcomeEmailError", (error) =>
+                  Effect.logError("Could not send welcome email.", { message: error.message }),
+                ),
+              ),
+            );
+          },
+        },
+      },
+    },
     secret: env.BETTER_AUTH_SECRET,
     account: {
       encryptOAuthTokens: true,
