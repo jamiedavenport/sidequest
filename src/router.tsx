@@ -1,8 +1,11 @@
 import { createRouter } from "@tanstack/react-router";
 
+import { initializePageTracking } from "~/lib/openpanel";
 import { routeTree } from "~/routeTree.gen";
 
 export function getRouter() {
+  initializePageTracking();
+
   return createRouter({
     defaultPreload: "intent",
     routeTree,
