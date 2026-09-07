@@ -12,16 +12,8 @@ import {
 } from "~/components/ui/dropdown-menu.tsrx";
 import { CreditCardIcon, PlugIcon, MenuIcon, LogOutIcon } from "lucide-react";
 import logoUrl from "~/assets/logo.svg?url";
-import { ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
 import { authClient } from "~/auth/client";
 import { Button, buttonVariants } from "~/components/ui/button.tsrx";
-
-function SearchGlyph() @{
-  <span
-    className="relative size-3.5 shrink-0 rounded-full border-2 border-muted-foreground after:absolute after:-right-1 after:-bottom-0.5 after:h-0.5 after:w-1.5 after:rotate-45 after:rounded-full after:bg-muted-foreground"
-    aria-hidden="true"
-  />;
-}
 
 class SignOutError extends Schema.TaggedError<SignOutError>()("SignOutError", {
   cause: Schema.Defect(),
@@ -60,18 +52,6 @@ export function AppHeader() @{
     </a>
 
     <div className="flex items-center justify-end gap-2">
-      <Button
-        type="button"
-        variant="outline"
-        aria-label="Search or run a command"
-        className="w-[160px] justify-between"
-      >
-        <span className="sm:hidden">
-          <SearchGlyph />
-        </span>
-        <span className="hidden sm:inline">Search</span>
-        <ShortcutLabel hotkey="Mod+K" />
-      </Button>
       @if (signOutError !== null) {
         <p className="text-xs text-destructive" role="alert">
           {signOutError}

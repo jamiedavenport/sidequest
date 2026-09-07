@@ -9,7 +9,11 @@ make room for what you want to do today.
 Designed with ADHD in mind, Sidequest keeps your tasks on one calm canvas, with
 quick keyboard controls and space to think when a task needs more than a title.
 
-[Open Sidequest](https://sdqst.app) · [Contribute](CONTRIBUTING.md)
+[![Open Sidequest](https://img.shields.io/badge/Open_Sidequest-111111?style=for-the-badge)](https://sdqst.app)
+[![Join the conversation on Buzz](https://img.shields.io/badge/Join_the_conversation-Buzz-111111?style=for-the-badge)](https://sdqst.communities.buzz.xyz/invite/v2.v823vjCjiGvULFJUy6v0l87YMoSKo5sRlT8nhVRsS84)
+
+[![CI](https://github.com/jamiedavenport/sidequest/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/jamiedavenport/sidequest/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)
+· [Contribute](CONTRIBUTING.md)
 
 ## Make room for your next step
 
