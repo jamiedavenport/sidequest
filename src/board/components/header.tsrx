@@ -1,15 +1,19 @@
 // oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
 import { Link } from "@tanstack/react-router";
 import { useConsent } from "@policystack/react/consent";
+import { Effect, Schema } from "effect";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "~/components/ui/dropdown-menu.tsrx";
-import { CreditCardIcon, PlugIcon, MenuIcon } from "lucide-react";
+import { CreditCardIcon, PlugIcon, MenuIcon, LogOutIcon } from "lucide-react";
 import logoUrl from "~/assets/logo.svg?url";
 import { ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
+import { authClient } from "~/auth/client";
 import { Button, buttonVariants } from "~/components/ui/button.tsrx";
 
 function SearchGlyph() @{
@@ -19,8 +23,31 @@ function SearchGlyph() @{
   />;
 }
 
+class SignOutError extends Schema.TaggedError<SignOutError>()("SignOutError", {
+  cause: Schema.Defect(),
+}) {}
+
 export function AppHeader() @{
   const { setRoute } = useConsent();
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+  const signOut = Effect.fn("signOut")(
+    function* () {
+      setSigningOut(true);
+      setSignOutError(null);
+      const result = yield* Effect.tryPromise({
+        try: () => authClient.signOut(),
+        catch: (cause) => new SignOutError({ cause }),
+      });
+      if (result.error) {
+        return yield* new SignOutError({ cause: result.error });
+      }
+      window.location.assign("/login");
+    },
+    Effect.catch(() => Effect.sync(() => setSignOutError("Couldn’t sign out. Please try again."))),
+    Effect.ensuring(Effect.sync(() => setSigningOut(false))),
+  );
+
   <header className="relative z-10 flex items-center justify-between gap-4 border-b border-border bg-background/90 px-3.5 backdrop-blur-xl sm:px-4.5">
     <a className="flex h-7 w-fit items-center text-foreground no-underline" href="/">
       <img
@@ -45,6 +72,11 @@ export function AppHeader() @{
         <span className="hidden sm:inline">Search</span>
         <ShortcutLabel hotkey="Mod+K" />
       </Button>
+      @if (signOutError !== null) {
+        <p className="text-xs text-destructive" role="alert">
+          {signOutError}
+        </p>;
+      }
       <a
         href="/billing"
         aria-label="Billing"
@@ -80,6 +112,11 @@ export function AppHeader() @{
           <DropdownMenuItem render={<Link to="/cookies" />}>Cookie policy</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setRoute("preferences")}>
             Cookie settings
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={signingOut} onClick={() => Effect.runPromise(signOut())}>
+            <LogOutIcon aria-hidden="true" />
+            {signingOut ? "Signing out…" : "Sign out"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
