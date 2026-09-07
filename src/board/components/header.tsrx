@@ -1,4 +1,13 @@
-import { CreditCardIcon, PlugIcon } from "lucide-react";
+// oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
+import { Link } from "@tanstack/react-router";
+import { useConsent } from "@policystack/react/consent";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "~/components/ui/dropdown-menu.tsrx";
+import { CreditCardIcon, PlugIcon, MenuIcon } from "lucide-react";
 import logoUrl from "~/assets/logo.svg?url";
 import { ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
 import { Button, buttonVariants } from "~/components/ui/button.tsrx";
@@ -11,6 +20,7 @@ function SearchGlyph() @{
 }
 
 export function AppHeader() @{
+  const { setRoute } = useConsent();
   <header className="relative z-10 flex items-center justify-between gap-4 border-b border-border bg-background/90 px-3.5 backdrop-blur-xl sm:px-4.5">
     <a className="flex h-7 w-fit items-center text-foreground no-underline" href="/">
       <img
@@ -59,6 +69,20 @@ export function AppHeader() @{
       >
         <PlugIcon aria-hidden="true" />
       </a>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon" aria-label="Application menu" />}
+        >
+          <MenuIcon aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem render={<Link to="/privacy" />}>Privacy policy</DropdownMenuItem>
+          <DropdownMenuItem render={<Link to="/cookies" />}>Cookie policy</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setRoute("preferences")}>
+            Cookie settings
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   </header>;
 }

@@ -102,7 +102,6 @@ export function DetailSheet() @{
       <SheetContent
         className="w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-t-xl data-[side=bottom]:right-auto data-[side=bottom]:left-1/2 data-[side=bottom]:h-[calc(100dvh-2rem)] data-[side=bottom]:-translate-x-1/2"
         side="bottom"
-        overlayClassName="bg-black/10 backdrop-blur-none"
         initialFocus={() =>
           document.querySelector<HTMLElement>(
             detailTab === "notes"

@@ -4,6 +4,7 @@ import { useForm } from "@tanstack/react-form";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { PrivacyNavigation } from "~/privacy/consent.tsrx";
 import { AuthShell } from "~/auth/components/auth-shell.tsrx";
 import { sendSignInCode } from "~/auth/middleware";
 import { loginFormSchema } from "~/auth/schema";
@@ -96,5 +97,6 @@ export function Component() @{
         }}
       </form.Subscribe>
     </form>
+    <PrivacyNavigation />
   </AuthShell>;
 }

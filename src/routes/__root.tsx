@@ -4,6 +4,9 @@ import type { ReactNode } from "react";
 import { getSession } from "~/auth/middleware";
 import appIcon from "~/assets/icon.svg?url";
 import { NotFound } from "~/components/not-found.tsrx";
+import { PolicyStack } from "@policystack/react/provider";
+import { RootLayout } from "~/components/root-layout.tsrx";
+import policy from "~/policystack";
 import appStyles from "~/styles.css?url";
 
 export const Route = createRootRoute({
@@ -35,6 +38,7 @@ export const Route = createRootRoute({
   }),
   notFoundComponent: NotFound,
   shellComponent: RootDocument,
+  component: RootLayout,
 });
 
 function RootDocument({ children }: { children: ReactNode }) {
@@ -47,7 +51,7 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body className="min-h-dvh bg-background text-foreground">
-        {children}
+        <PolicyStack config={policy}>{children}</PolicyStack>
         <Scripts />
       </body>
     </html>

@@ -14,7 +14,9 @@ import { Route as BillingRouteImport } from './routes/billing'
 import { Route as CodeRouteImport } from './routes/code'
 import { Route as ConnectionsRouteImport } from './routes/connections'
 import { Route as ConsentRouteImport } from './routes/consent'
+import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ApiBoardRouteImport } from './routes/api/board'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiBillingWebhookRouteImport } from './routes/api/billing/webhook'
@@ -45,9 +47,19 @@ const ConsentRoute = ConsentRouteImport.update({
   path: '/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CookiesRoute = CookiesRouteImport.update({
+  id: '/cookies',
+  path: '/cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiBoardRoute = ApiBoardRouteImport.update({
@@ -77,7 +89,9 @@ export interface FileRoutesByFullPath {
   '/code': typeof CodeRoute
   '/connections': typeof ConnectionsRoute
   '/consent': typeof ConsentRoute
+  '/cookies': typeof CookiesRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/api/board': typeof ApiBoardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
@@ -89,7 +103,9 @@ export interface FileRoutesByTo {
   '/code': typeof CodeRoute
   '/connections': typeof ConnectionsRoute
   '/consent': typeof ConsentRoute
+  '/cookies': typeof CookiesRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/api/board': typeof ApiBoardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
@@ -102,7 +118,9 @@ export interface FileRoutesById {
   '/code': typeof CodeRoute
   '/connections': typeof ConnectionsRoute
   '/consent': typeof ConsentRoute
+  '/cookies': typeof CookiesRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/api/board': typeof ApiBoardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
@@ -116,7 +134,9 @@ export interface FileRouteTypes {
     | '/code'
     | '/connections'
     | '/consent'
+    | '/cookies'
     | '/login'
+    | '/privacy'
     | '/api/board'
     | '/api/auth/$'
     | '/api/billing/webhook'
@@ -128,7 +148,9 @@ export interface FileRouteTypes {
     | '/code'
     | '/connections'
     | '/consent'
+    | '/cookies'
     | '/login'
+    | '/privacy'
     | '/api/board'
     | '/api/auth/$'
     | '/api/billing/webhook'
@@ -140,7 +162,9 @@ export interface FileRouteTypes {
     | '/code'
     | '/connections'
     | '/consent'
+    | '/cookies'
     | '/login'
+    | '/privacy'
     | '/api/board'
     | '/api/auth/$'
     | '/api/billing/webhook'
@@ -153,7 +177,9 @@ export interface RootRouteChildren {
   CodeRoute: typeof CodeRoute
   ConnectionsRoute: typeof ConnectionsRoute
   ConsentRoute: typeof ConsentRoute
+  CookiesRoute: typeof CookiesRoute
   LoginRoute: typeof LoginRoute
+  PrivacyRoute: typeof PrivacyRoute
   ApiBoardRoute: typeof ApiBoardRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiBillingWebhookRoute: typeof ApiBillingWebhookRoute
@@ -197,11 +223,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cookies': {
+      id: '/cookies'
+      path: '/cookies'
+      fullPath: '/cookies'
+      preLoaderRoute: typeof CookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/board': {
@@ -241,7 +281,9 @@ const rootRouteChildren: RootRouteChildren = {
   CodeRoute: CodeRoute,
   ConnectionsRoute: ConnectionsRoute,
   ConsentRoute: ConsentRoute,
+  CookiesRoute: CookiesRoute,
   LoginRoute: LoginRoute,
+  PrivacyRoute: PrivacyRoute,
   ApiBoardRoute: ApiBoardRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiBillingWebhookRoute: ApiBillingWebhookRoute,
