@@ -18,6 +18,7 @@
     "format": "oxfmt --check . && bun run scripts/declaration-spacing.ts --check",
     "format:fix": "bun run scripts/declaration-spacing.ts --write && oxfmt --write .",
     "knip": "knip",
+    "privacy:validate": "policystack validate --json",
     "lint": "oxlint --type-aware --deny-warnings . && bun run scripts/declaration-spacing.ts --check",
     "lint:fix": "bun run scripts/declaration-spacing.ts --write && oxlint --type-aware --deny-warnings --fix .",
     "test": "vitest run --passWithNoTests",

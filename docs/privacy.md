@@ -2,7 +2,7 @@
 
 The implementation uses PolicyStack V1 (`@policystack/sdk`, `core`, `react` and `cli` pinned to 1.5.0). `src/policystack.ts` is the shared configuration. Public `/privacy` and `/cookies` routes use the same owned TSRX renderers; the OAuth `/consent` route is unrelated.
 
-Context7 reference: `/jamiedavenport/policystack`, requested V1; verified against installed 1.5.0 declarations and runtime. The [custom React renderer documentation](https://policystack.dev/docs/policy/react) describes the `components` prop. PolicyStack validation is `bunx policystack validate --json`.
+Context7 reference: `/jamiedavenport/policystack`, requested V1; verified against installed 1.5.0 declarations and runtime. The [custom React renderer documentation](https://policystack.dev/docs/policy/react) describes the `components` prop. PolicyStack validation is `bun run privacy:validate`.
 
 ## Publication review still required
 
@@ -61,7 +61,7 @@ Reference: [OpenPanel’s web SDK documentation](https://openpanel.dev/docs/sdks
 
 ## Verification
 
-- `bunx policystack validate --json`: zero errors; the intentional DPO warning remains.
+- `bun run privacy:validate`: zero errors; the intentional DPO warning remains.
 - Repository formatter, linter and type checker pass.
 - `bun run test`: 21 files, 257 tests pass, including two focused consent-storage regressions.
 - `E2E_BUILT_WORKER=1 bunx playwright test e2e/privacy.e2e.ts e2e/billing.e2e.ts`: seven Chromium tests passed before the subsequent UI refinements; the three privacy tests pass after this refactor against the built Worker. These cover signed-out access and navigation, mobile overflow, heading hierarchy, policy lists/tables, dialog dismissal, persistence and cross-tab withdrawal/deletion, expired consent, actual fixed-payload analytics requests, billing redirects and offline task persistence/recovery.
