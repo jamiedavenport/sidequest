@@ -11,7 +11,7 @@ import { useBoardStore } from "~/board/navigation/provider.tsrx";
 import { BoardEvent } from "~/board/navigation/model";
 import { taskFormSchema } from "~/board/schema";
 import { dateHotkey, saveHotkey, ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
-import { useBoardClient } from "~/board/sync/client";
+import { useBoardClient } from "~/board/sync/client.tsrx";
 import type { Task } from "~/board/types";
 import { Button } from "~/components/ui/button.tsrx";
 import { Calendar } from "~/components/ui/calendar.tsrx";

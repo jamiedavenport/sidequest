@@ -34,7 +34,7 @@ import "tldraw/tldraw.css";
 import type { EditorSaveStatus } from "~/board/components/editor-save-status";
 import { saveWhiteboard } from "~/board/data/mutations";
 import type { WhiteboardDocument } from "~/board/schema";
-import { useBoardClient } from "~/board/sync/client";
+import { useBoardClient } from "~/board/sync/client.tsrx";
 import { Button } from "~/components/ui/button.tsrx";
 import { Separator } from "~/components/ui/separator.tsrx";
 import { Toggle } from "~/components/ui/toggle.tsrx";

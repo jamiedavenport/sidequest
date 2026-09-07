@@ -2,7 +2,7 @@ import { planTaskCreate, planTaskUpdate } from "~/board/data/task-planning";
 import { emptyNoteDocument, Note, Whiteboard, type Lane } from "~/board/schema";
 import { Effect, Schema } from "effect";
 import { playDoneSound } from "~/board/sound";
-import type { BoardClient } from "~/board/sync/client";
+import type { BoardClient } from "~/board/sync/client-types";
 import type { HorizontalDirection, Task, VerticalDirection } from "~/board/types";
 import {
   applySubtreeNest,

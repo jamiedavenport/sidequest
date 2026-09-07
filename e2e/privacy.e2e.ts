@@ -177,7 +177,7 @@ test("analytics requests use static paths and stop after withdrawal while board 
       })(),
     }));
     expect(inventory.localStorage).toContain("sidequest-consent");
-    expect(inventory.databases).toContain("offline-transactions");
+    expect(inventory.databases).toContain(`sidequest-outbox-v2-${session.user.id}`);
     console.log("Observed storage:", JSON.stringify(inventory));
     console.log(
       "Observed authentication cookies:",

@@ -1,0 +1,271 @@
+import {
+  BrowserCollectionCoordinator,
+  createBrowserWASQLitePersistence,
+  openBrowserWASQLiteOPFSDatabase,
+} from "@tanstack/browser-db-sqlite-persistence";
+import { startOfflineExecutor, WebOnlineDetector } from "@tanstack/offline-transactions";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+
+import { Effect } from "effect";
+
+import { authClient } from "~/auth/client";
+import { Button } from "~/components/ui/button.tsrx";
+import { BoardStorageError, openBoardOutbox } from "~/board/sync/outbox";
+import { useSession } from "~/auth/hooks";
+import { BoardBooting } from "~/board/components/booting.tsrx";
+import {
+  boardCollectionIds,
+  createSyncedLaneCollection,
+  createSyncedNoteCollection,
+  createSyncedTaskCollection,
+  createSyncedWhiteboardCollection,
+  laneCollectionId,
+  noteCollectionId,
+  taskCollectionId,
+  whiteboardCollectionId,
+} from "~/board/sync/collections";
+import {
+  decodeLaneSync,
+  decodeNoteSync,
+  decodeTaskSync,
+  decodeWhiteboardSync,
+} from "~/board/sync/codec";
+import { createDerivedBoardCollections } from "~/board/sync/live";
+import type { BoardClient } from "./client-types.ts";
+import { boardNeedsNormalize, normalizeStoredBoard } from "~/board/views";
+import {
+  collectionSync,
+  SessionValidationError,
+  SyncTransport,
+  transactionMutations,
+} from "~/sync/transport";
+
+const BoardClientContext = createContext<BoardClient | null>(null);
+
+export function SyncClientProvider({ children }: { children: ReactNode }) {
+  const session = useSession();
+  return (
+    <AccountSyncClient key={session.user.id} userId={session.user.id}>
+      {children}
+    </AccountSyncClient>
+  );
+}
+
+function AccountSyncClient({ children, userId }: { children: ReactNode; userId: string }) {
+  const [client, setClient] = useState<BoardClient | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const onAuthenticationLost = () => {
+      if (controller.signal.aborted) {
+        return;
+      }
+      setClient(null);
+      controller.abort();
+      window.location.assign("/login");
+    };
+    const lifetime = createBoardClient(userId, controller.signal, onAuthenticationLost).pipe(
+      Effect.flatMap((next) =>
+        Effect.sync(() => {
+          if (!controller.signal.aborted) {
+            setClient(next);
+          }
+        }),
+      ),
+      Effect.andThen(Effect.never),
+      Effect.scoped,
+      Effect.catch(() =>
+        Effect.sync(() => {
+          if (controller.signal.aborted) {
+            return;
+          }
+          console.error("Board storage initialization failed");
+          setFailed(true);
+        }),
+      ),
+    );
+    void Effect.runPromise(lifetime, { signal: controller.signal }).catch(() => {});
+    return () => controller.abort();
+  }, [userId, attempt]);
+
+  const retry = useCallback(() => {
+    setFailed(false);
+    setAttempt((value) => value + 1);
+  }, []);
+
+  if (failed) {
+    return (
+      <main className="grid h-dvh place-items-center">
+        <div role="alert" className="flex flex-col items-center gap-4">
+          <p>Unable to open your saved board. Allow browser storage and try again.</p>
+          <Button onClick={retry}>Retry</Button>
+        </div>
+      </main>
+    );
+  }
+  if (client === null) {
+    return <BoardBooting />;
+  }
+  return <BoardClientContext.Provider value={client}>{children}</BoardClientContext.Provider>;
+}
+
+export function useBoardClient(): BoardClient {
+  const client = useContext(BoardClientContext);
+  if (client === null) {
+    throw new Error("Board client is not ready");
+  }
+
+  return client;
+}
+
+const createBoardClient = Effect.fn("createBoardClient")(function* (
+  userId: string,
+  signal: AbortSignal,
+  onAuthenticationLost: () => void,
+) {
+  const outbox = yield* openBoardOutbox(userId);
+  const databaseNamespace = `sidequest-board-${userId}`;
+  const database = yield* Effect.acquireRelease(
+    Effect.tryPromise({
+      try: () => openBrowserWASQLiteOPFSDatabase({ databaseName: `${databaseNamespace}.sqlite` }),
+      catch: () => new BoardStorageError(),
+    }),
+    (opened) => Effect.promise(() => opened.close?.() ?? Promise.resolve()),
+  );
+  const coordinator = yield* Effect.acquireRelease(
+    Effect.sync(() => new BrowserCollectionCoordinator({ dbName: databaseNamespace })),
+    (owned) => Effect.sync(() => owned.dispose()),
+  );
+  const persistence = createBrowserWASQLitePersistence({
+    database,
+    coordinator,
+  });
+  const transport = yield* Effect.acquireRelease(
+    Effect.sync(
+      () =>
+        new SyncTransport({
+          url: boardSocketUrl(userId),
+          validateSession: () => validateBoardSession(userId),
+          onAuthenticationLost,
+          onBillingRequired: () => window.location.assign("/billing"),
+          collections: boardCollectionIds,
+        }),
+    ),
+    (owned) => Effect.sync(() => owned.close()),
+  );
+  // Stop the transport immediately, even if a Promise-based acquisition is still finishing.
+  signal.addEventListener("abort", () => transport.close(), { once: true });
+  if (signal.aborted) {
+    transport.close();
+  }
+
+  const lanes = createSyncedLaneCollection(
+    persistence,
+    collectionSync(transport, laneCollectionId, decodeLaneSync),
+  );
+  const tasks = createSyncedTaskCollection(
+    persistence,
+    collectionSync(transport, taskCollectionId, decodeTaskSync),
+  );
+  const notes = createSyncedNoteCollection(
+    persistence,
+    collectionSync(transport, noteCollectionId, decodeNoteSync),
+  );
+  const whiteboards = createSyncedWhiteboardCollection(
+    persistence,
+    collectionSync(transport, whiteboardCollectionId, decodeWhiteboardSync),
+  );
+
+  let active = true;
+  const onlineDetector = new WebOnlineDetector();
+  yield* Effect.addFinalizer(() =>
+    Effect.sync(() => {
+      active = false;
+      onlineDetector.dispose();
+    }),
+  );
+  const offline = yield* Effect.acquireRelease(
+    Effect.gen(function* () {
+      const executor = startOfflineExecutor({
+        ...outbox,
+        onlineDetector: {
+          isOnline: () => active && !signal.aborted && onlineDetector.isOnline(),
+          notifyOnline: () => onlineDetector.notifyOnline(),
+          subscribe: (listener) => onlineDetector.subscribe(listener),
+          dispose: () => {
+            active = false;
+            onlineDetector.dispose();
+          },
+        },
+        collections: { lanes, tasks, notes, whiteboards },
+        mutationFns: {
+          persistBoard: async ({ transaction, idempotencyKey }) => {
+            // Billing rejections remain retryable in the durable outbox across the redirect.
+            await transport.mutate(transactionMutations(transport, transaction), idempotencyKey);
+          },
+        },
+      });
+      yield* Effect.tryPromise({
+        try: () => executor.waitForInit(),
+        catch: () => new BoardStorageError(),
+      }).pipe(Effect.onError(() => Effect.sync(() => executor.dispose())));
+      return executor;
+    }),
+    (executor) => Effect.sync(() => executor.dispose()),
+  );
+  yield* Effect.forEach(
+    [lanes, tasks, notes, whiteboards],
+    (collection) =>
+      Effect.tryPromise({
+        try: () => collection.preload(),
+        catch: () => new BoardStorageError(),
+      }),
+    { concurrency: "unbounded", discard: true },
+  );
+
+  if (boardNeedsNormalize(lanes.toArray, tasks.toArray)) {
+    const transaction = offline.createOfflineTransaction({
+      autoCommit: false,
+      mutationFnName: "persistBoard",
+    });
+    transaction.mutate(() => {
+      normalizeStoredBoard({ lanes, tasks });
+    });
+    void transaction.commit();
+  }
+
+  const { inbox, today, projects } = createDerivedBoardCollections(lanes, tasks);
+
+  return {
+    lanes,
+    tasks,
+    notes,
+    whiteboards,
+    inbox,
+    today,
+    projects,
+    offline,
+    transport,
+  } satisfies BoardClient;
+});
+
+const validateBoardSession = Effect.fn("validateBoardSession")(function* (userId: string) {
+  const result = yield* Effect.tryPromise({
+    try: () => authClient.getSession(),
+    catch: () => new SessionValidationError(),
+  });
+  if (result.error !== null) {
+    if (result.error.status === 401) {
+      return false;
+    }
+    return yield* new SessionValidationError();
+  }
+  return result.data?.user.id === userId;
+});
+
+function boardSocketUrl(userId: string): string {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/api/board?syncVersion=2&userId=${encodeURIComponent(userId)}`;
+}

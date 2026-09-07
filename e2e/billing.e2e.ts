@@ -45,11 +45,13 @@ test("expiry rejects writes on an already connected socket while retaining reads
     await context.addCookies(session.cookies);
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Sidequest task board" })).toBeAttached();
-    await page.evaluate(async () => {
-      const socket = new WebSocket(`${location.origin.replace("http", "ws")}/api/board`);
+    await page.evaluate(async (userId) => {
+      const socket = new WebSocket(
+        `${location.origin.replace("http", "ws")}/api/board?syncVersion=2&userId=${encodeURIComponent(userId)}`,
+      );
       await new Promise<void>((resolve) => socket.addEventListener("open", () => resolve()));
       Object.assign(window, { billingTestSocket: socket });
-    });
+    }, session.user.id);
     await request.patch("/api/e2e/session", {
       headers: { "x-sidequest-e2e-secret": "sidequest-e2e-session-helper-secret" },
       data: { userId: session.user.id, ageDays: 30 },

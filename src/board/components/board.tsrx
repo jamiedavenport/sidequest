@@ -4,7 +4,7 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { Effect } from "effect";
 import { useEffect, useRef } from "react";
 
-import { SyncClientProvider, useBoardClient } from "~/board/sync/client";
+import { SyncClientProvider, useBoardClient } from "~/board/sync/client.tsrx";
 import { BoardProvider, useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
 import {
   BoardEvent,

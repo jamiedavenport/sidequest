@@ -219,5 +219,5 @@ const policy = defineConfig({
 // the custom dictionary or storage inventory, which are outside SDK hashing.
 export default {
   ...policy,
-  cookieVersion: `${policy.cookieVersion}:${policy.privacyVersion}:1`,
+  cookieVersion: `${policy.cookieVersion}:${policy.privacyVersion}:2`,
 };

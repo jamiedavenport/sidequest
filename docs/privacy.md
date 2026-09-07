@@ -29,15 +29,15 @@ Observed in local Chromium against the E2E app on 7 September 2026: `better-auth
 
 The rendered inventory includes the following source-verified cases beyond that observed browser path:
 
-| Storage                     | Evidence and duration                                                                                                                                                                                                                   |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTPS authentication prefix | Better Auth 1.7.2 `dist/cookies/index.mjs`: `__Secure-` on HTTPS; session default in `dist/context/create-context.mjs` is seven days, renewable during use. Cookie cache is not enabled, so `session_data` is not an active cookie.     |
-| OAuth logout confirmation   | `@better-auth/oauth-provider` 1.7.2 `authorize-*.mjs`: session-cookie name plus `.oauth_logout_confirmation`, 300-second lifetime, consumed by the confirmation flow. Not observed in the normal login/board path.                      |
-| Offline SQLite files        | `src/board/sync/client.tsx`: account-specific OPFS database. No local cleanup on sign-out or time-based expiry.                                                                                                                         |
-| Offline outbox              | Installed `@tanstack/offline-transactions` uses IndexedDB `offline-transactions`, store `transactions`; fallback `offline-tx:*` localStorage. Pending mutations remain until processing/removal. The empty database itself may persist. |
-| Whiteboard preferences      | tldraw 5.4.0 `TLUserPreferences.ts`: `TLDRAW_USER_DATA_v3` is written when preferences are saved, with no automatic expiry. Its asset configuration requests `cdn.tldraw.com`.                                                          |
-| Consent                     | `src/privacy/storage.ts`: browser-local `sidequest-consent`, valid for 180 days; older records cannot authorise analytics even if the stored bytes remain.                                                                              |
-| Analytics                   | `src/lib/use-analytics.ts` uses `@openpanel/web` 1.4.1 to send page views. It does not identify users or write persistent analytics storage; automatic tracking and replay are disabled.                                                |
+| Storage                     | Evidence and duration                                                                                                                                                                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTPS authentication prefix | Better Auth 1.7.2 `dist/cookies/index.mjs`: `__Secure-` on HTTPS; session default in `dist/context/create-context.mjs` is seven days, renewable during use. Cookie cache is not enabled, so `session_data` is not an active cookie.      |
+| OAuth logout confirmation   | `@better-auth/oauth-provider` 1.7.2 `authorize-*.mjs`: session-cookie name plus `.oauth_logout_confirmation`, 300-second lifetime, consumed by the confirmation flow. Not observed in the normal login/board path.                       |
+| Offline SQLite files        | `src/board/sync/client.tsrx`: account-specific OPFS database. No local cleanup on sign-out or time-based expiry.                                                                                                                         |
+| Offline outbox              | Account-scoped IndexedDB `sidequest-outbox-v2-<account ID>`, store `transactions`; fallback `sidequest-outbox-v2-<account ID>:*` localStorage. Pending mutations remain until processing/removal. The empty database itself may persist. |
+| Whiteboard preferences      | tldraw 5.4.0 `TLUserPreferences.ts`: `TLDRAW_USER_DATA_v3` is written when preferences are saved, with no automatic expiry. Its asset configuration requests `cdn.tldraw.com`.                                                           |
+| Consent                     | `src/privacy/storage.ts`: browser-local `sidequest-consent`, valid for 180 days; older records cannot authorise analytics even if the stored bytes remain.                                                                               |
+| Analytics                   | `src/lib/use-analytics.ts` uses `@openpanel/web` 1.4.1 to send page views. It does not identify users or write persistent analytics storage; automatic tracking and replay are disabled.                                                 |
 
 Repeat the inventory on production HTTPS, including actual sign-in, OAuth logout confirmation, whiteboard preference changes, hosted checkout, and any edge-added storage before publishing. Provider-hosted checkout storage is governed by Polar’s notice.
 
@@ -68,3 +68,13 @@ Reference: [OpenPanel’s web SDK documentation](https://openpanel.dev/docs/sdks
 - The production build passes with the existing large-chunk advisory.
 
 Actual email delivery, production HTTPS/provider storage, real checkout, organisational DPO/representative applicability and provider account settings were not verified. The browser tests use an isolated local session helper and intercept OpenPanel requests; no analytics events or payments are sent to live providers during those tests. The remaining E2E suites were not run as part of this change.
+
+## Account isolation rollout
+
+Client and server ship together with sync protocol version 2; older clients must reload. Each account has its own outbox and leader-election namespace. Signing out, session expiry and account switching preserve pending edits; signing back into that account resumes them. If persistent outbox storage cannot initialize, the board shows a Retry action and does not accept edits.
+
+Legacy unowned data remains untouched: IndexedDB database `offline-transactions`, object store `transactions`, and localStorage keys beginning `offline-tx:`. These locations are excluded from replay. For manual recovery, export them through browser developer tools and establish ownership independently; the next login does not establish ownership. Existing account-scoped SQLite files are unchanged.
+
+WebSocket sessions are checked against D1 at each operation and application delivery, including server broadcasts. Idle sockets need no polling. Revocation does not roll back operations already authorized and in flight. Authentication failures close with 4401; database-check failures close with 1011 and permit retry. Session IDs and credentials are never logged.
+
+References: Context7 `/tanstack/db`, requested `@tanstack/offline-transactions` 1.0.52, verified against installed source; `/websites/developers_cloudflare_durable-objects`, compatibility date 2026-08-29 and Wrangler 4.127.1.

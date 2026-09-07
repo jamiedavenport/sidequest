@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 import { useLaneChrome } from "~/board/components/lane-chrome.tsrx";
 import { deleteLane } from "~/board/data/mutations";
-import { useBoardClient } from "~/board/sync/client";
+import { useBoardClient } from "~/board/sync/client.tsrx";
 import type { BoardLane } from "~/board/types";
 import {
   AlertDialog,

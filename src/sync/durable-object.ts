@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
   Ack,
@@ -14,6 +14,7 @@ import {
   Sync,
   SyncProtocolError,
 } from "~/sync/protocol";
+import { getValidSessions, SocketSession } from "~/sync/session";
 import { serverRuntime } from "~/server/runtime";
 
 export type SyncSnapshot = {
@@ -21,9 +22,7 @@ export type SyncSnapshot = {
   values: ReadonlyArray<unknown>;
 };
 
-function send(socket: WebSocket, message: unknown) {
-  socket.send(JSON.stringify(message));
-}
+type SocketAcknowledgement = { socket: WebSocket; message: Ack };
 
 function mutationTelemetry(mutations: ReadonlyArray<Mutation>) {
   return {
@@ -41,7 +40,9 @@ function logServerSync(event: string, annotations: Record<string, string | numbe
   );
 }
 
-export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
+export abstract class SyncDurableObject<
+  TEnv extends { DB: D1Database },
+> extends DurableObject<TEnv> {
   #ready: Promise<void> | undefined;
 
   #queue: Promise<unknown> = Promise.resolve();
@@ -64,14 +65,105 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
 
   protected async broadcastSyncSnapshot(): Promise<void> {
     const snapshot = await serverRuntime.runPromise(this.#snapshot());
-    for (const socket of this.ctx.getWebSockets()) {
-      try {
-        send(socket, snapshot);
-      } catch {
-        socket.close(1011, "Snapshot delivery failed");
-      }
-    }
+    await serverRuntime.runPromise(this.#sendMessage(this.ctx.getWebSockets(), snapshot));
   }
+
+  protected abstract isSyncOwner(userId: string): boolean;
+
+  #authorizeSockets = Effect.fn("SyncDurableObject.authorizeSockets")(function* (
+    this: SyncDurableObject<TEnv>,
+    sockets: ReadonlyArray<WebSocket>,
+  ) {
+    const attached = yield* Effect.forEach(sockets, (socket) =>
+      Effect.try({
+        try: () => Schema.decodeUnknownSync(SocketSession)(socket.deserializeAttachment()),
+        catch: () => new SyncProtocolError({ message: "Invalid socket session" }),
+      }).pipe(
+        Effect.filterOrFail(
+          (identity) => this.isSyncOwner(identity.userId),
+          () => new SyncProtocolError({ message: "Board account mismatch" }),
+        ),
+        Effect.map((identity) => ({ socket, identity })),
+        Effect.catch(() =>
+          Effect.gen(function* () {
+            socket.close(4401, "Authentication required");
+            yield* logServerSync("authorization_failed", { outcome: "invalid_attachment" });
+            return undefined;
+          }),
+        ),
+      ),
+    );
+    const connections = attached.filter((entry) => entry !== undefined);
+    const owner = connections[0]?.identity.userId;
+    if (owner === undefined) {
+      return [];
+    }
+    const valid = yield* getValidSessions(
+      this.env.DB,
+      owner,
+      connections.map(({ identity }) => identity.sessionId),
+    ).pipe(
+      Effect.catch(() =>
+        Effect.gen(function* () {
+          yield* logServerSync("authorization_failed", { outcome: "check_unavailable" });
+          return undefined;
+        }),
+      ),
+    );
+    return yield* Effect.filter(connections, ({ socket, identity }) =>
+      Effect.gen(function* () {
+        if (valid?.has(identity.sessionId)) {
+          return true;
+        }
+        socket.close(
+          valid === undefined ? 1011 : 4401,
+          valid === undefined ? "Session check unavailable" : "Authentication required",
+        );
+        if (valid !== undefined) {
+          yield* logServerSync("authorization_failed", { outcome: "invalid_session" });
+        }
+        return false;
+      }),
+    ).pipe(Effect.map((entries) => entries.map(({ socket }) => socket)));
+  });
+
+  #sendMessage = Effect.fn("SyncDurableObject.sendMessage")(function* (
+    this: SyncDurableObject<TEnv>,
+    sockets: ReadonlyArray<WebSocket>,
+    message: unknown,
+    acknowledgement?: SocketAcknowledgement,
+  ) {
+    const authorized = yield* this.#authorizeSockets(sockets);
+    const sent = yield* Effect.forEach(authorized, (socket) =>
+      Effect.try({
+        try: () => {
+          // Keep the origin's acknowledgement and changes together after one fresh batch check.
+          if (acknowledgement?.socket === socket) {
+            socket.send(JSON.stringify(acknowledgement.message));
+          }
+          socket.send(JSON.stringify(message));
+          return true;
+        },
+        catch: () => new SyncProtocolError({ message: "Sync delivery failed" }),
+      }).pipe(
+        Effect.tap(() =>
+          acknowledgement?.socket === socket
+            ? logServerSync("acknowledgement_sent", {
+                outcome: "success",
+                transactionId: acknowledgement.message.transactionId,
+              })
+            : Effect.void,
+        ),
+        Effect.catch(() =>
+          Effect.sync(() => {
+            socket.close(1011, "Sync delivery failed");
+            return false;
+          }),
+        ),
+      ),
+    );
+    return sent.filter(Boolean).length;
+  });
 
   constructor(ctx: DurableObjectState, env: TEnv) {
     super(ctx, env);
@@ -96,7 +188,16 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
       return new Response("Expected Upgrade: websocket", { status: 426 });
     }
 
+    const identity = Schema.decodeUnknownOption(SocketSession)({
+      version: 2,
+      userId: request.headers.get("x-sidequest-user-id"),
+      sessionId: request.headers.get("x-sidequest-session-id"),
+    });
+    if (identity._tag === "None" || !this.isSyncOwner(identity.value.userId)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
     const sockets = new WebSocketPair();
+    sockets[1].serializeAttachment(identity.value);
     this.ctx.acceptWebSocket(sockets[1]);
     return new Response(null, { status: 101, webSocket: sockets[0] });
   }
@@ -108,7 +209,9 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
     try {
       parsed = JSON.parse(raw) as unknown;
     } catch {
-      send(ws, new Reject({ transactionId: "", message: "Invalid JSON" }));
+      await serverRuntime.runPromise(
+        this.#sendMessage([ws], new Reject({ transactionId: "", message: "Invalid JSON" })),
+      );
       return;
     }
 
@@ -128,7 +231,9 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
           transactionId,
         }),
       );
-      send(ws, new Reject({ transactionId, message: String(error) }));
+      await serverRuntime.runPromise(
+        this.#sendMessage([ws], new Reject({ transactionId, message: String(error) })),
+      );
     }
   }
 
@@ -150,6 +255,9 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
     ws: WebSocket,
     input: unknown,
   ) {
+    if ((yield* this.#authorizeSockets([ws])).length === 0) {
+      return;
+    }
     const incoming = yield* decodeClientMessage(input);
     if (incoming instanceof Sync) {
       yield* Effect.annotateCurrentSpan({ messageType: "sync" });
@@ -157,7 +265,7 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
         socketCount: this.ctx.getWebSockets().length,
       });
       const snapshot = yield* this.#snapshot();
-      send(ws, snapshot);
+      yield* this.#sendMessage([ws], snapshot);
       yield* logServerSync("snapshot_sent", {
         collectionCount: snapshot.collections.length,
         rowCount: snapshot.collections.reduce((total, entry) => total + entry.values.length, 0),
@@ -212,8 +320,8 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
       catch: () => new SyncProtocolError({ message: "Access check unavailable" }),
     }).pipe(Effect.catch(() => Effect.void));
     if (allowed === undefined) {
-      send(
-        ws,
+      yield* this.#sendMessage(
+        [ws],
         new Reject({
           transactionId: incoming.transactionId,
           code: "temporarily_unavailable",
@@ -223,8 +331,8 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
       return;
     }
     if (!allowed) {
-      send(
-        ws,
+      yield* this.#sendMessage(
+        [ws],
         new Reject({
           transactionId: incoming.transactionId,
           code: "billing_required",
@@ -241,8 +349,8 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
       });
 
       if (alreadyApplied === true) {
-        send(ws, yield* this.#snapshot());
-        send(ws, new Ack({ transactionId: incoming.transactionId }));
+        yield* this.#sendMessage([ws], yield* this.#snapshot());
+        yield* this.#sendMessage([ws], new Ack({ transactionId: incoming.transactionId }));
         yield* logServerSync("acknowledgement_sent", {
           outcome: "idempotent_replay",
           transactionId: incoming.transactionId,
@@ -309,36 +417,18 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
       mutations,
       transactionId,
     });
-    send(ws, acknowledgement);
-    yield* logServerSync("acknowledgement_sent", {
-      outcome: "success",
-      transactionId,
-    });
-    yield* this.#sendChanges(changes);
+    yield* this.#sendChanges(changes, { socket: ws, message: acknowledgement });
   });
 
   #sendChanges = Effect.fn("SyncDurableObject.sendChanges")(function* (
     this: SyncDurableObject<TEnv>,
     changes: Changes,
+    acknowledgement?: SocketAcknowledgement,
   ) {
     const startedAt = Date.now();
-    let sentSocketCount = 0;
-    let failedSocketCount = 0;
-    for (const socket of this.ctx.getWebSockets()) {
-      const sent = yield* Effect.try({
-        try: () => {
-          send(socket, changes);
-          return true;
-        },
-        catch: () => new SyncProtocolError({ message: "Failed to broadcast sync changes" }),
-      }).pipe(Effect.catch(() => Effect.succeed(false)));
-      if (sent) {
-        sentSocketCount += 1;
-      } else {
-        failedSocketCount += 1;
-        socket.close(1011, "Failed to broadcast sync changes");
-      }
-    }
+    const sockets = this.ctx.getWebSockets();
+    const sentSocketCount = yield* this.#sendMessage(sockets, changes, acknowledgement);
+    const failedSocketCount = sockets.length - sentSocketCount;
     const annotations = {
       ...(changes.changeId === undefined ? {} : { changeId: changes.changeId }),
       durationMs: Date.now() - startedAt,

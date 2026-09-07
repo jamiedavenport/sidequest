@@ -1,7 +1,7 @@
 import { BillingRequiredError } from "~/billing/access";
 import type { SyncConfig } from "@tanstack/db";
 import { NonRetriableError } from "@tanstack/offline-transactions";
-import { Effect, Exit } from "effect";
+import { Effect, Exit, Schema } from "effect";
 
 import {
   Ack,
@@ -38,7 +38,14 @@ type PendingAcknowledgement = {
   reject: (error: Error) => void;
 };
 
+export class SessionValidationError extends Schema.TaggedError<SessionValidationError>()(
+  "SessionValidationError",
+  {},
+) {}
+
 export type SyncTransportOptions = {
+  validateSession: () => Effect.Effect<boolean, SessionValidationError>;
+  onAuthenticationLost: () => void;
   onBillingRequired?: () => void;
   url: string;
   collections: ReadonlyArray<string>;
@@ -67,6 +74,9 @@ function logClientSync(event: string, details: Record<string, string | number | 
 }
 
 export class SyncTransport {
+  readonly #validateSession: SyncTransportOptions["validateSession"];
+  readonly #onAuthenticationLost: () => void;
+  #connecting = false;
   readonly #onBillingRequired: (() => void) | undefined;
   readonly #url: string;
   readonly #collections: ReadonlySet<string>;
@@ -86,6 +96,8 @@ export class SyncTransport {
       throw new Error("Sync transport requires at least one collection");
     }
 
+    this.#validateSession = options.validateSession;
+    this.#onAuthenticationLost = options.onAuthenticationLost;
     this.#onBillingRequired = options.onBillingRequired;
     this.#url = options.url;
     this.#collections = new Set(options.collections);
@@ -141,7 +153,7 @@ export class SyncTransport {
     }
 
     const socket = this.#socket;
-    if (socket?.readyState !== WebSocket.OPEN) {
+    if (this.#closed || socket?.readyState !== WebSocket.OPEN) {
       logClientSync("mutation_send_error", {
         outcome: "socket_not_connected",
         ...mutationTelemetry(mutations),
@@ -218,30 +230,82 @@ export class SyncTransport {
       this.#reconnectTimer = undefined;
     }
 
-    this.#socket?.close();
+    const socket = this.#socket;
     this.#socket = undefined;
+    this.#ready = false;
+    this.#buffer = [];
+    socket?.close();
     for (const pending of this.#pending.values()) {
       pending.reject(new Error("Sync closed"));
     }
     this.#pending.clear();
   }
 
-  #connect() {
-    if (this.#closed || this.#socket !== undefined) {
+  #loseAuthentication() {
+    if (this.#closed) {
       return;
     }
+    this.close();
+    this.#onAuthenticationLost();
+  }
 
-    const socket = new WebSocket(this.#url);
+  #scheduleReconnect() {
+    if (this.#closed || this.#reconnectTimer !== undefined) {
+      return;
+    }
+    this.#reconnectTimer = setTimeout(() => {
+      this.#reconnectTimer = undefined;
+      this.#connect();
+    }, this.#reconnectDelayMs);
+  }
+
+  #connect() {
+    if (this.#closed || this.#connecting || this.#socket !== undefined) {
+      return;
+    }
+    this.#connecting = true;
+    void Effect.runPromise(this.#openConnection()).finally(() => {
+      this.#connecting = false;
+    });
+  }
+
+  #openConnection = Effect.fn("SyncTransport.openConnection")(function* (this: SyncTransport) {
+    const valid = yield* this.#validateSession().pipe(Effect.catch(() => Effect.void));
+    if (this.#closed) {
+      return;
+    }
+    if (valid === undefined) {
+      this.#scheduleReconnect();
+      return;
+    }
+    if (!valid) {
+      this.#loseAuthentication();
+      return;
+    }
+    const socket = yield* Effect.try({
+      try: () => new WebSocket(this.#url),
+      catch: () => new SessionValidationError(),
+    }).pipe(Effect.catch(() => Effect.void));
+    if (socket === undefined) {
+      this.#scheduleReconnect();
+      return;
+    }
     this.#socket = socket;
+    this.#listenToSocket(socket);
+  });
 
+  #listenToSocket(socket: WebSocket) {
     socket.addEventListener("open", () => {
+      if (this.#closed || this.#socket !== socket) {
+        return;
+      }
       logClientSync("socket_open", { outcome: "success" });
       socket.send(JSON.stringify(new Sync({})));
       logClientSync("sync_request_sent", { outcome: "success" });
     });
 
     socket.addEventListener("message", (event) => {
-      if (typeof event.data !== "string") {
+      if (this.#closed || this.#socket !== socket || typeof event.data !== "string") {
         return;
       }
 
@@ -282,8 +346,15 @@ export class SyncTransport {
       }
 
       this.#dispatchQueue = this.#dispatchQueue
-        .then(() => this.#dispatchData(message))
+        .then(() => {
+          return !this.#closed && this.#socket === socket
+            ? this.#dispatchData(message, socket)
+            : undefined;
+        })
         .catch((error: unknown) => {
+          if (this.#closed || this.#socket !== socket) {
+            return;
+          }
           console.error("Failed to apply sync message", error);
           logClientSync("message_application_error", { outcome: "failure" });
           for (const pending of this.#pending.values()) {
@@ -295,6 +366,9 @@ export class SyncTransport {
     });
 
     socket.addEventListener("close", (event) => {
+      if (this.#closed || this.#socket !== socket) {
+        return;
+      }
       this.#socket = undefined;
       this.#ready = false;
       this.#buffer = [];
@@ -306,16 +380,10 @@ export class SyncTransport {
         code: event.code,
         outcome: event.wasClean ? "clean" : "unclean",
       });
-      if (!this.#closed) {
-        logClientSync("reconnect_scheduled", {
-          delayMs: this.#reconnectDelayMs,
-          outcome: "scheduled",
-        });
-        this.#reconnectTimer = setTimeout(() => {
-          this.#reconnectTimer = undefined;
-          logClientSync("socket_reconnect", { outcome: "attempt" });
-          this.#connect();
-        }, this.#reconnectDelayMs);
+      if (event.code === 4401) {
+        this.#loseAuthentication();
+      } else {
+        this.#scheduleReconnect();
       }
     });
   }
@@ -350,12 +418,20 @@ export class SyncTransport {
     }
   }
 
-  async #dispatchData(message: Snapshot | Changes) {
+  async #dispatchData(message: Snapshot | Changes, socket: WebSocket) {
     if (message instanceof Snapshot) {
       await this.#applySnapshot(message);
+      if (this.#closed || this.#socket !== socket) {
+        return;
+      }
       this.#ready = true;
       await this.#buffer.reduce(
-        (previous, buffered) => previous.then(() => this.#applyChanges(buffered)),
+        (previous, buffered) =>
+          previous.then(() => {
+            return !this.#closed && this.#socket === socket
+              ? this.#applyChanges(buffered)
+              : undefined;
+          }),
         Promise.resolve(),
       );
       this.#buffer = [];

@@ -35,7 +35,7 @@ import {
 } from "../data/mutations";
 import { useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
 import { DragSource as NavigationDragSource, BoardEvent } from "~/board/navigation/model";
-import { useBoardClient } from "../sync/client";
+import { useBoardClient } from "../sync/client.tsrx";
 import { isSystemLane, planTaskDestination, taskSubtree } from "../views";
 
 type DragContext = { target: BoardDropTarget | null; runMove: RunBoardMove; enabled: boolean };

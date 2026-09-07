@@ -9,7 +9,7 @@ import { useTaskDrag, taskDragId } from "~/board/components/board-drag.tsrx";
 
 import { cn } from "@/lib/utils";
 
-import { useBoardClient } from "~/board/sync/client";
+import { useBoardClient } from "~/board/sync/client.tsrx";
 import { useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
 import { BoardEvent, currentLaneId, selectedTaskId } from "~/board/navigation/model";
 import { completeTask, setTaskCollapsed } from "~/board/data/mutations";

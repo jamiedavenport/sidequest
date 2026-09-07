@@ -10,7 +10,7 @@ import {
   nestTask,
   setTaskCollapsed,
 } from "~/board/data/mutations";
-import type { BoardClient } from "~/board/sync/client";
+import type { BoardClient } from "~/board/sync/client-types";
 import type { Task } from "~/board/types";
 import { completeTasks } from "~/board/views";
 

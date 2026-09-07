@@ -4,7 +4,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 
-import { useBoardClient } from "~/board/sync/client";
+import { useBoardClient } from "~/board/sync/client.tsrx";
 import { isCaretOnFirstLine } from "~/board/caret";
 import { formatTaskDate } from "~/board/date";
 import { useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";

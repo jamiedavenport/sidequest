@@ -13,7 +13,7 @@ import {
   Reject,
   Snapshot,
 } from "~/sync/protocol";
-import { SyncTransport } from "~/sync/transport";
+import { SessionValidationError, SyncTransport, type SyncTransportOptions } from "~/sync/transport";
 
 type SocketListener = (event: unknown) => void;
 
@@ -97,13 +97,19 @@ function decodeTask(input: unknown): { id: string } {
   return { id: input.id };
 }
 
-async function connectedTransport(commit: () => Promise<unknown>) {
+async function connectedTransport(
+  commit: () => Promise<unknown>,
+  options: Partial<SyncTransportOptions> = {},
+) {
   let readyCount = 0;
   const writes: unknown[] = [];
   const transport = new SyncTransport({
     url: "ws://sidequest.test/api/board",
     collections: ["tasks"],
     transactionTimeoutMs: 1_000,
+    validateSession: () => Effect.succeed(true),
+    onAuthenticationLost: vi.fn(),
+    ...options,
   });
 
   transport.subscribe("tasks", decodeTask, {
@@ -116,6 +122,7 @@ async function connectedTransport(commit: () => Promise<unknown>) {
     truncate: vi.fn(),
   });
 
+  await vi.waitFor(() => expect(MockWebSocket.instances.length).toBeGreaterThan(0));
   const socket = MockWebSocket.instances.at(-1);
   if (socket === undefined) {
     throw new Error("Expected the transport to create a WebSocket");
@@ -173,6 +180,7 @@ describe("SyncTransport acknowledgements", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -248,5 +256,89 @@ describe("SyncTransport acknowledgements", () => {
     expect(writes[1]).toEqual({ type: "insert", value: { id: "task-2" } });
 
     transport.close();
+  });
+});
+
+describe("session recovery", () => {
+  beforeEach(() => {
+    MockWebSocket.instances = [];
+    vi.stubGlobal("WebSocket", MockWebSocket);
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("stops reconnecting after authentication loss and rejects pending edits as retryable", async () => {
+    const onAuthenticationLost = vi.fn();
+    const { transport, socket } = await connectedTransport(async () => {}, {
+      onAuthenticationLost,
+    });
+    const pending = transport.mutate([insertTask("saved")]);
+    const rejected = expect(pending).rejects.not.toBeInstanceOf(NonRetriableError);
+    vi.useFakeTimers();
+    socket.close(4401);
+    await rejected;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(onAuthenticationLost).toHaveBeenCalledOnce();
+    expect(MockWebSocket.instances).toHaveLength(1);
+    transport.close();
+  });
+
+  it("rechecks identity on reconnect and keeps network failures retryable", async () => {
+    const validateSession = vi
+      .fn<SyncTransportOptions["validateSession"]>()
+      .mockReturnValueOnce(Effect.succeed(true))
+      .mockReturnValueOnce(Effect.fail(new SessionValidationError()))
+      .mockReturnValueOnce(Effect.succeed(true))
+      .mockReturnValue(Effect.succeed(false));
+    const onAuthenticationLost = vi.fn();
+    const { transport, socket, writes } = await connectedTransport(async () => {}, {
+      validateSession,
+      onAuthenticationLost,
+    });
+    vi.useFakeTimers();
+    socket.close(1011);
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(onAuthenticationLost).not.toHaveBeenCalled();
+    expect(MockWebSocket.instances).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(MockWebSocket.instances).toHaveLength(2);
+    // Late callbacks from the previous connection cannot reset or populate this client.
+    socket.open();
+    socket.receive(new Changes({ mutations: [insertTask("stale")] }));
+    socket.close();
+    expect(writes).toEqual([]);
+    MockWebSocket.instances[1]!.close();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(onAuthenticationLost).toHaveBeenCalledOnce();
+    expect(MockWebSocket.instances).toHaveLength(2);
+    transport.close();
+  });
+
+  it("ignores session validation completing after disposal", async () => {
+    const gate = deferred();
+    const onAuthenticationLost = vi.fn();
+    const transport = new SyncTransport({
+      url: "ws://sidequest.test",
+      collections: ["tasks"],
+      onAuthenticationLost,
+      validateSession: () => Effect.promise(() => gate.promise).pipe(Effect.as(true)),
+    });
+    transport.subscribe("tasks", decodeTask, {
+      begin: vi.fn(),
+      write: vi.fn(),
+      commit: vi.fn(),
+      markReady: vi.fn(),
+      truncate: vi.fn(),
+    });
+    transport.close();
+    gate.resolve();
+    await gate.promise;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(MockWebSocket.instances).toEqual([]);
+    expect(onAuthenticationLost).not.toHaveBeenCalled();
   });
 });

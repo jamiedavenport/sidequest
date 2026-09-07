@@ -150,6 +150,10 @@ export class BoardObject extends SyncDurableObject<Env> {
     return runGithub(this.#github.importIssues(connectionId, issueNumber));
   }
 
+  protected override isSyncOwner(userId: string) {
+    return this.env.BOARD.idFromName(userId).toString() === this.ctx.id.toString();
+  }
+
   async bindOwner(userId: string) {
     if (this.env.BOARD.idFromName(userId).toString() !== this.ctx.id.toString()) {
       throw new Error("Board account mismatch.");

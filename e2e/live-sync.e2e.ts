@@ -128,10 +128,12 @@ test("live task changes propagate between devices and into a fresh snapshot", as
         await expect(pageC.getByRole("heading", { name: "Sidequest task board" })).toBeVisible();
         await expect(pageC.getByText(taskTitle, { exact: true })).toHaveCount(0);
         const snapshot: unknown = await pageC.evaluate(
-          () =>
+          (accountId) =>
             new Promise<unknown>((resolve, reject) => {
               const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-              const socket = new WebSocket(`${protocol}//${window.location.host}/api/board`);
+              const socket = new WebSocket(
+                `${protocol}//${window.location.host}/api/board?syncVersion=2&userId=${encodeURIComponent(accountId)}`,
+              );
               socket.addEventListener("open", () => {
                 socket.send(JSON.stringify({ _tag: "Sync" }));
               });
@@ -143,6 +145,7 @@ test("live task changes propagate between devices and into a fresh snapshot", as
                 reject(new Error("Fresh snapshot socket failed"));
               });
             }),
+          session.user.id,
         );
         expect(snapshot).toEqual(
           expect.objectContaining({

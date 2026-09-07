@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { Schema } from "effect";
+import { Clock, Effect, Schema } from "effect";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { testUtils } from "better-auth/plugins";
@@ -8,6 +8,7 @@ import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { db } from "~/db/client";
 import * as schema from "~/db/schema";
 import { env } from "~/env";
+import { serverRuntime } from "~/server/runtime";
 
 const E2E_SECRET_HEADER = "x-sidequest-e2e-secret";
 
@@ -45,6 +46,11 @@ export async function createE2ESession(request: Request): Promise<Response> {
   }
 
   const { test } = await e2eAuth.$context;
+  const existingUserId = new URL(request.url).searchParams.get("userId");
+  if (existingUserId !== null) {
+    const { cookies } = await test.login({ userId: existingUserId });
+    return Response.json({ cookies });
+  }
   const user = test.createUser({
     email: `e2e-${crypto.randomUUID()}@example.test`,
     name: "Sidequest E2E User",
@@ -59,6 +65,38 @@ export async function createE2ESession(request: Request): Promise<Response> {
       id: savedUser.id,
     },
   });
+}
+
+class E2ESessionError extends Schema.TaggedError<E2ESessionError>()("E2ESessionError", {}) {}
+
+const setSessionExpiry = Effect.fn("setSessionExpiry")(function* (request: Request) {
+  const input = yield* Effect.tryPromise({
+    try: () => request.json(),
+    catch: () => new E2ESessionError(),
+  });
+  const body = yield* Schema.decodeUnknownEffect(
+    Schema.Struct({
+      sessionId: Schema.NonEmptyString,
+      expiresInMs: Schema.Number,
+    }),
+  )(input);
+  const now = yield* Clock.currentTimeMillis;
+  yield* Effect.tryPromise({
+    try: () =>
+      db
+        .update(schema.session)
+        .set({ expiresAt: new Date(now + body.expiresInMs) })
+        .where(eq(schema.session.id, body.sessionId)),
+    catch: () => new E2ESessionError(),
+  });
+  return new Response(null, { status: 204 });
+});
+
+export function expireE2ESession(request: Request): Promise<Response> {
+  if (!isEnabled(request)) {
+    return Promise.resolve(disabledResponse());
+  }
+  return serverRuntime.runPromise(setSessionExpiry(request));
 }
 
 export async function deleteE2EUser(request: Request): Promise<Response> {

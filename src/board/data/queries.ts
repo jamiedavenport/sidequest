@@ -1,6 +1,6 @@
 import { useLiveQuery } from "@tanstack/react-db";
 
-import type { BoardClient } from "~/board/sync/client";
+import type { BoardClient } from "~/board/sync/client-types";
 import type { BoardLane, Task } from "~/board/schema";
 import { inboxLaneId, projectTasksForView, systemLanes, todayLaneId } from "~/board/views";
 

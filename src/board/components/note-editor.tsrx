@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import type { EditorSaveStatus } from "~/board/components/editor-save-status";
 import { saveNote } from "~/board/data/mutations";
 import { emptyNoteDocument, isAllowedNoteHref, type NoteDocument } from "~/board/schema";
-import { useBoardClient } from "~/board/sync/client";
+import { useBoardClient } from "~/board/sync/client.tsrx";
 
 const markdownLinkPattern = /\[([^\[\]]+)\]\(([^\s()]+)\)$/;
 

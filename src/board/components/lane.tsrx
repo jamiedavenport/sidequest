@@ -27,7 +27,7 @@ import { TaskRow } from "~/board/components/task-row.tsrx";
 import { addLane, moveLane, requestRemoveLane, updateLane } from "~/board/data/mutations";
 import { useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
 import { BoardEvent, currentLaneId, selectedTaskId } from "~/board/navigation/model";
-import { useBoardClient } from "~/board/sync/client";
+import { useBoardClient } from "~/board/sync/client.tsrx";
 import type { BoardLane } from "~/board/types";
 import { activeTaskCountForView, isSystemLane, planLaneMove } from "~/board/views";
 import { Button } from "~/components/ui/button.tsrx";
