@@ -123,13 +123,17 @@ describe("board dragging", () => {
   it.each(["Editing", "Adding", "Details"] as const)("cannot start from %s", (mode) => {
     const store = createBoardStore();
     store.send(sync([lane([boardTask("first")])]));
-    if (mode === "Editing")
+    if (mode === "Editing") {
       store.send(BoardEvent.EditStart({ target: { viewId: "lane", taskId: "first" } }));
-    if (mode === "Adding") store.send(BoardEvent.AddStart({ viewId: "lane" }));
-    if (mode === "Details")
+    }
+    if (mode === "Adding") {
+      store.send(BoardEvent.AddStart({ viewId: "lane" }));
+    }
+    if (mode === "Details") {
       store.send(
         BoardEvent.DetailsOpen({ tab: "notes", target: { viewId: "lane", taskId: "first" } }),
       );
+    }
     store.send(
       BoardEvent.DragStart({
         source: Selection.Task({ target: { viewId: "lane", taskId: "first" } }),
@@ -171,12 +175,13 @@ describe("navigation behavior", () => {
     (mode) => {
       const store = createBoardStore();
       store.send(sync([lane([boardTask("a")]), { ...lane([boardTask("a")]), id: "other" }]));
-      if (mode === "Editing")
+      if (mode === "Editing") {
         store.send(BoardEvent.EditStart({ target: { viewId: "lane", taskId: "a" } }));
-      else
+      } else {
         store.send(
           BoardEvent.DetailsOpen({ tab: "notes", target: { viewId: "lane", taskId: "a" } }),
         );
+      }
       store.send(BoardEvent.Navigate({ direction: "right" }));
       expect(store.getSnapshot().interaction._tag).toBe(mode);
       store.send(sync([lane([]), { ...lane([boardTask("a")]), id: "other" }]));
@@ -286,8 +291,9 @@ describe("mode event table", () => {
       const store = createBoardStore(initial);
       store.send(event);
       const expected = accepted[interaction._tag][event._tag];
-      if (expected === undefined) expect(store.getSnapshot()).toBe(initial);
-      else {
+      if (expected === undefined) {
+        expect(store.getSnapshot()).toBe(initial);
+      } else {
         expect(store.getSnapshot()).not.toBe(initial);
         expect(store.getSnapshot().interaction._tag).toBe(expected);
       }

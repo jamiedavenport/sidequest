@@ -1,5 +1,16 @@
 # Worker secrets (no VITE_ prefix). Copy to .dev.vars and fill in values.
+# Type generation uses this file so local credentials cannot change the generated types.
 # Generate a secret with: openssl rand -base64 32
 BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_SECRET=
 RESEND_API_KEY=
+
+# Polar sandbox. Keep checkout and enforcement off until the billing runbook passes.
+POLAR_SERVER=sandbox
+POLAR_ACCESS_TOKEN=
+POLAR_WEBHOOK_SECRET=
+POLAR_ORGANIZATION_ID=
+POLAR_MONTHLY_PRODUCT_ID=
+POLAR_ANNUAL_PRODUCT_ID=
+BILLING_CHECKOUT_ENABLED=false
+BILLING_ENFORCEMENT_ENABLED=false

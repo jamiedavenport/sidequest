@@ -10,12 +10,16 @@ const mock = vi.hoisted(() => ({
 vi.mock("~/auth/server", () => ({
   createAuth: () => ({ api: { validateMcpToken: mock.validate }, handler: mock.handler }),
 }));
-vi.mock("~/env", () => ({ env: { BETTER_AUTH_URL: new URL("https://sdqst.app") } }));
+vi.mock("~/env", () => ({
+  env: {
+    BETTER_AUTH_URL: new URL("https://sdqst.app"),
+    MCP_ALLOWED_ORIGINS: "https://client.example",
+  },
+}));
 
 import { handleMcpRoutes } from "~/mcp/http";
 
 const env = {
-  MCP_ALLOWED_ORIGINS: "https://client.example",
   BOARD: { getByName: mock.getByName },
 };
 

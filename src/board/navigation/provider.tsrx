@@ -18,7 +18,9 @@ export function BoardProvider({ children }: { children: ReactNode }) @{
 
 export function useBoardStore(): BoardStore {
   const store = useContext(BoardStoreContext);
-  if (store === null) throw new Error("Board provider is missing");
+  if (store === null) {
+    throw new Error("Board provider is missing");
+  }
   return store;
 }
 

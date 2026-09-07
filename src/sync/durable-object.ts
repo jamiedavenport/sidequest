@@ -46,6 +46,10 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
 
   #queue: Promise<unknown> = Promise.resolve();
 
+  protected async canMutate(): Promise<boolean> {
+    return true;
+  }
+
   protected async recoverPendingWork(): Promise<void> {}
 
   protected async serialized<T>(work: () => Promise<T>): Promise<T> {
@@ -129,7 +133,8 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
   }
 
   override webSocketClose(ws: WebSocket, code: number, reason: string): void {
-    ws.close(code, reason);
+    // Reserved receive-only close codes cannot be sent back to the peer.
+    ws.close([1005, 1006, 1015].includes(code) ? 1000 : code, reason);
   }
 
   #ensureReady(): Promise<void> {
@@ -202,6 +207,32 @@ export abstract class SyncDurableObject<TEnv> extends DurableObject<TEnv> {
       transactionId: incoming.transactionId,
       ...mutationTelemetry(incoming.mutations),
     });
+    const allowed = yield* Effect.tryPromise({
+      try: () => this.canMutate(),
+      catch: () => new SyncProtocolError({ message: "Access check unavailable" }),
+    }).pipe(Effect.catch(() => Effect.void));
+    if (allowed === undefined) {
+      send(
+        ws,
+        new Reject({
+          transactionId: incoming.transactionId,
+          code: "temporarily_unavailable",
+          message: "Access check unavailable. Your edits will retry.",
+        }),
+      );
+      return;
+    }
+    if (!allowed) {
+      send(
+        ws,
+        new Reject({
+          transactionId: incoming.transactionId,
+          code: "billing_required",
+          message: "Subscription required. Your pending edits are preserved.",
+        }),
+      );
+      return;
+    }
     if (incoming.idempotencyKey !== undefined) {
       const appliedKey = `sync:applied:${incoming.idempotencyKey}`;
       const alreadyApplied = yield* Effect.tryPromise({

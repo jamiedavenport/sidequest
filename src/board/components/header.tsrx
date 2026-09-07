@@ -1,6 +1,7 @@
+import { CreditCardIcon, PlugIcon } from "lucide-react";
 import logoUrl from "~/assets/logo.svg?url";
 import { ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
-import { Button } from "~/components/ui/button.tsrx";
+import { Button, buttonVariants } from "~/components/ui/button.tsrx";
 
 function SearchGlyph() @{
   <span
@@ -34,8 +35,29 @@ export function AppHeader() @{
         <span className="hidden sm:inline">Search</span>
         <ShortcutLabel hotkey="Mod+K" />
       </Button>
-      <a href="/connections" className="text-xs text-muted-foreground hover:text-foreground">
-        Connected apps
+      <a
+        href="/billing"
+        aria-label="Billing"
+        title="Billing"
+        className={buttonVariants({
+          variant: "ghost",
+          size: "icon",
+          className: "text-muted-foreground",
+        })}
+      >
+        <CreditCardIcon aria-hidden="true" />
+      </a>
+      <a
+        href="/connections"
+        aria-label="Connected apps"
+        title="Connected apps"
+        className={buttonVariants({
+          variant: "ghost",
+          size: "icon",
+          className: "text-muted-foreground",
+        })}
+      >
+        <PlugIcon aria-hidden="true" />
       </a>
     </div>
   </header>;

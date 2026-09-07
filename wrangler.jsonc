@@ -39,11 +39,15 @@
       "custom_domain": true,
     },
   ],
+  // Leave secrets.required unset so optional Polar secrets load from .dev.vars locally.
   "vars": {
+    "BILLING_CHECKOUT_ENABLED": "false",
+    "BILLING_ENFORCEMENT_ENABLED": "false",
+    "POLAR_SERVER": "production",
+    "POLAR_ORGANIZATION_ID": "e843bd42-20eb-451d-90b4-9bb9273ebce4",
+    "POLAR_MONTHLY_PRODUCT_ID": "483c4e11-681b-4644-8fd0-4545293fdb5a",
+    "POLAR_ANNUAL_PRODUCT_ID": "db6d66d5-536b-40fe-b539-46f074d669bf",
     "MCP_ALLOWED_ORIGINS": "",
     "BETTER_AUTH_URL": "https://sdqst.app",
-  },
-  "secrets": {
-    "required": ["BETTER_AUTH_SECRET", "RESEND_API_KEY"],
   },
 }

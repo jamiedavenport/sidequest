@@ -111,14 +111,19 @@ export function planLaneMove(
   const ordered = persistedLanes(lanes);
   const index = ordered.findIndex((lane) => lane.id === laneId);
   if (typeof direction !== "string") {
-    if (index < 0 || direction.laneId === laneId || isSystemLane({ id: direction.laneId }))
+    if (index < 0 || direction.laneId === laneId || isSystemLane({ id: direction.laneId })) {
       return undefined;
+    }
     const remaining = ordered.filter((lane) => lane.id !== laneId);
     const target = remaining.findIndex((lane) => lane.id === direction.laneId);
     const current = ordered[index];
-    if (target < 0 || current === undefined) return undefined;
+    if (target < 0 || current === undefined) {
+      return undefined;
+    }
     remaining.splice(target + (direction.edge === "after" ? 1 : 0), 0, current);
-    if (remaining.every((lane, i) => lane.id === ordered[i]?.id)) return undefined;
+    if (remaining.every((lane, i) => lane.id === ordered[i]?.id)) {
+      return undefined;
+    }
     return remaining.flatMap((lane, rank) =>
       lane.rank === rank ? [] : [{ laneId: lane.id, rank }],
     );
@@ -533,8 +538,9 @@ export function planTaskDestination(
   today = formatTaskDate(now, now),
 ): ReadonlyArray<TaskMoveUpdate> | undefined {
   const task = allTasks.find((item) => item.id === taskId);
-  if (task === undefined || task.completed || !isTaskInView(task, sourceViewId, now))
+  if (task === undefined || task.completed || !isTaskInView(task, sourceViewId, now)) {
     return undefined;
+  }
   const subtree = taskSubtree(allTasks, taskId);
   const movingIds = new Set(subtree.map((item) => item.id));
   const target =
@@ -547,15 +553,17 @@ export function planTaskDestination(
       target.completed ||
       movingIds.has(target.id) ||
       !isTaskInView(target, destination.viewId, now))
-  )
+  ) {
     return undefined;
+  }
   const parentId = destination.edge === "nest" ? target?.id : target?.parentId;
   const parent = parentId === undefined ? undefined : allTasks.find((item) => item.id === parentId);
   if (
     parentId !== undefined &&
     (movingIds.has(parentId) || parent === undefined || parent.completed)
-  )
+  ) {
     return undefined;
+  }
   const placement =
     parent !== undefined && parentId !== task.parentId
       ? taskPlacement(parent)
@@ -595,14 +603,23 @@ export function planTaskDestination(
         : reuseRanks
           ? (ranks[index] ?? index)
           : index;
-    if (item.rank !== rank) patch.rank = rank;
-    if (movingIds.has(item.id)) {
-      if (item.id === taskId && item.parentId !== parentId) patch.parentId = parentId;
-      if (item.laneId !== placement.laneId) patch.laneId = placement.laneId;
-      if (item.date !== placement.date) patch.date = placement.date;
+    if (item.rank !== rank) {
+      patch.rank = rank;
     }
-    if (destination.edge === "nest" && item.id === parentId && item.collapsed)
+    if (movingIds.has(item.id)) {
+      if (item.id === taskId && item.parentId !== parentId) {
+        patch.parentId = parentId;
+      }
+      if (item.laneId !== placement.laneId) {
+        patch.laneId = placement.laneId;
+      }
+      if (item.date !== placement.date) {
+        patch.date = placement.date;
+      }
+    }
+    if (destination.edge === "nest" && item.id === parentId && item.collapsed) {
       patch.collapsed = false;
+    }
     return Object.keys(patch).length === 0 ? [] : [{ taskId: item.id, patch }];
   });
 }
@@ -722,8 +739,9 @@ export function applySubtreeNest(
       current === undefined ||
       ((id !== taskId || current.parentId === parentId) &&
         (placement === undefined || placementsMatch(current, placement)))
-    )
+    ) {
       continue;
+    }
     tasks.update(id, (draft) => {
       if (id === taskId) {
         if (parentId === undefined) {

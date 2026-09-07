@@ -25,8 +25,9 @@ async function oauthRedirect(path: "consent" | "continue", body: object): Promis
       body: JSON.stringify(body),
     }),
   );
-  if (!response.ok)
+  if (!response.ok) {
     throw new Error("Authorization could not be completed. Reconnect from your MCP client.");
+  }
   return Schema.decodeUnknownSync(Schema.Struct({ url: Schema.String }))(await response.json()).url;
 }
 
@@ -77,7 +78,9 @@ export const decideConsent = createServerFn({ method: "POST" })
 
 export const listConnections = createServerFn({ method: "GET" }).handler(async () => {
   const session = await createAuth().api.getSession({ headers: getRequestHeaders() });
-  if (!session) throw new Error("Sign in to manage connected apps.");
+  if (!session) {
+    throw new Error("Sign in to manage connected apps.");
+  }
   const rows = await db
     .select({
       clientId: oauthConsent.clientId,
@@ -97,7 +100,9 @@ export const revokeConnection = createServerFn({ method: "POST" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ clientId: Schema.String })))
   .handler(async ({ data }) => {
     const session = await createAuth().api.getSession({ headers: getRequestHeaders() });
-    if (!session) throw new Error("Sign in to manage connected apps.");
+    if (!session) {
+      throw new Error("Sign in to manage connected apps.");
+    }
     const userId = session.user.id;
     // D1 batch is transactional: access, refresh, and consent are revoked together.
     await db.batch([

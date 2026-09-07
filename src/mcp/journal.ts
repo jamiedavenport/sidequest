@@ -27,7 +27,9 @@ export class CommandJournal<T> {
 
   async recover(): Promise<void> {
     const pending = await this.storage.get<JournalEntry<T>>(pendingKey);
-    if (!pending) return;
+    if (!pending) {
+      return;
+    }
     const stored = await this.storage.get<JournalEntry<T>>(pending.key);
     if (!stored?.complete) {
       await this.apply(pending);
@@ -46,12 +48,13 @@ export class CommandJournal<T> {
     await this.recover();
     const previous = await this.storage.get<JournalEntry<T>>(key);
     if (previous) {
-      if (previous.hash !== hash)
+      if (previous.hash !== hash) {
         throw new ToolError({
           code: "idempotency_conflict",
           message:
             "This idempotency key was already used for different arguments or a different tool.",
         });
+      }
       return { result: previous.result, replay: true };
     }
     const entry = { ...(await prepare()), key, hash, complete: false };

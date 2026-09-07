@@ -71,6 +71,7 @@ export class ToolError extends Schema.TaggedError<ToolError>()("ToolError", {
     "idempotency_conflict",
     "stale_cursor",
     "internal_error",
+    "billing_required",
   ]),
   message: Schema.String,
 }) {}

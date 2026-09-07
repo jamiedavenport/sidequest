@@ -43,11 +43,14 @@ function reconcile(context: BoardContext, graph: BoardGraph): Selection {
     const current =
       Option.getOrUndefined(graph.visibleTask(selected.target)) ??
       Option.getOrUndefined(graph.firstVisibleOccurrence(selected.target.taskId));
-    if (current) return Selection.Task({ target: current.target });
+    if (current) {
+      return Selection.Task({ target: current.target });
+    }
     let ancestor = Option.getOrUndefined(context.graph.task(selected.target))?.parent;
     while (ancestor) {
-      if (Option.isSome(graph.visibleTask(ancestor.target)))
+      if (Option.isSome(graph.visibleTask(ancestor.target))) {
         return Selection.Task({ target: ancestor.target });
+      }
       ancestor = ancestor.parent;
     }
   }
@@ -100,8 +103,9 @@ export const selectLane = Effect.fn("selectLane")(
         selection._tag === "Task" &&
         selection.target.viewId === viewId &&
         Option.isSome(context.graph.visibleTask(selection.target))
-      )
+      ) {
         return selection;
+      }
       const lane = Option.getOrUndefined(context.graph.lane(viewId));
       return lane ? onLane(lane) : Selection.Lane({ viewId });
     }),
@@ -140,7 +144,9 @@ export const navigate = Effect.fn("navigate")(
     Effect.sync(() => {
       const selection = selectionOf(context.interaction);
       const lane = Option.getOrUndefined(context.graph.lane(viewIdOf(selection)));
-      if (!lane) return Interaction.Navigating({ selection: onLane(context.graph.firstLane) });
+      if (!lane) {
+        return Interaction.Navigating({ selection: onLane(context.graph.firstLane) });
+      }
       if (direction === "left" || direction === "right") {
         const destination = direction === "left" ? lane.previous : lane.next;
         return destination
@@ -181,8 +187,9 @@ export const startDrag = Effect.fn("startDrag")(function* (
   if (
     !sourceExists(context.graph, source) ||
     (source._tag === "Lane" && isSystemLane({ id: source.viewId }))
-  )
+  ) {
     return context.interaction;
+  }
   const selection =
     source._tag === "Task"
       ? Selection.Task({ target: source.target })

@@ -20,9 +20,9 @@ function challenge(resource: string, status: 401 | 403, write = false) {
 }
 
 type McpBindings = {
-  MCP_ALLOWED_ORIGINS: string;
   BOARD: {
     getByName(name: string): {
+      bindOwner?(userId: string): Promise<void>;
       callTool(clientId: string, name: ToolName, args: unknown): Promise<ToolReply>;
     };
   };
@@ -40,17 +40,21 @@ export async function handleMcpRoutes(
     path === "/.well-known/oauth-authorization-server/api/auth" ||
     path === "/.well-known/oauth-authorization-server";
   const oauth = path.startsWith("/api/auth/oauth2/") || path.startsWith("/api/auth/admin/oauth2/");
-  if (path !== "/mcp" && !discovery && !authorizationMetadata && !oauth) return undefined;
+  if (path !== "/mcp" && !discovery && !authorizationMetadata && !oauth) {
+    return undefined;
+  }
   const resource = new URL("/mcp", appEnv.BETTER_AUTH_URL).href;
   const origin = request.headers.get("origin");
   const allowed = new Set([
     appEnv.BETTER_AUTH_URL.origin,
-    ...env.MCP_ALLOWED_ORIGINS.split(",")
+    ...(appEnv.MCP_ALLOWED_ORIGINS ?? "")
+      .split(",")
       .map((s) => s.trim())
       .filter(Boolean),
   ]);
-  if (origin !== null && !allowed.has(origin))
+  if (origin !== null && !allowed.has(origin)) {
     return new Response("Origin is not allowed", { status: 403 });
+  }
   const cors = (response: Response) => {
     if (origin !== null) {
       response.headers.set("Access-Control-Allow-Origin", origin);
@@ -62,7 +66,7 @@ export async function handleMcpRoutes(
     }
     return response;
   };
-  if (request.method === "OPTIONS")
+  if (request.method === "OPTIONS") {
     return cors(
       new Response(null, {
         status: 204,
@@ -74,7 +78,8 @@ export async function handleMcpRoutes(
         },
       }),
     );
-  if (discovery)
+  }
+  if (discovery) {
     return cors(
       Response.json({
         resource,
@@ -84,9 +89,14 @@ export async function handleMcpRoutes(
         resource_name: "Sidequest",
       }),
     );
+  }
   const auth = createAuth();
-  if (authorizationMetadata) return cors(await oauthProviderAuthServerMetadata(auth)(request));
-  if (oauth) return cors(await auth.handler(request));
+  if (authorizationMetadata) {
+    return cors(await oauthProviderAuthServerMetadata(auth)(request));
+  }
+  if (oauth) {
+    return cors(await auth.handler(request));
+  }
   let token;
   try {
     token = await auth.api.validateMcpToken({ headers: request.headers });
@@ -99,18 +109,22 @@ export async function handleMcpRoutes(
     typeof token.client_id !== "string" ||
     !audience.includes(resource) ||
     token.cnf
-  )
+  ) {
     return cors(challenge(resource, 401));
+  }
   const scopes = typeof token.scope === "string" ? token.scope.split(" ") : [];
-  if (!scopes.includes("sidequest:read")) return cors(challenge(resource, 403));
+  if (!scopes.includes("sidequest:read")) {
+    return cors(challenge(resource, 403));
+  }
   const canWrite = scopes.includes("sidequest:write");
-  if (request.method !== "POST")
+  if (request.method !== "POST") {
     return cors(
       new Response("Use POST; SSE and sessions are not supported.", {
         status: 405,
         headers: { Allow: "POST" },
       }),
     );
+  }
   // Return an HTTP scope challenge before dispatch; malformed JSON remains the SDK's responsibility.
   if (!canWrite) {
     let body: unknown;
@@ -129,11 +143,13 @@ export async function handleMcpRoutes(
       typeof body.params.name === "string" &&
       isToolName(body.params.name) &&
       isWriteTool(body.params.name)
-    )
+    ) {
       return cors(challenge(resource, 403, true));
+    }
   }
   const clientId = token.client_id;
   const board = env.BOARD.getByName(token.sub);
+  await board.bindOwner?.(token.sub);
   return cors(
     await serveMcp(request, canWrite, (name, args) => board.callTool(clientId, name, args)),
   );

@@ -1,0 +1,7 @@
+{
+  "organizationId": "e843bd42-20eb-451d-90b4-9bb9273ebce4",
+  "monthlyProductId": "483c4e11-681b-4644-8fd0-4545293fdb5a",
+  "annualProductId": "db6d66d5-536b-40fe-b539-46f074d669bf",
+  "webhookId": "f53cc919-3af2-4d3f-8d2c-7b5563b707cd",
+  "webhookUrl": "https://sdqst.app/api/billing/webhook"
+}

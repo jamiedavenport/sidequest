@@ -44,7 +44,9 @@ const BoardDragContext = createContext<DragContext | null>(null);
 
 export function useBoardDrag() {
   const context = useContext(BoardDragContext);
-  if (context === null) throw new Error("Board drag provider is missing");
+  if (context === null) {
+    throw new Error("Board drag provider is missing");
+  }
   return context;
 }
 
@@ -55,7 +57,9 @@ const sensors = [
         ? [new PointerActivationConstraints.Delay({ value: 250, tolerance: 8 })]
         : [new PointerActivationConstraints.Distance({ value: 6 })],
     preventActivation: (event) => {
-      if (!(event.target instanceof Element)) return false;
+      if (!(event.target instanceof Element)) {
+        return false;
+      }
       const control = event.target.closest(
         'button, a, input, textarea, select, [contenteditable="true"], [role="button"], [role="menuitem"]',
       );
@@ -89,7 +93,9 @@ const collisionDetector: NonNullable<UseDroppableInput["collisionDetector"]> = (
       ? "[data-lane-drop]"
       : "[data-board-drop]",
   );
-  if (surface?.getAttribute("data-board-drop") !== droppable.id) return null;
+  if (surface?.getAttribute("data-board-drop") !== droppable.id) {
+    return null;
+  }
   return { id: droppable.id, priority: 1, type: 2, value: 1 };
 };
 
@@ -106,7 +112,9 @@ export function useTaskDrag(
   const data = useMemo(() => ({ kind: "task", taskId, viewId }), [taskId, viewId]);
   useDraggable({ id, data, element, disabled: !enabled });
   useDroppable({ id, data, element, collisionDetector });
-  if (target?.kind !== "task" || target.viewId !== viewId) return undefined;
+  if (target?.kind !== "task" || target.viewId !== viewId) {
+    return undefined;
+  }
   const markerId =
     target.edge === "after" && lane !== undefined
       ? taskSubtree(lane.tasks, target.taskId).at(-1)?.id
@@ -186,8 +194,9 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
 
   useEffect(() => {
     const manager = managerRef.current;
-    if (mode !== "Dragging" && manager?.dragOperation.status.dragging)
+    if (mode !== "Dragging" && manager?.dragOperation.status.dragging) {
       manager.actions.stop({ canceled: true });
+    }
   }, [mode]);
 
   function resolveTarget(
@@ -195,7 +204,9 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
     coordinates = operation.position.current,
   ): BoardDropTarget | null {
     const source = operation.source?.data;
-    if (!Schema.is(DragSource)(source)) return null;
+    if (!Schema.is(DragSource)(source)) {
+      return null;
+    }
     const { x, y } = coordinates;
     const hit = document.elementFromPoint(x, y);
     const surfaceElement = hit?.closest(
@@ -206,16 +217,23 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
     const registered = id == null ? undefined : managerRef.current?.registry.droppables.get(id);
     const surface = registered?.data;
     const element = registered?.element;
-    if (!Schema.is(DragSource)(surface) || element === undefined || !hit || !element.contains(hit))
+    if (
+      !Schema.is(DragSource)(surface) ||
+      element === undefined ||
+      !hit ||
+      !element.contains(hit)
+    ) {
       return null;
+    }
     const rect = element.getBoundingClientRect();
     if (source.kind === "lane") {
       if (
         surface.kind !== "lane" ||
         source.viewId === surface.viewId ||
         isSystemLane({ id: surface.viewId })
-      )
+      ) {
         return null;
+      }
       return {
         kind: "lane",
         viewId: surface.viewId,
@@ -246,7 +264,9 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
   ) {
     const next = resolveTarget(operation, coordinates);
     setTarget((previous) => {
-      if (previous === null || next === null) return previous === next ? previous : next;
+      if (previous === null || next === null) {
+        return previous === next ? previous : next;
+      }
       return previous.kind === next.kind &&
         previous.viewId === next.viewId &&
         previous.edge === next.edge &&
@@ -291,17 +311,20 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
                 : NavigationDragSource.Lane({ viewId: source.viewId }),
           }),
         );
-        if (!(store.getSnapshot().interaction._tag === "Dragging")) event.preventDefault();
+        if (!(store.getSnapshot().interaction._tag === "Dragging")) {
+          event.preventDefault();
+        }
       }}
       onDragStart={({ operation }, manager) => {
         managerRef.current = manager;
         const source = operation.source?.data;
-        if (Schema.is(DragSource)(source))
+        if (Schema.is(DragSource)(source)) {
           setLabel(
             source.kind === "task"
               ? (client.tasks.get(source.taskId)?.title ?? "Task")
               : (client.lanes.get(source.viewId)?.title ?? "Lane"),
           );
+        }
       }}
       onDragMove={({ operation, to }) => {
         updateTarget(operation, to);

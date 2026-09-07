@@ -1,3 +1,4 @@
+import { env } from "~/env";
 import { Effect } from "effect";
 import { HttpClient } from "effect/unstable/http";
 
@@ -11,7 +12,7 @@ const e2ePreviewHost = "preview.sidequest.invalid";
 function resolvePreview(
   url: URL,
 ): Effect.Effect<Attachment, LinkPreviewError, HttpClient.HttpClient> {
-  if (process.env.E2E_MODE === "1" && url.hostname === e2ePreviewHost) {
+  if (env.E2E_MODE === "1" && url.hostname === e2ePreviewHost) {
     const attachment: Attachment = {
       href: url.href,
       id: crypto.randomUUID(),

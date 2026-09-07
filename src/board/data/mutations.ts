@@ -231,12 +231,15 @@ export const moveLane = Effect.fn("moveLane")(function* (
   direction: HorizontalDirection | LaneDestination,
 ) {
   const updates = planLaneMove(client.lanes.toArray, laneId, direction);
-  if (updates === undefined || updates.length === 0) return undefined;
+  if (updates === undefined || updates.length === 0) {
+    return undefined;
+  }
   const { completion } = yield* applyBoardMove(client, () => {
-    for (const update of updates)
+    for (const update of updates) {
       client.lanes.update(update.laneId, (draft) => {
         draft.rank = update.rank;
       });
+    }
   });
   return { viewId: laneId, completion };
 });
@@ -343,12 +346,15 @@ const applyTaskPlan = Effect.fn("applyTaskPlan")(function* (
   updates: ReadonlyArray<TaskMoveUpdate> | undefined,
   viewId: string,
 ) {
-  if (updates === undefined || updates.length === 0) return undefined;
+  if (updates === undefined || updates.length === 0) {
+    return undefined;
+  }
   const { completion } = yield* applyBoardMove(client, () => {
-    for (const update of updates)
+    for (const update of updates) {
       client.tasks.update(update.taskId, (draft) => {
         Object.assign(draft, update.patch);
       });
+    }
   });
   return { viewId, completion };
 });
@@ -359,12 +365,18 @@ export const nestTask = Effect.fn("nestTask")(function* (
   delta: 1 | -1 | TaskDestination,
   viewId?: string | null,
 ) {
-  if (typeof delta !== "number") return yield* moveTaskInLane(client, taskId, delta, viewId);
+  if (typeof delta !== "number") {
+    return yield* moveTaskInLane(client, taskId, delta, viewId);
+  }
   const task = client.tasks.get(taskId);
-  if (task === undefined || task.completed) return undefined;
+  if (task === undefined || task.completed) {
+    return undefined;
+  }
   const sourceViewId = viewId ?? currentViewId(task);
   const update = planNest(laneTasks(client, sourceViewId), taskId, delta, client.tasks.toArray);
-  if (update === undefined) return undefined;
+  if (update === undefined) {
+    return undefined;
+  }
   const { completion } = yield* applyBoardMove(client, () => {
     applySubtreeNest(client.tasks, taskId, update.parentId);
   });
@@ -378,7 +390,9 @@ export const moveTaskInLane = Effect.fn("moveTaskInLane")(function* (
   viewId?: string | null,
 ) {
   const task = client.tasks.get(taskId);
-  if (task === undefined || task.completed) return undefined;
+  if (task === undefined || task.completed) {
+    return undefined;
+  }
   const sourceViewId = viewId ?? currentViewId(task);
   if (
     typeof direction !== "string" &&
@@ -406,15 +420,20 @@ export const moveTaskToLane = Effect.fn("moveTaskToLane")(function* (
   direction: HorizontalDirection | TaskDestination,
   viewId?: string | null,
 ) {
-  if (typeof direction !== "string")
+  if (typeof direction !== "string") {
     return yield* moveTaskInLane(client, taskId, direction, viewId);
+  }
   const task = client.tasks.get(taskId);
-  if (task === undefined || task.completed) return undefined;
+  if (task === undefined || task.completed) {
+    return undefined;
+  }
   const views = boardViewIds(client.lanes.toArray);
   const sourceViewId = viewId ?? currentViewId(task);
   const index = views.indexOf(sourceViewId);
   const destination = views[direction === "left" ? index - 1 : index + 1];
-  if (index < 0 || destination === undefined) return undefined;
+  if (index < 0 || destination === undefined) {
+    return undefined;
+  }
   return yield* moveTaskInLane(
     client,
     taskId,
@@ -475,14 +494,21 @@ export const dropBoardEntity = Effect.fn("dropBoardEntity")(function* (
       target.kind !== "lane" ||
       isSystemLane({ id: source.viewId }) ||
       isSystemLane({ id: target.viewId })
-    )
+    ) {
       return undefined;
+    }
     return yield* moveLane(client, source.viewId, { laneId: target.viewId, edge: target.edge });
   }
   const task = client.tasks.get(source.taskId);
-  if (task === undefined || task.completed || !isTaskInView(task, source.viewId)) return undefined;
-  if (target.kind === "lane") return undefined;
-  if (target.edge === "nest") return yield* nestTask(client, source.taskId, target, source.viewId);
+  if (task === undefined || task.completed || !isTaskInView(task, source.viewId)) {
+    return undefined;
+  }
+  if (target.kind === "lane") {
+    return undefined;
+  }
+  if (target.edge === "nest") {
+    return yield* nestTask(client, source.taskId, target, source.viewId);
+  }
   return yield* source.viewId === target.viewId
     ? moveTaskInLane(client, source.taskId, target, source.viewId)
     : moveTaskToLane(client, source.taskId, target, source.viewId);

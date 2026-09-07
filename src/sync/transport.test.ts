@@ -1,3 +1,4 @@
+import { BillingRequiredError } from "~/billing/access";
 import { NonRetriableError } from "@tanstack/offline-transactions";
 import { Effect, Exit } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -141,6 +142,29 @@ function insertTask(id: string) {
 }
 
 describe("SyncTransport acknowledgements", () => {
+  it("returns a resumable billing rejection instead of rolling back durable edits", async () => {
+    const { transport, socket } = await connectedTransport(async () => {});
+    const result = transport.mutate([insertTask("pending")], "same-key");
+    socket.receive(
+      new Reject({
+        transactionId: sentMutation(socket),
+        code: "billing_required",
+        message: "Payment needed",
+      }),
+    );
+    await expect(result).rejects.toBeInstanceOf(BillingRequiredError);
+    const resumed = transport.mutate([insertTask("pending")], "same-key");
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const sent = JSON.parse(socket.sent.at(-1)!) as {
+      transactionId: string;
+      idempotencyKey: string;
+    };
+    expect(sent.idempotencyKey).toBe("same-key");
+    socket.receive(new Ack({ transactionId: sent.transactionId }));
+    await expect(resumed).resolves.toBeUndefined();
+    transport.close();
+  });
+
   beforeEach(() => {
     MockWebSocket.instances = [];
     vi.stubGlobal("WebSocket", MockWebSocket);

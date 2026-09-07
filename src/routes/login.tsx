@@ -11,7 +11,9 @@ export const Route = createFileRoute("/login")({
     const oauthQuery = oauthQueryFromSearch(location.searchStr);
     if (oauthQuery) {
       await getConsentRequest({ data: { oauthQuery } });
-      if (context.session) throw redirect({ href: await continueOAuth({ data: { oauthQuery } }) });
+      if (context.session) {
+        throw redirect({ href: await continueOAuth({ data: { oauthQuery } }) });
+      }
     }
     if (context.session !== null) {
       throw redirect({ to: "/" });

@@ -1,3 +1,4 @@
+import { BillingRequiredError } from "~/billing/access";
 import type { SyncConfig } from "@tanstack/db";
 import { NonRetriableError } from "@tanstack/offline-transactions";
 import { Effect, Exit } from "effect";
@@ -38,6 +39,7 @@ type PendingAcknowledgement = {
 };
 
 export type SyncTransportOptions = {
+  onBillingRequired?: () => void;
   url: string;
   collections: ReadonlyArray<string>;
   reconnectDelayMs?: number;
@@ -65,6 +67,7 @@ function logClientSync(event: string, details: Record<string, string | number | 
 }
 
 export class SyncTransport {
+  readonly #onBillingRequired: (() => void) | undefined;
   readonly #url: string;
   readonly #collections: ReadonlySet<string>;
   readonly #reconnectDelayMs: number;
@@ -83,6 +86,7 @@ export class SyncTransport {
       throw new Error("Sync transport requires at least one collection");
     }
 
+    this.#onBillingRequired = options.onBillingRequired;
     this.#url = options.url;
     this.#collections = new Set(options.collections);
     if (this.#collections.size !== options.collections.length) {
@@ -335,7 +339,14 @@ export class SyncTransport {
     });
     if (pending !== undefined) {
       this.#pending.delete(message.transactionId);
-      pending.reject(new NonRetriableError(message.message));
+      if (message.code === "billing_required") {
+        this.#onBillingRequired?.();
+        pending.reject(new BillingRequiredError());
+      } else if (message.code === "temporarily_unavailable") {
+        pending.reject(new Error(message.message));
+      } else {
+        pending.reject(new NonRetriableError(message.message));
+      }
     }
   }
 

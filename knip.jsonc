@@ -6,4 +6,5 @@
     "e2e/support/navigation-harness.tsrx",
   ],
   "ignoreDependencies": ["cloudflare"],
+  "ignoreBinaries": ["cloudflared"],
 }

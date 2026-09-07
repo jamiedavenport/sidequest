@@ -76,23 +76,26 @@ export async function serveMcp(
   });
   server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: toolDefinitions(canWrite) }));
   server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
-    if (!isToolName(params.name))
+    if (!isToolName(params.name)) {
       return { isError: true, content: [{ type: "text", text: "Unknown tool." }] };
+    }
     const name = params.name;
-    if (isWriteTool(name) && !canWrite)
+    if (isWriteTool(name) && !canWrite) {
       return {
         isError: true,
         content: [
           { type: "text", text: "insufficient_scope: sidequest:read sidequest:write required" },
         ],
       };
+    }
     const reply = await call(name, params.arguments ?? {});
-    if (!reply.ok)
+    if (!reply.ok) {
       return {
         isError: true,
         structuredContent: { error: reply.error },
         content: [{ type: "text", text: `${reply.error.code}: ${reply.error.message}` }],
       };
+    }
     const structuredContent = Schema.decodeUnknownSync(Schema.JsonObject)(
       JSON.parse(JSON.stringify(Schema.decodeUnknownSync(ToolResult)(reply.result))),
     );

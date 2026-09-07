@@ -55,7 +55,9 @@ export function dateContext(timezone = "UTC", instant = new Date()) {
 }
 
 function validateDate(value: string | null | undefined) {
-  if (value == null) return;
+  if (value == null) {
+    return;
+  }
   const parsed = new Date(`${value}T00:00:00Z`);
   if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
     throw new ToolError({
@@ -66,31 +68,39 @@ function validateDate(value: string | null | undefined) {
 }
 
 function validateTitle(value: string | undefined) {
-  if (value !== undefined && value.trim() === "")
+  if (value !== undefined && value.trim() === "") {
     throw new ToolError({ code: "invalid_input", message: "Task titles cannot be blank." });
+  }
 }
 
 function requireTask(state: BoardState, id: string, active = false): Task {
   const task = state.tasks.find((t) => t.id === id);
-  if (!task) throw new ToolError({ code: "not_found", message: "Task does not exist." });
-  if (active && task.completed)
+  if (!task) {
+    throw new ToolError({ code: "not_found", message: "Task does not exist." });
+  }
+  if (active && task.completed) {
     throw new ToolError({ code: "completed_task", message: "Completed tasks cannot be changed." });
+  }
   return task;
 }
 
 function requireView(state: BoardState, id: string) {
-  if (!boardViewIds(state.lanes).includes(id))
+  if (!boardViewIds(state.lanes).includes(id)) {
     throw new ToolError({ code: "not_found", message: "Destination view does not exist." });
+  }
 }
 
 function canonicalJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  if (value !== null && typeof value === "object")
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
     return `{${Object.entries(value)
       .filter(([, v]) => v !== undefined)
       .toSorted(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`)
       .join(",")}}`;
+  }
   return JSON.stringify(value);
 }
 
@@ -132,8 +142,9 @@ async function paginate<T>(
   if (input.cursor !== undefined) {
     try {
       const cursor = Schema.decodeUnknownSync(Cursor)(JSON.parse(atob(input.cursor)));
-      if (cursor.fingerprint !== fingerprint || cursor.offset >= rows.length)
+      if (cursor.fingerprint !== fingerprint || cursor.offset >= rows.length) {
         throw new Error("stale");
+      }
       offset = cursor.offset;
     } catch {
       throw new ToolError({
@@ -165,7 +176,9 @@ export async function queryBoard(
     while (parentId !== undefined && !seen.has(parentId)) {
       seen.add(parentId);
       const parent = state.tasks.find((t) => t.id === parentId);
-      if (!parent) break;
+      if (!parent) {
+        break;
+      }
       ancestors.unshift(parent);
       parentId = parent.parentId;
     }
@@ -187,12 +200,17 @@ export async function queryBoard(
     );
     return { lanes: rows, ...rest };
   }
-  if (name !== "list_tasks" && name !== "search_tasks")
+  if (name !== "list_tasks" && name !== "search_tasks") {
     throw new ToolError({ code: "invalid_input", message: "Expected a read tool." });
+  }
   const input = decodeInput(name, raw);
   const { now, today } = dateContext(input.timezone, instant);
-  if (input.viewId !== undefined) requireView(state, input.viewId);
-  if (input.parentId != null) requireTask(state, input.parentId);
+  if (input.viewId !== undefined) {
+    requireView(state, input.viewId);
+  }
+  if (input.parentId != null) {
+    requireTask(state, input.parentId);
+  }
   const query = "query" in input ? input.query.toLowerCase() : "";
   const status = input.status ?? "active";
   const tasks = state.tasks
@@ -242,13 +260,16 @@ export function planCommand(
     task = planTaskCreate(state.tasks, { ...input, id: taskId, viewId }, now, today);
     if (input.parentId !== undefined) {
       const parent = requireTask(state, input.parentId, true);
-      if (!isTaskInView(parent, viewId, now))
+      if (!isTaskInView(parent, viewId, now)) {
         throw new ToolError({
           code: "invalid_move",
           message: "Parent must belong to the destination view.",
         });
+      }
       task = { ...task, parentId: parent.id, laneId: parent.laneId, date: parent.date };
-      if (input.date !== undefined) task = { ...task, date: input.date };
+      if (input.date !== undefined) {
+        task = { ...task, date: input.date };
+      }
     }
     changed = [task];
   } else if (name === "update_task") {
@@ -270,7 +291,9 @@ export function planCommand(
             get: (id) => map.get(id),
             update: (id, update) => {
               const draft = map.get(id);
-              if (draft) update(draft);
+              if (draft) {
+                update(draft);
+              }
             },
           },
           task.id,
@@ -289,14 +312,17 @@ export function planCommand(
       now,
       today,
     );
-    if (updates === undefined)
+    if (updates === undefined) {
       throw new ToolError({
         code: "invalid_move",
         message: "Move target is missing, completed, outside its view, or would create a cycle.",
       });
+    }
     changed = updates.map((u) => ({ ...requireTask(state, u.taskId, true), ...u.patch }));
     task = changed.find((t) => t.id === task.id) ?? task;
-  } else throw new ToolError({ code: "invalid_input", message: "Expected a write tool." });
+  } else {
+    throw new ToolError({ code: "invalid_input", message: "Expected a write tool." });
+  }
   return {
     tasks: changed,
     result: { task, affectedTaskIds: changed.map((t) => t.id), operationId },

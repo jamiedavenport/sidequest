@@ -15,6 +15,13 @@
       "when": 1788730009400,
       "tag": "0001_oauth_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788771696245,
+      "tag": "0002_tidy_living_mummy",
+      "breakpoints": true
     }
   ]
 }

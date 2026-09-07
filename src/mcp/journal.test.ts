@@ -63,7 +63,9 @@ describe("durable command journal", () => {
     const f = fixture();
     const put = f.storage.put.bind(f.storage);
     vi.spyOn(f.storage, "put").mockImplementation(async (key, value) => {
-      if (key === "key") throw new Error("complete write failed");
+      if (key === "key") {
+        throw new Error("complete write failed");
+      }
       await put(key, value);
     });
     await expect(f.journal.execute("key", "hash", f.prepare)).rejects.toThrow();

@@ -40,9 +40,13 @@ export const transition = Effect.fn("transition")(function* (
   context: BoardContext,
   event: BoardEvent,
 ): Effect.fn.Return<BoardContext> {
-  if (event._tag === "BoardSync") return yield* syncBoard(context, event);
+  if (event._tag === "BoardSync") {
+    return yield* syncBoard(context, event);
+  }
   const previous = context.interaction;
-  if (!allowedEvents[previous._tag].includes(event._tag)) return context;
+  if (!allowedEvents[previous._tag].includes(event._tag)) {
+    return context;
+  }
   const exit = () => Effect.succeed(Interaction.Navigating({ selection: selectionOf(previous) }));
   const interaction = yield* BoardEvent.match(event, {
     BoardSync: () => Effect.succeed(previous),

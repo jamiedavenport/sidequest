@@ -89,7 +89,9 @@ async function setup() {
 
 async function responseUrl(response: Response): Promise<string> {
   const location = response.headers.get("location");
-  if (location) return location;
+  if (location) {
+    return location;
+  }
   const body = Schema.decodeUnknownSync(Schema.Struct({ url: Schema.String }))(
     await response.json(),
   );

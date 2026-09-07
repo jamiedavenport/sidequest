@@ -1,3 +1,11 @@
+import { env } from "~/env";
+import { BillingActionError } from "~/billing/config";
+import { PolarError } from "@polar-sh/sdk/models/errors/polarerror";
+import { HTTPValidationError } from "@polar-sh/sdk/models/errors/httpvalidationerror";
+import { canWrite } from "~/billing/access";
+import { readBillingAccess } from "~/billing/store";
+import { billingOperation, type BillingAction } from "~/billing/provider";
+import { processCustomerEvent } from "~/billing/webhook";
 import { CommandJournal } from "~/mcp/journal";
 import { digest, normalizedInput, planCommand, queryBoard } from "~/mcp/domain";
 import { ToolError, ToolReply, isWriteTool, type ToolName } from "~/mcp/schema";
@@ -86,6 +94,53 @@ function replaceTask(draft: Partial<Task>, next: Task) {
 }
 
 export class BoardObject extends SyncDurableObject<Env> {
+  async bindOwner(userId: string) {
+    if (this.env.BOARD.idFromName(userId).toString() !== this.ctx.id.toString()) {
+      throw new Error("Board account mismatch.");
+    }
+    await this.ctx.storage.put("billing:owner", userId);
+  }
+
+  async billing(userId: string, action: BillingAction) {
+    await this.bindOwner(userId);
+    try {
+      return await this.serialized(() => billingOperation(this.env.DB, userId, action));
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "billing.operation_failed",
+          action: action.kind,
+          errorType: error instanceof Error ? error.name : "Unknown",
+          status: error instanceof PolarError ? error.statusCode : null,
+          fields:
+            error instanceof HTTPValidationError
+              ? error.detail?.map((issue) => issue.loc)
+              : undefined,
+        }),
+      );
+      // SDK errors can include authorization headers and checkout secrets. Do not serialize their causes over RPC.
+      // oxlint-disable-next-line eslint/preserve-caught-error
+      throw new Error(
+        error instanceof BillingActionError
+          ? error.message
+          : "Billing is temporarily unavailable. Please try again.",
+      );
+    }
+  }
+
+  async processBillingEvent(userId: string, body: string) {
+    await this.bindOwner(userId);
+    return this.serialized(() => processCustomerEvent(this.env.DB, userId, body));
+  }
+
+  protected override async canMutate() {
+    if (env.BILLING_ENFORCEMENT_ENABLED !== "true") {
+      return true;
+    }
+    const userId = await this.ctx.storage.get<string>("billing:owner");
+    return userId !== undefined && canWrite(await readBillingAccess(this.env.DB, userId));
+  }
+
   persistence = createCloudflareDOSQLitePersistence({
     storage: this.ctx.storage,
   });
@@ -107,7 +162,9 @@ export class BoardObject extends SyncDurableObject<Env> {
       await serverRuntime.runPromise(
         this.#persist(
           () => {
-            for (const mutation of entry.prepared) this.#applyMutation(mutation);
+            for (const mutation of entry.prepared) {
+              this.#applyMutation(mutation);
+            }
             this.#enforcedTaskNoteMutations(applied);
             this.#enforcedTaskWhiteboardMutations(applied);
           },
@@ -134,13 +191,21 @@ export class BoardObject extends SyncDurableObject<Env> {
           tasks: this.tasks.toArray,
           revision: this.#revision,
         };
-        if (!isWriteTool(name))
+        if (!isWriteTool(name)) {
           return { ok: true as const, result: await queryBoard(state, name, raw), replay: false };
-        if (!("idempotencyKey" in input))
+        }
+        if (!(await this.canMutate())) {
+          throw new ToolError({
+            code: "billing_required",
+            message: "Subscribe or update payment at /billing to resume editing.",
+          });
+        }
+        if (!("idempotencyKey" in input)) {
           throw new ToolError({
             code: "invalid_input",
             message: "Writes require an idempotencyKey.",
           });
+        }
         const key = `mcp:command:${await digest({ clientId, key: input.idempotencyKey })}`;
         const hash = await digest({ name, input });
         const outcome = await this.#journal.execute(key, hash, async () => {
@@ -968,6 +1033,12 @@ export class BoardObject extends SyncDurableObject<Env> {
   });
 }
 
-export function handleBoardRequest(request: Request, env: Env, id: string): Promise<Response> {
-  return env.BOARD.get(env.BOARD.idFromName(id)).fetch(request);
+export async function handleBoardRequest(
+  request: Request,
+  bindings: Env,
+  id: string,
+): Promise<Response> {
+  const board = bindings.BOARD.get(bindings.BOARD.idFromName(id));
+  await board.bindOwner(id);
+  return board.fetch(request);
 }

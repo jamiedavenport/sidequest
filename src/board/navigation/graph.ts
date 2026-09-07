@@ -78,7 +78,9 @@ function createLaneNodes(lanes: readonly BoardLane[]): Map<string, MutableLaneNo
       firstVisible: undefined,
       lastVisible: undefined,
     };
-    if (previous) previous.next = node;
+    if (previous) {
+      previous.next = node;
+    }
     previous = node;
     laneNodes.set(lane.id, node);
   }
@@ -101,9 +103,13 @@ function includeTask(
   task: Task,
 ): MutableTaskNode | undefined {
   const nodes = indexes.byView.get(viewId);
-  if (!nodes) return undefined;
+  if (!nodes) {
+    return undefined;
+  }
   const existing = nodes.get(task.id);
-  if (existing) return existing;
+  if (existing) {
+    return existing;
+  }
   const node: MutableTaskNode = {
     target: Object.freeze({ viewId, taskId: task.id }),
     task,
@@ -122,11 +128,14 @@ function includeTask(
 function includeCanonicalTasks(indexes: GraphIndexes, tasks: Iterable<Task>, now: Date): void {
   // A task belongs to its project (or Inbox/Today) and may also occur in Today.
   for (const task of tasks) {
-    if (task.completed) continue;
+    if (task.completed) {
+      continue;
+    }
     const viewId = currentViewId(task, now);
     includeTask(indexes, viewId, task);
-    if (viewId !== todayLaneId && isTaskInView(task, todayLaneId, now))
+    if (viewId !== todayLaneId && isTaskInView(task, todayLaneId, now)) {
       includeTask(indexes, todayLaneId, task);
+    }
   }
 }
 
@@ -138,16 +147,25 @@ function linkVisibleTasks(
   // Rendered order is authoritative, including rows arriving ahead of canonical data.
   for (const lane of lanes) {
     const laneNode = indexes.laneNodes.get(lane.id);
-    if (!laneNode) continue;
+    if (!laneNode) {
+      continue;
+    }
     let previousTask: MutableTaskNode | undefined;
     for (const row of lane.tasks) {
       const node = includeTask(indexes, lane.id, canonical.get(row.id) ?? snapshotTask(row));
-      if (!node) continue;
+      if (!node) {
+        continue;
+      }
       indexes.visible.get(lane.id)?.set(row.id, node);
-      if (!indexes.firstVisible.has(row.id)) indexes.firstVisible.set(row.id, node);
+      if (!indexes.firstVisible.has(row.id)) {
+        indexes.firstVisible.set(row.id, node);
+      }
       node.previousVisible = previousTask;
-      if (previousTask) previousTask.nextVisible = node;
-      else laneNode.firstVisible = node;
+      if (previousTask) {
+        previousTask.nextVisible = node;
+      } else {
+        laneNode.firstVisible = node;
+      }
       previousTask = node;
     }
     laneNode.lastVisible = previousTask;
@@ -164,32 +182,47 @@ function linkParents(nodes: ReadonlyMap<string, MutableTaskNode>): void {
       path.add(node);
       const parent: MutableTaskNode | undefined =
         node.task.parentId === undefined ? undefined : nodes.get(node.task.parentId);
-      if (parent && !path.has(parent)) node.parent = parent;
-      else break;
+      if (parent && !path.has(parent)) {
+        node.parent = parent;
+      } else {
+        break;
+      }
       node = parent;
     }
-    for (const visited of path) done.add(visited);
+    for (const visited of path) {
+      done.add(visited);
+    }
   }
 }
 
 function linkChildren(nodes: ReadonlyMap<string, MutableTaskNode>): void {
   const children = new Map<TaskNode, TaskNode[]>();
   for (const node of nodes.values()) {
-    if (!node.parent) continue;
+    if (!node.parent) {
+      continue;
+    }
     const siblings = children.get(node.parent) ?? [];
     siblings.push(node);
     children.set(node.parent, siblings);
   }
-  for (const node of nodes.values()) node.children = Object.freeze(children.get(node) ?? []);
+  for (const node of nodes.values()) {
+    node.children = Object.freeze(children.get(node) ?? []);
+  }
 }
 
 function freezeBoardGraph(indexes: GraphIndexes): BoardGraph {
   const { byView, visible, byTask, firstVisible, laneNodes } = indexes;
   for (const nodes of byView.values()) {
-    for (const node of nodes.values()) Object.freeze(node);
+    for (const node of nodes.values()) {
+      Object.freeze(node);
+    }
   }
-  for (const node of laneNodes.values()) Object.freeze(node);
-  for (const occurrences of byTask.values()) Object.freeze(occurrences);
+  for (const node of laneNodes.values()) {
+    Object.freeze(node);
+  }
+  for (const occurrences of byTask.values()) {
+    Object.freeze(occurrences);
+  }
   const empty: readonly TaskNode[] = Object.freeze([]);
   return Object.freeze({
     firstLane: laneNodes.values().next().value,

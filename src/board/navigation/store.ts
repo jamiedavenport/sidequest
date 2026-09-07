@@ -14,13 +14,17 @@ export function createBoardStore(initial: BoardContext = initialBoardContext()) 
     subscribe: (listener: () => void) => state.subscribe(listener),
     send(event: BoardEvent): void {
       pending.push(event);
-      if (publishing) return;
+      if (publishing) {
+        return;
+      }
       publishing = true;
       try {
         // A subscriber may dispatch; finish notifying everyone before processing it.
         for (let index = 0; index < pending.length; index += 1) {
           const next = pending[index];
-          if (next) state.set(Effect.runSync(transition(state.value, next)));
+          if (next) {
+            state.set(Effect.runSync(transition(state.value, next)));
+          }
         }
       } finally {
         pending.length = 0;

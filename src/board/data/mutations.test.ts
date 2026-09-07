@@ -75,7 +75,9 @@ function testClient(initialTasks: ReadonlyArray<TaskFixture>): BoardClient {
       toArray: lanes,
       update: (id: string, updater: (draft: (typeof lanes)[number]) => void) => {
         const draft = lanes.find((item) => item.id === id);
-        if (draft !== undefined) updater(draft);
+        if (draft !== undefined) {
+          updater(draft);
+        }
       },
     },
     tasks: {
@@ -379,10 +381,11 @@ describe("explicit board moves", () => {
 
   it("preserves project assignment when reordering within the Today projection", () => {
     const client = testClient([task("moving"), task("target")]);
-    for (const item of client.tasks.toArray)
+    for (const item of client.tasks.toArray) {
       client.tasks.update(item.id, (draft) => {
         draft.date = "Today";
       });
+    }
     Effect.runSync(
       dropBoardEntity(
         client,
@@ -463,10 +466,11 @@ describe("explicit board moves", () => {
 
   it("normalizes duplicate ranks deterministically when moving", () => {
     const client = testClient([task("moving"), task("target"), task("last")]);
-    for (const item of client.tasks.toArray)
+    for (const item of client.tasks.toArray) {
       client.tasks.update(item.id, (draft) => {
         draft.rank = 0;
       });
+    }
     Effect.runSync(
       dropBoardEntity(client, source, {
         kind: "task",
@@ -525,7 +529,9 @@ describe("explicit board moves", () => {
     );
     expect(result?.viewId).toBe("lane");
     expect(client.tasks.get("moving")?.rank).toBe(1);
-    if (result === undefined) throw new Error("Missing optimistic result");
+    if (result === undefined) {
+      throw new Error("Missing optimistic result");
+    }
     const completed = Effect.runPromise(result.completion.pipe(Effect.flip));
     rejectCommit?.(new Error("Terminal persistence failure"));
     await expect(completed).resolves.toMatchObject({ _tag: "BoardMoveError" });

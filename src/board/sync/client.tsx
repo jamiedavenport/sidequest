@@ -55,9 +55,25 @@ export function SyncClientProvider({ children }: { children: ReactNode }) {
   const [client, setClient] = useState<BoardClient | null>(null);
 
   useEffect(() => {
-    void createBoardClient(session.user.id).then(setClient, (error: unknown) => {
-      console.error("Failed to start the board client", error);
-    });
+    let active = true;
+    let owned: BoardClient | undefined;
+    void createBoardClient(session.user.id).then(
+      (next) => {
+        owned = next;
+        if (active) {
+          setClient(next);
+        } else {
+          void next.close();
+        }
+      },
+      (error: unknown) => {
+        console.error("Failed to start the board client", error);
+      },
+    );
+    return () => {
+      active = false;
+      void owned?.close();
+    };
   }, [session.user.id]);
 
   if (client === null) {
@@ -90,6 +106,7 @@ async function createBoardClient(userId: string): Promise<BoardClient> {
   });
   const transport = new SyncTransport({
     url: boardSocketUrl(),
+    onBillingRequired: () => window.location.assign("/billing"),
     collections: boardCollectionIds,
   });
 
@@ -114,6 +131,7 @@ async function createBoardClient(userId: string): Promise<BoardClient> {
     collections: { lanes, tasks, notes, whiteboards },
     mutationFns: {
       persistBoard: async ({ transaction, idempotencyKey }) => {
+        // Billing rejections remain retryable in the durable outbox across the redirect.
         await transport.mutate(transactionMutations(transport, transaction), idempotencyKey);
       },
     },

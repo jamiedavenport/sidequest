@@ -18,7 +18,7 @@ import {
 } from "~/board/components/shortcut-keys.tsrx";
 
 export function ShortcutFooter() @{
-  <footer className="hidden items-center gap-4 border-t border-border bg-background/90 px-4 text-[0.625rem] text-muted-foreground sm:flex">
+  <footer className="hidden min-w-0 items-center gap-4 overflow-x-auto border-t border-border bg-background/90 px-4 text-[0.625rem] whitespace-nowrap text-muted-foreground sm:flex [&>span]:shrink-0">
     <span className="flex items-center gap-1">
       <ShortcutKeys hotkeys={navigateHotkeys} />
       Navigate

@@ -47,7 +47,9 @@ async function connectOAuth(
   await page.route("**/mcp-test-callback?**", (route) => route.fulfill({ body: "Connected" }));
   await page.goto(`/api/auth/oauth2/authorize?${params}`);
   await expect(page.getByText("Connect an app", { exact: true })).toBeVisible();
-  if (write) await page.getByRole("checkbox").check();
+  if (write) {
+    await page.getByRole("checkbox").check();
+  }
   await page.getByRole("button", { name: "Allow access" }).click();
   await page.waitForURL("**/mcp-test-callback?**", { timeout: 10000 });
   const callback = new URL(page.url());
@@ -138,6 +140,22 @@ test("OAuth SDK connection writes to two browsers, retries, reconnects, and revo
             .structuredContent,
       )
       .toMatchObject({ tasks: [{ title: offlineTitle }] });
+    await request.patch("/api/e2e/session", {
+      headers: { "x-sidequest-e2e-secret": "sidequest-e2e-session-helper-secret" },
+      data: { userId: session.user.id, ageDays: 30 },
+    });
+    const expiredWrite = await client.callTool({
+      name: "create_task",
+      arguments: { ...args, idempotencyKey: crypto.randomUUID() },
+    });
+    expect(expiredWrite.isError).toBe(true);
+    expect(JSON.stringify(expiredWrite)).toContain("billing_required");
+    const expiredRead = await client.callTool({
+      name: "search_tasks",
+      arguments: { query: title },
+    });
+    expect(expiredRead.isError).not.toBe(true);
+    expect(expiredRead.structuredContent).toMatchObject({ tasks: [{ title }] });
     const refreshed = await contextA.request.post("/api/auth/oauth2/token", {
       headers: { Cookie: "" },
       form: {

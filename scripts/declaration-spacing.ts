@@ -51,9 +51,13 @@ function paddingBoundary(
   let cursor = start;
   for (const comment of comments) {
     const gap = source.slice(cursor, comment.start);
-    if (/\r?\n[\t ]*\r?\n/u.test(gap)) return undefined;
+    if (/\r?\n[\t ]*\r?\n/u.test(gap)) {
+      return undefined;
+    }
     // Keep trailing comments with the preceding declaration, and leading comments with the next.
-    if (cursor === boundary && !gap.includes("\n")) boundary = comment.end;
+    if (cursor === boundary && !gap.includes("\n")) {
+      boundary = comment.end;
+    }
     cursor = comment.end;
   }
   return /\r?\n[\t ]*\r?\n/u.test(source.slice(cursor, end)) ? undefined : boundary;
@@ -78,29 +82,37 @@ export function spaceDeclarations(
   for (let index = 1; index < statements.length; index += 1) {
     const previous = statements[index - 1];
     const next = statements[index];
-    if (!previous || !next) continue;
+    if (!previous || !next) {
+      continue;
+    }
     if (
       (!spacedDeclarations.has(previous.type) && !spacedDeclarations.has(next.type)) ||
       isRelatedPair(previous, next)
-    )
+    ) {
       continue;
+    }
     let comment = parsed.comments[commentIndex];
-    while (comment && comment.end <= previous.end) comment = parsed.comments[++commentIndex];
+    while (comment && comment.end <= previous.end) {
+      comment = parsed.comments[++commentIndex];
+    }
     const comments: Comment[] = [];
     while (comment && comment.start < next.start) {
       comments.push(comment);
       comment = parsed.comments[++commentIndex];
     }
     const boundary = paddingBoundary(source, previous.end, next.start, comments);
-    if (boundary === undefined) continue;
+    if (boundary === undefined) {
+      continue;
+    }
     edits.push({
       offset: boundary,
       text: source.slice(boundary, next.start).includes("\n") ? newline : newline.repeat(2),
     });
     lines.push(source.slice(0, next.start).split("\n").length);
   }
-  for (const edit of edits.toReversed())
+  for (const edit of edits.toReversed()) {
     source = source.slice(0, edit.offset) + edit.text + source.slice(edit.offset);
+  }
   return { source, lines };
 }
 
@@ -122,25 +134,35 @@ function sourceFiles(): string[] {
 
 function main(): void {
   const [mode, ...paths] = process.argv.slice(2);
-  if (mode !== "--check" && mode !== "--write")
+  if (mode !== "--check" && mode !== "--write") {
     throw new Error("Usage: declaration-spacing.ts --check|--write [files...]");
+  }
   let changed = 0;
   for (const path of paths.length > 0 ? paths.filter(isSourceFile) : sourceFiles()) {
     const result = spaceDeclarations(path, readFileSync(path, "utf8"));
-    if (result.lines.length === 0) continue;
+    if (result.lines.length === 0) {
+      continue;
+    }
     changed += 1;
-    if (mode === "--write") writeFileSync(path, result.source);
-    else
-      for (const line of result.lines)
+    if (mode === "--write") {
+      writeFileSync(path, result.source);
+    } else {
+      for (const line of result.lines) {
         console.error(`${path}:${line}: Expected a blank line between declarations.`);
+      }
+    }
   }
-  if (mode === "--check" && changed > 0) process.exitCode = 1;
-  else
+  if (mode === "--check" && changed > 0) {
+    process.exitCode = 1;
+  } else {
     console.log(
       mode === "--write"
         ? `Declaration spacing: updated ${changed} file(s).`
         : "Declaration spacing: all files pass.",
     );
+  }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main();
+}

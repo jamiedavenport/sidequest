@@ -52,10 +52,11 @@ export async function inspectTools(url: string, token: string): Promise<number> 
       child.on("error", reject);
       child.on("close", resolve);
     });
-    if (code !== 0)
+    if (code !== 0) {
       throw new Error(
         `MCP Inspector exited with status ${code}: ${(stderr + stdout).replaceAll(token, "[redacted]").slice(0, 2000)}`,
       );
+    }
     const result = Schema.decodeUnknownSync(
       Schema.Struct({ result: Schema.Struct({ tools: Schema.Array(Schema.Unknown) }) }),
     )(JSON.parse(stdout));

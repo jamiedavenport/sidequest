@@ -1,6 +1,4 @@
 import { env } from "cloudflare:workers";
-import { drizzle } from "drizzle-orm/d1";
+import { createDatabase } from "~/db/database";
 
-import * as schema from "~/db/schema";
-
-export const db = drizzle(env.DB, { schema });
+export const db = createDatabase(env.DB);

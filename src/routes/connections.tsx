@@ -4,7 +4,9 @@ import { Component } from "~/routes/connections.tsrx";
 
 export const Route = createFileRoute("/connections")({
   beforeLoad: ({ context }) => {
-    if (!context.session) throw redirect({ to: "/login" });
+    if (!context.session) {
+      throw redirect({ to: "/login" });
+    }
   },
   loader: () => listConnections(),
   component: ConnectionsRoute,

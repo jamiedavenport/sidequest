@@ -46,6 +46,7 @@ export class Ack extends Schema.TaggedClass<Ack>()("Ack", {
 }) {}
 
 export class Reject extends Schema.TaggedClass<Reject>()("Reject", {
+  code: Schema.optionalKey(Schema.Literals(["billing_required", "temporarily_unavailable"])),
   transactionId: Schema.String,
   message: Schema.String,
 }) {}

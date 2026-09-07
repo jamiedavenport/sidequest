@@ -27,6 +27,8 @@
     },
   ],
   "vars": {
+    "BILLING_ENFORCEMENT_ENABLED": "true",
+    "BILLING_CHECKOUT_ENABLED": "false",
     "MCP_ALLOWED_ORIGINS": "",
     "BETTER_AUTH_URL": "http://127.0.0.1:4173",
     "BETTER_AUTH_SECRET": "sidequest-e2e-better-auth-secret-only",

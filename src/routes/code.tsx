@@ -8,8 +8,9 @@ export const Route = createFileRoute("/code")({
   beforeLoad: async ({ context, search }) => {
     if (search.oauthQuery) {
       await getConsentRequest({ data: { oauthQuery: search.oauthQuery } });
-      if (context.session)
+      if (context.session) {
         throw redirect({ href: await continueOAuth({ data: { oauthQuery: search.oauthQuery } }) });
+      }
     }
     if (context.session !== null) {
       throw redirect({ to: "/" });

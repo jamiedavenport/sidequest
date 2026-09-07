@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm";
+import { Schema } from "effect";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { testUtils } from "better-auth/plugins";
@@ -22,10 +24,10 @@ const e2eAuth = betterAuth({
 });
 
 function isEnabled(request: Request): boolean {
-  const sessionSecret = process.env.E2E_SESSION_SECRET;
+  const sessionSecret = env.E2E_SESSION_SECRET;
 
   return (
-    process.env.E2E_MODE === "1" &&
+    env.E2E_MODE === "1" &&
     sessionSecret !== undefined &&
     request.headers.get(E2E_SECRET_HEADER) === sessionSecret &&
     LOCAL_HOSTS.has(env.BETTER_AUTH_URL.hostname) &&
@@ -78,5 +80,19 @@ export async function deleteE2EUser(request: Request): Promise<Response> {
   const { test } = await e2eAuth.$context;
   await test.deleteUser(body.userId);
 
+  return new Response(null, { status: 204 });
+}
+
+export async function ageE2EUser(request: Request): Promise<Response> {
+  if (!isEnabled(request)) {
+    return disabledResponse();
+  }
+  const body = Schema.decodeUnknownSync(
+    Schema.Struct({ userId: Schema.String, ageDays: Schema.Number }),
+  )(await request.json());
+  await db
+    .update(schema.user)
+    .set({ createdAt: new Date(Date.now() - body.ageDays * 86_400_000) })
+    .where(eq(schema.user.id, body.userId));
   return new Response(null, { status: 204 });
 }
