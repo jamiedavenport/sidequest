@@ -139,7 +139,7 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
   const client = useBoardClient();
   const store = useBoardStore();
   const mode = useBoardSelector((snapshot) => snapshot.interaction._tag);
-  const { editingLaneId, removingLaneId } = useLaneChrome();
+  const { editingLaneId, removingLaneId, githubLaneId } = useLaneChrome();
   const [target, setTarget] = useState<BoardDropTarget | null>(null);
   const [label, setLabel] = useState("");
   const [failure, setFailure] = useState<string | null>(null);
@@ -148,7 +148,8 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
   const enabled =
     (mode === "Navigating" || mode === "Dragging") &&
     editingLaneId === null &&
-    removingLaneId === null;
+    removingLaneId === null &&
+    githubLaneId === null;
 
   const runMove: RunBoardMove = useCallback((command, onApplied) => {
     setFailure(null);

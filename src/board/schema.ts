@@ -7,7 +7,7 @@ export type LaneSymbolColour = typeof LaneSymbolColour.Type;
 export const LaneSymbolShape = Schema.Literals(["square", "circle", "diamond"]);
 export type LaneSymbolShape = typeof LaneSymbolShape.Type;
 
-export const Attachment = Schema.Struct({
+const LinkAttachment = Schema.Struct({
   id: Schema.String,
   type: Schema.Literal("link"),
   label: Schema.String,
@@ -17,6 +17,19 @@ export const Attachment = Schema.Struct({
   icon: Schema.optionalKey(Schema.String),
   stat: Schema.optionalKey(Schema.String),
 });
+
+const GitHubIssueAttachment = Schema.Struct({
+  id: Schema.String,
+  type: Schema.Literal("github-issue"),
+  issueId: Schema.Number,
+  repositoryId: Schema.Number,
+  number: Schema.Number,
+  repository: Schema.String,
+  title: Schema.String,
+  href: Schema.String,
+});
+
+export const Attachment = Schema.Union([LinkAttachment, GitHubIssueAttachment]);
 export type Attachment = typeof Attachment.Type;
 
 export const Lane = Schema.Struct({

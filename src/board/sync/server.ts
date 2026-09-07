@@ -1,4 +1,6 @@
 import { env } from "~/env";
+import { GitHubBoard } from "~/github/board";
+import { GitHubError, GitHubSettings, fromGithubPromise, toGithubError } from "~/github/schema";
 import { BillingActionError } from "~/billing/config";
 import { PolarError } from "@polar-sh/sdk/models/errors/polarerror";
 import { HTTPValidationError } from "@polar-sh/sdk/models/errors/httpvalidationerror";
@@ -10,7 +12,7 @@ import { CommandJournal } from "~/mcp/journal";
 import { digest, normalizedInput, planCommand, queryBoard } from "~/mcp/domain";
 import { ToolError, ToolReply, isWriteTool, type ToolName } from "~/mcp/schema";
 import { createCloudflareDOSQLitePersistence } from "@tanstack/cloudflare-durable-objects-db-sqlite-persistence";
-import { createTransaction } from "@tanstack/db";
+import { createTransaction, type PendingMutation } from "@tanstack/db";
 import { Effect, Schema } from "effect";
 
 import {
@@ -43,7 +45,7 @@ import {
 import { SyncDurableObject } from "~/sync/durable-object";
 import type { SyncSnapshot } from "~/sync/durable-object";
 import { Mutation, SyncProtocolError } from "~/sync/protocol";
-import { serverRuntime } from "~/server/runtime";
+import { runGithub, serverRuntime } from "~/server/runtime";
 
 const optionalTaskKeys = [
   "laneId",
@@ -94,6 +96,60 @@ function replaceTask(draft: Partial<Task>, next: Task) {
 }
 
 export class BoardObject extends SyncDurableObject<Env> {
+  #github: GitHubBoard = new GitHubBoard({
+    storage: this.ctx.storage,
+    database: this.env.DB,
+    serialized: (work) =>
+      fromGithubPromise(() => this.serialized(() => serverRuntime.runPromise(work))),
+    tasks: () => this.tasks.toArray,
+    laneExists: (id) => !isSystemLane({ id }) && this.lanes.has(id),
+    canWrite: () => this.canMutate(),
+    insert: (tasks) =>
+      serverRuntime.runPromise(
+        this.#persist(() => {
+          for (const task of tasks) {
+            if (!this.tasks.has(task.id)) {
+              this.tasks.insert(task);
+            }
+            if (!this.notes.has(task.id)) {
+              this.notes.insert({ taskId: task.id, content: emptyNoteDocument() });
+            }
+          }
+        }, "github_import"),
+      ),
+    broadcast: () => this.broadcastSyncSnapshot(),
+  });
+
+  async getGithubStatus(userId: string, laneId: string) {
+    await this.bindOwner(userId);
+    return this.serialized(() => runGithub(this.#github.getLaneConnection(laneId)));
+  }
+
+  async saveGithubSettings(userId: string, input: GitHubSettings) {
+    await this.bindOwner(userId);
+    return runGithub(
+      Schema.decodeUnknownEffect(GitHubSettings)(input).pipe(
+        Effect.mapError(toGithubError),
+        Effect.flatMap((settings) => this.#github.saveSettings(settings)),
+      ),
+    );
+  }
+
+  async disconnectGithubLane(userId: string, laneId: string) {
+    await this.bindOwner(userId);
+    return this.serialized(() => runGithub(this.#github.disconnectLane(laneId)));
+  }
+
+  async syncGithubNow(userId: string, laneId: string) {
+    await this.bindOwner(userId);
+    return runGithub(this.#github.syncLane(laneId));
+  }
+
+  async importGithubIssues(userId: string, connectionId: string, issueNumber?: number) {
+    await this.bindOwner(userId);
+    return runGithub(this.#github.importIssues(connectionId, issueNumber));
+  }
+
   async bindOwner(userId: string) {
     if (this.env.BOARD.idFromName(userId).toString() !== this.ctx.id.toString()) {
       throw new Error("Board account mismatch.");
@@ -362,13 +418,13 @@ export class BoardObject extends SyncDurableObject<Env> {
     mutate: () => void,
     operation: string,
     transactionId?: string,
-  ) {
+  ): Effect.fn.Return<void, SyncProtocolError> {
     const startedAt = Date.now();
     yield* Effect.annotateCurrentSpan({
       operation,
       ...(transactionId === undefined ? {} : { transactionId }),
     });
-    yield* Effect.tryPromise({
+    const mutations = yield* Effect.tryPromise({
       try: async () => {
         const transaction = createTransaction({
           autoCommit: false,
@@ -385,14 +441,64 @@ export class BoardObject extends SyncDurableObject<Env> {
         await transaction.commit();
         this.#revision += 1;
         await this.ctx.storage.put("board:revision", this.#revision);
+        return transaction.mutations;
       },
       catch: (cause) => new SyncProtocolError({ message: String(cause) }),
     });
+    yield* this.#syncGithubChanges(mutations).pipe(
+      Effect.mapError((error) => new SyncProtocolError({ message: error.message })),
+    );
     yield* logBoardSync("persistence_committed", {
       durationMs: Date.now() - startedAt,
       operation,
       outcome: "success",
       ...(transactionId === undefined ? {} : { transactionId }),
+    });
+  });
+
+  #syncGithubChanges = Effect.fn("BoardObject.syncGithubChanges")(function* (
+    this: BoardObject,
+    mutations: ReadonlyArray<PendingMutation>,
+  ): Effect.fn.Return<void, GitHubError> {
+    const completed = mutations.flatMap((mutation) => {
+      if (
+        mutation.collection.id !== taskCollectionId ||
+        mutation.type === "delete" ||
+        mutation.modified.completed !== true ||
+        ("completed" in mutation.original && mutation.original.completed === true)
+      ) {
+        return [];
+      }
+      const id = mutation.modified.id;
+      return typeof id === "string" &&
+        this.tasks.get(id)?.attachments?.some((attachment) => attachment.type === "github-issue")
+        ? [id]
+        : [];
+    });
+    if (completed.length > 0) {
+      // Start after the write; GitHub failures do not roll back local completion.
+      this.ctx.waitUntil(
+        serverRuntime.runPromise(
+          this.#github
+            .closeCompletedIssues(completed)
+            .pipe(
+              Effect.catch((error) =>
+                Effect.logWarning("github.closure_failed", { message: error.message }),
+              ),
+            ),
+        ),
+      );
+    }
+    const deletedLaneIds = mutations.flatMap((mutation) =>
+      mutation.collection.id === laneCollectionId &&
+      mutation.type === "delete" &&
+      "id" in mutation.original &&
+      typeof mutation.original.id === "string"
+        ? [mutation.original.id]
+        : [],
+    );
+    yield* Effect.forEach(deletedLaneIds, (laneId) => this.#github.disconnectLane(laneId), {
+      discard: true,
     });
   });
 
@@ -541,10 +647,7 @@ export class BoardObject extends SyncDurableObject<Env> {
     }
 
     const task = normalizeTask(
-      yield* decodeTaskMutation(
-        mutation.value,
-        mutation.type === "update" ? this.tasks.get(mutation.key) : undefined,
-      ),
+      yield* decodeTaskMutation(mutation.value, this.tasks.get(mutation.key)),
     );
     if (task.id !== mutation.key) {
       return yield* new SyncProtocolError({ message: "Task mutation key does not match value" });

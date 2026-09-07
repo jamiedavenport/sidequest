@@ -1,3 +1,4 @@
+import { GitHubDialog } from "~/github/dialog.tsrx";
 import { BoardDragProvider, useBoardDrag } from "~/board/components/board-drag.tsrx";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { Effect } from "effect";
@@ -42,11 +43,11 @@ import type { BoardLane } from "~/board/types";
 function useBoardHotkeys() {
   const store = useBoardStore();
   const client = useBoardClient();
-  const { editingLaneId, removingLaneId, startRename, startRemove } = useLaneChrome();
+  const { editingLaneId, removingLaneId, githubLaneId, startRename, startRemove } = useLaneChrome();
   const mode = useBoardSelector((snapshot) => snapshot.interaction._tag);
   const taskIdSelected = useBoardSelector(selectedTaskId);
   const { runMove } = useBoardDrag();
-  const navigating = mode === "Navigating";
+  const navigating = mode === "Navigating" && githubLaneId === null;
   const laneCommandsEnabled = navigating && editingLaneId === null && removingLaneId === null;
   const taskEditEnabled = laneCommandsEnabled && taskIdSelected !== null;
 
@@ -301,6 +302,7 @@ function BoardCanvas({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
       <ShortcutFooter />
     </main>
     <LaneRemoveDialog lanes={lanes} />
+    <GitHubDialog lanes={lanes} />
     <DetailSheet />
   </>;
 }

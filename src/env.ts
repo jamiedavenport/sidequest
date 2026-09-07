@@ -5,6 +5,12 @@ const standard = Schema.toStandardSchemaV1;
 
 export const env = createEnv({
   server: {
+    GITHUB_CLIENT_ID: standard(Schema.optional(Schema.NonEmptyString)),
+    GITHUB_CLIENT_SECRET: standard(Schema.optional(Schema.NonEmptyString)),
+    GITHUB_APP_SLUG: standard(
+      Schema.optional(Schema.String.check(Schema.isPattern(/^[a-z0-9-]+$/))),
+    ),
+    GITHUB_WEBHOOK_SECRET: standard(Schema.optional(Schema.NonEmptyString)),
     BETTER_AUTH_SECRET: standard(Schema.String.check(Schema.isMinLength(32))),
     BETTER_AUTH_URL: standard(Schema.URLFromString),
     RESEND_API_KEY: standard(Schema.String.check(Schema.isNonEmpty())),
@@ -23,6 +29,10 @@ export const env = createEnv({
   clientPrefix: "VITE_",
   client: {},
   runtimeEnvStrict: {
+    GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
+    GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
+    GITHUB_APP_SLUG: process.env.GITHUB_APP_SLUG,
+    GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     RESEND_API_KEY: process.env.RESEND_API_KEY,

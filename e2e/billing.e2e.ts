@@ -26,6 +26,7 @@ test("expired board requests redirect to billing on the server", async ({
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Subscribe monthly" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Subscribe annually" })).toBeDisabled();
+    await page.getByRole("button", { name: "Necessary only", exact: true }).click();
     await page.getByRole("link", { name: "Back to your board" }).click();
     await expect(page).toHaveURL(/\/billing$/);
     await expect(page.getByRole("heading", { name: "Sidequest task board" })).toHaveCount(0);

@@ -57,6 +57,20 @@ export function createAuth() {
       schema,
     }),
     secret: env.BETTER_AUTH_SECRET,
+    account: {
+      encryptOAuthTokens: true,
+      accountLinking: { allowDifferentEmails: true, requireLocalEmailVerified: true },
+    },
+    socialProviders:
+      env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
+        ? {
+            github: {
+              clientId: env.GITHUB_CLIENT_ID,
+              clientSecret: env.GITHUB_CLIENT_SECRET,
+              disableDefaultScope: true,
+            },
+          }
+        : {},
     plugins: [
       oauthProvider(providerOptions),
       mcpTokenPlugin(providerOptions),

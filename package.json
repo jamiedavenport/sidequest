@@ -15,6 +15,7 @@
     "db:migrate:local": "wrangler d1 migrations apply sidequest-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply sidequest-db --remote",
     "dev": "bun run cf-typegen && vite dev",
+    "dev:tunnel": "cloudflared tunnel --config ~/.cloudflared/sidequest-dev.yml run sidequest-dev",
     "format": "oxfmt --check . && bun run scripts/declaration-spacing.ts --check",
     "format:fix": "bun run scripts/declaration-spacing.ts --write && oxfmt --write .",
     "knip": "knip",
@@ -29,8 +30,7 @@
     "test:e2e:trace": "playwright test --trace on",
     "test:e2e:ui": "E2E_INTERACTIVE=1 playwright test --ui",
     "test:watch": "vitest",
-    "typecheck": "bun run cf-typegen && tsrx-tsc --noEmit && effect-language-service diagnostics --project tsconfig.json --strict",
-    "billing:tunnel": "cloudflared tunnel --url http://localhost:3000 --http-host-header localhost:3000"
+    "typecheck": "bun run cf-typegen && tsrx-tsc --noEmit && effect-language-service diagnostics --project tsconfig.json --strict"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
@@ -54,6 +54,7 @@
     "@tanstack/react-db": "^0.3.6",
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-hotkeys": "^0.10.0",
+    "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-router": "1.170.32",
     "@tanstack/react-start": "1.168.49",
     "@tiptap/core": "^3.31.3",
@@ -67,6 +68,7 @@
     "@tiptap/react": "^3.31.3",
     "@tsrx/react": "0.2.63",
     "@tsrx/vite-plugin-react": "0.0.96",
+    "@uidotdev/usehooks": "^2.4.1",
     "better-auth": "1.7.2",
     "class-variance-authority": "0.7.1",
     "cnfast": "0.1.0",

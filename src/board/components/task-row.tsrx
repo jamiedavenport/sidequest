@@ -1,5 +1,6 @@
 // oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
 import { Effect } from "effect";
+import { GitHubIcon } from "~/github/icon.tsrx";
 import { ChevronDown, ChevronRight, Ellipsis } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
@@ -46,7 +47,12 @@ type TaskIndentStyle = CSSProperties & {
 
 function AttachmentPreview({ attachment }: { attachment: Attachment }) @{
   const [iconFailed, setIconFailed] = useState(false);
-  const showIcon = attachment.icon !== undefined && !iconFailed;
+  const github = attachment.type === "github-issue";
+  const icon = github ? undefined : attachment.icon;
+  const showIcon = icon !== undefined && !iconFailed;
+  const mark = github ? "GH" : attachment.mark;
+  const label = github ? `${attachment.repository} #${attachment.number}` : attachment.label;
+  const meta = github ? attachment.title : attachment.meta;
 
   <Item
     className="min-w-0 flex-nowrap bg-foreground/2 text-foreground no-underline"
@@ -63,23 +69,23 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) @{
           ? "overflow-hidden bg-secondary p-0.5 [&_img]:object-contain"
           : cn(
               "bg-secondary text-[0.625rem] font-semibold",
-              attachment.mark === "GH" && "bg-foreground text-[0.5rem] text-background",
+              mark === "GH" && "bg-foreground text-[0.5rem] text-background",
             ),
       )}
       variant={showIcon ? "image" : "default"}
       aria-hidden="true"
     >
-      @if (showIcon) {
-        <img alt="" src={attachment.icon} onError={() => setIconFailed(true)} />;
+      @if (github) {
+        <GitHubIcon className="size-4" />;
+      } @else if (showIcon) {
+        <img alt="" src={icon} onError={() => setIconFailed(true)} />;
       } @else {
-        <span>{attachment.mark}</span>;
+        <span>{mark}</span>;
       }
     </ItemMedia>
     <ItemContent>
-      <ItemTitle className="text-sm/5 text-foreground sm:text-xs/4">{attachment.label}</ItemTitle>
-      <ItemDescription className="line-clamp-1 text-sm/5 sm:text-xs/4">
-        {attachment.meta}
-      </ItemDescription>
+      <ItemTitle className="text-sm/5 text-foreground sm:text-xs/4">{label}</ItemTitle>
+      <ItemDescription className="line-clamp-1 text-sm/5 sm:text-xs/4">{meta}</ItemDescription>
     </ItemContent>
   </Item>;
 }

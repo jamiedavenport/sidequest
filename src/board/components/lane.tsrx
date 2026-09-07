@@ -48,6 +48,7 @@ import {
   EmptyTitle,
 } from "~/components/ui/empty.tsrx";
 import { Input } from "~/components/ui/input.tsrx";
+import { GitHubIcon } from "~/github/icon.tsrx";
 
 function StartAddButton({
   lane,
@@ -154,7 +155,7 @@ function LaneTitle({ lane }: { lane: BoardLane }) @{
 function LaneOptions({ lane }: { lane: BoardLane }) @{
   const client = useBoardClient();
   const store = useBoardStore();
-  const { startRename, startRemove } = useLaneChrome();
+  const { startRename, startRemove, openGithubSettings } = useLaneChrome();
   const { runMove } = useBoardDrag();
   const canMoveLeft = planLaneMove(client.lanes.toArray, lane.id, "left") !== undefined;
   const canMoveRight = planLaneMove(client.lanes.toArray, lane.id, "right") !== undefined;
@@ -203,6 +204,10 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
           <ShortcutKeys hotkeys={moveLaneRightHotkeys} />
         </DropdownMenuShortcut>
       </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => openGithubSettings(lane.id)}>
+        <GitHubIcon />
+        GitHub
+      </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"
@@ -221,6 +226,8 @@ function LaneOptions({ lane }: { lane: BoardLane }) @{
 }
 
 export function TaskLane({ lane }: { lane: BoardLane }) @{
+  const { githubConnections, openGithubSettings } = useLaneChrome();
+  const githubConnection = githubConnections.find((connection) => connection.laneId === lane.id);
   const selected = useBoardSelector((snapshot) => currentLaneId(snapshot) === lane.id);
   const taskIdSelected = useBoardSelector(selectedTaskId);
   const editingTask = useBoardSelector((snapshot) => snapshot.interaction._tag === "Editing");
@@ -261,7 +268,21 @@ export function TaskLane({ lane }: { lane: BoardLane }) @{
         <LaneTitle lane={lane} />
       </div>
       @if (!system) {
-        <LaneOptions lane={lane} />;
+        <div className="flex shrink-0 items-center gap-1">
+          @if (githubConnection) {
+            <Button
+              size="icon"
+              variant="ghost"
+              className="text-muted-foreground"
+              aria-label={`${lane.title} GitHub settings (${githubConnection.repository})`}
+              title={`Connected to ${githubConnection.repository} on GitHub`}
+              onClick={() => openGithubSettings(lane.id)}
+            >
+              <GitHubIcon />
+            </Button>;
+          }
+          <LaneOptions lane={lane} />
+        </div>;
       }
     </div>
     <div className="flex min-h-0 flex-1 flex-col pt-4 sm:pt-3.5">

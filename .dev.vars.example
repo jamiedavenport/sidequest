@@ -5,6 +5,12 @@ BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_SECRET=
 RESEND_API_KEY=
 
+# One GitHub App per environment. See docs/github.md.
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_APP_SLUG=
+GITHUB_WEBHOOK_SECRET=
+
 # Polar sandbox. Keep checkout and enforcement off until the billing runbook passes.
 POLAR_SERVER=sandbox
 POLAR_ACCESS_TOKEN=

@@ -15,9 +15,20 @@ export const decodeTaskMutation = Effect.fn("decodeTaskMutation")(function* (
   existing?: Task,
 ) {
   const task = yield* decodeTask(input);
-  return existing !== undefined && !Predicate.hasProperty(input, "collapsed")
-    ? { ...task, collapsed: existing.collapsed }
-    : task;
+  // The client can neither create nor replace the server's GitHub identity.
+  const attachments = [
+    ...(task.attachments ?? existing?.attachments ?? []).filter(
+      (attachment) => attachment.type === "link",
+    ),
+    ...(existing?.attachments ?? []).filter((attachment) => attachment.type === "github-issue"),
+  ];
+  return {
+    ...task,
+    ...(attachments.length > 0 || task.attachments !== undefined ? { attachments } : {}),
+    ...(existing !== undefined && !Predicate.hasProperty(input, "collapsed")
+      ? { collapsed: existing.collapsed }
+      : {}),
+  };
 });
 
 export const decodeNote = Effect.fn("decodeNote")(function* (input: unknown) {

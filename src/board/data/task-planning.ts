@@ -26,6 +26,11 @@ export function planTaskUpdate(task: Task, patch: { title?: string; date?: strin
     ...task,
     title,
     ...(patch.date === undefined ? {} : { date: patch.date ?? undefined }),
-    ...(title === task.title ? {} : { attachments: [] }),
+    ...(title === task.title
+      ? {}
+      : {
+          attachments:
+            task.attachments?.filter((attachment) => attachment.type === "github-issue") ?? [],
+        }),
   };
 }

@@ -1,8 +1,13 @@
+import { Effect } from "effect";
+import { fromGithubPromise, GitHubError } from "~/github/schema";
+import { authClient } from "~/auth/client";
+import { isGithubEnabled } from "~/github/functions";
+import { GitHubIcon } from "~/github/icon.tsrx";
 import { oauthQueryFromSearch } from "~/auth/oauth-continuation";
 // oxlint-disable react-perf/jsx-no-new-function-as-prop
 import { useForm } from "@tanstack/react-form";
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { PrivacyNavigation } from "~/privacy/consent.tsrx";
 import { AuthShell } from "~/auth/components/auth-shell.tsrx";
@@ -16,6 +21,42 @@ export function Component() @{
   const navigate = useNavigate();
   const oauthQuery = oauthQueryFromSearch(useLocation().searchStr);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [githubAvailable, setGithubAvailable] = useState(false);
+  const [githubBusy, setGithubBusy] = useState(false);
+  useEffect(() => {
+    void Effect.runPromise(
+      fromGithubPromise(() => isGithubEnabled()).pipe(
+        Effect.tap((enabled) => Effect.sync(() => setGithubAvailable(enabled))),
+        Effect.ignore,
+      ),
+    );
+    if (new URLSearchParams(window.location.search).has("error")) {
+      setSubmitError("GitHub sign-in was cancelled or could not be completed. Please try again.");
+    }
+  }, []);
+
+  const signInWithGithub = Effect.fn("signInWithGithub")(
+    function* () {
+      setGithubBusy(true);
+      setSubmitError(null);
+      const continuation = oauthQuery ? `/login?${new URLSearchParams({ oauthQuery })}` : "/";
+      const result = yield* fromGithubPromise(() =>
+        authClient.signIn.social({
+          provider: "github",
+          callbackURL: continuation,
+          errorCallbackURL: oauthQuery ? continuation : "/login",
+        }),
+      );
+      if (result.error) {
+        return yield* new GitHubError({ message: "GitHub sign-in could not be started." });
+      }
+    },
+    Effect.catch(() =>
+      Effect.sync(() => setSubmitError("GitHub sign-in could not be started. Please try again.")),
+    ),
+    Effect.ensuring(Effect.sync(() => setGithubBusy(false))),
+  );
+
   const form = useForm({
     defaultValues: {
       email: "",
@@ -97,6 +138,18 @@ export function Component() @{
         }}
       </form.Subscribe>
     </form>
+    @if (githubAvailable) {
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full gap-2"
+        disabled={githubBusy}
+        onClick={() => Effect.runPromise(signInWithGithub())}
+      >
+        <GitHubIcon />
+        {githubBusy ? "Connecting…" : "Continue with GitHub"}
+      </Button>;
+    }
     <PrivacyNavigation />
   </AuthShell>;
 }
