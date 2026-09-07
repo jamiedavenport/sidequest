@@ -52,3 +52,14 @@ slow, or what would make it easier to take the next step.
 
 Want to work on the app? The [contributor guide](CONTRIBUTING.md) covers local
 setup, development conventions, and checks to run before opening a pull request.
+
+## License
+
+Sidequest is source-available under the [Sustainable Use License](LICENSE.md),
+Version 1.0, created by n8n. You can self-host and modify it for personal,
+noncommercial, or internal business use. Sharing the software or a fork with
+others must be free of charge and for noncommercial purposes. Selling a fork or
+charging for hosted access requires separate permission.
+
+This is a summary; the [full license](LICENSE.md) governs use. Third-party
+components retain their own licenses.

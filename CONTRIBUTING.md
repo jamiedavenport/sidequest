@@ -5,6 +5,17 @@ feedback on everyday workflows, documentation fixes, and focused code changes.
 For a larger feature or architectural change, open an issue to discuss the
 problem and proposed approach before starting work.
 
+## Contribution licensing
+
+By submitting a contribution, you agree to license it under Sidequest’s
+[Sustainable Use License, Version 1.0](LICENSE.md). You retain ownership of your
+contribution. Only contribute material you have the right to license under these
+terms, and preserve any applicable third-party licenses and notices.
+
+Sidequest uses the license terms [published by n8n](https://github.com/n8n-io/n8n/blob/master/LICENSE.md#sustainable-use-license).
+n8n encourages other projects to adopt them in its
+[license announcement](https://blog.n8n.io/announcing-new-sustainable-use-license/).
+
 ## Run the app locally
 
 The application uses TanStack Start, TSRX, Bun, and Vite. It runs on Cloudflare
