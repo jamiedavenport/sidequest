@@ -17,3 +17,6 @@ test-results/
 
 .DS_Store
 *.log
+
+# Reproduced from the pinned Excalidraw package by Vite.
+public/excalidraw/fonts/

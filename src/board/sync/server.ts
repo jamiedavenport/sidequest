@@ -23,7 +23,12 @@ import {
 import { attachmentsForTitle } from "~/board/links/enrich";
 import { titleMayContainHttpUrl } from "~/board/links/extract";
 import { linkPreviewRuntime } from "~/board/links/runtime";
-import { decodeLane, decodeNote, decodeTaskMutation, decodeWhiteboard } from "~/board/sync/codec";
+import {
+  decodeLane,
+  decodeNote,
+  decodeTaskMutation,
+  decodeWhiteboardMutation,
+} from "~/board/sync/codec";
 import {
   createLaneCollection,
   createNoteCollection,
@@ -734,7 +739,7 @@ export class BoardObject extends SyncDurableObject<Env> {
       return yield* new SyncProtocolError({ message: "Missing whiteboard value" });
     }
 
-    const whiteboard = yield* decodeWhiteboard(mutation.value);
+    const whiteboard = yield* decodeWhiteboardMutation(mutation.value);
     if (whiteboard.taskId !== mutation.key) {
       return yield* new SyncProtocolError({
         message: "Whiteboard mutation key does not match taskId",

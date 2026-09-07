@@ -1,0 +1,12 @@
+/* Excalidraw 0.18.1 has no hide-all-UI option. Target only its UI chrome;
+   canvas, text editor overlays and pointer handlers remain interactive. */
+.sidequest-whiteboard .excalidraw .layer-ui__wrapper,
+.sidequest-whiteboard .excalidraw .App-menu,
+.sidequest-whiteboard .excalidraw .App-bottom-bar,
+.sidequest-whiteboard .excalidraw .App-top-bar,
+.sidequest-whiteboard .excalidraw .sidebar,
+.sidequest-whiteboard .excalidraw .HelpDialog,
+.sidequest-whiteboard .excalidraw .context-menu,
+.sidequest-whiteboard .excalidraw .excalidraw__toast {
+  display: none !important;
+}

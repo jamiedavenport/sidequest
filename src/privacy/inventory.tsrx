@@ -44,10 +44,10 @@ const storage = [
     "No automatic deletion. Retained for manual recovery until site data is cleared or evicted.",
   ],
   [
-    "TLDRAW_USER_DATA_v3 (when whiteboard preferences are saved)",
-    "Sidequest / tldraw",
+    "TLDRAW_USER_DATA_v3 (legacy)",
+    "Sidequest / former tldraw editor",
     "localStorage",
-    "Remember whiteboard editor preferences and a local editor identifier",
+    "Preferences and local identifier left by the former editor; no longer read or written",
     "No automatic expiry; until browser site data is cleared or evicted.",
   ],
   [
@@ -110,9 +110,9 @@ export function StorageInventory() @{
       </table>
     </section>
     <p className="text-sm/7 text-muted-foreground">
-      External font requests to rsms.me and whiteboard asset requests to cdn.tldraw.com disclose
-      network and browser information. Polar’s hosted checkout and apps you authorise operate their
-      own services and may use storage covered by their policies.
+      External font requests to rsms.me disclose network and browser information. Whiteboard fonts
+      are served by Sidequest. Polar’s hosted checkout and apps you authorise operate their own
+      services and may use storage covered by their policies.
     </p>
   </section>;
 }

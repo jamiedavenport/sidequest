@@ -30,7 +30,6 @@ const policy = defineConfig({
       "Security and delivery": [
         "Session identifiers",
         "IP address and user agent",
-        "Local whiteboard editor identifier and preferences",
         "Hashed sign-in codes",
         "Request and error information",
       ],
@@ -173,11 +172,6 @@ const policy = defineConfig({
       policyUrl: "https://rsms.me/inter/",
     },
     {
-      name: "tldraw asset hosting",
-      purpose:
-        "Deliver whiteboard fonts and editor assets from cdn.tldraw.com; requests disclose network and browser information.",
-    },
-    {
       name: "Apps you authorise",
       purpose:
         "Receive account or board information available through the MCP permissions you grant. Review the app’s privacy notice before connecting it.",
@@ -219,5 +213,5 @@ const policy = defineConfig({
 // the custom dictionary or storage inventory, which are outside SDK hashing.
 export default {
   ...policy,
-  cookieVersion: `${policy.cookieVersion}:${policy.privacyVersion}:2`,
+  cookieVersion: `${policy.cookieVersion}:${policy.privacyVersion}:3`,
 };

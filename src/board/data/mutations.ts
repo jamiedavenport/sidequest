@@ -1,5 +1,6 @@
+import { WhiteboardWrite } from "~/board/whiteboard-document";
 import { planTaskCreate, planTaskUpdate } from "~/board/data/task-planning";
-import { emptyNoteDocument, Note, Whiteboard, type Lane } from "~/board/schema";
+import { emptyNoteDocument, Note, type Lane } from "~/board/schema";
 import { Effect, Schema } from "effect";
 import { playDoneSound } from "~/board/sound";
 import type { BoardClient } from "~/board/sync/client-types";
@@ -74,7 +75,9 @@ export const saveWhiteboard = Effect.fn("saveWhiteboard")(function* (
   client: BoardClient,
   input: unknown,
 ) {
-  const whiteboard = yield* Schema.decodeUnknownEffect(Whiteboard)(input);
+  const whiteboard = yield* Schema.decodeUnknownEffect(WhiteboardWrite, {
+    onExcessProperty: "error",
+  })(input);
   const transaction = client.offline.createOfflineTransaction({
     autoCommit: false,
     mutationFnName: "persistBoard",

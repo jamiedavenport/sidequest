@@ -1,3 +1,4 @@
+import { WhiteboardWrite } from "~/board/whiteboard-document";
 import { Effect, Predicate, Schema } from "effect";
 
 import { Lane, Note, Task, Whiteboard } from "~/board/schema";
@@ -35,8 +36,10 @@ export const decodeNote = Effect.fn("decodeNote")(function* (input: unknown) {
   return yield* Schema.decodeUnknownEffect(Note)(input);
 });
 
-export const decodeWhiteboard = Effect.fn("decodeWhiteboard")(function* (input: unknown) {
-  return yield* Schema.decodeUnknownEffect(Whiteboard)(input);
+export const decodeWhiteboardMutation = Effect.fn("decodeWhiteboardMutation")(function* (
+  input: unknown,
+) {
+  return yield* Schema.decodeUnknownEffect(WhiteboardWrite, { onExcessProperty: "error" })(input);
 });
 
 export const decodeLaneSync = Schema.decodeUnknownSync(Lane);

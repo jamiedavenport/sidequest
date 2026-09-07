@@ -152,8 +152,6 @@ export const Whiteboard = Schema.Struct({
 });
 export type Whiteboard = typeof Whiteboard.Type;
 
-export type WhiteboardDocument = Schema.JsonObject;
-
 export const emptyNoteDocument = (): NoteDocument => ({
   type: "doc",
   content: [{ type: "paragraph" }],

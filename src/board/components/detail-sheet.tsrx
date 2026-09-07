@@ -17,7 +17,14 @@ import {
 } from "~/components/ui/sheet.tsrx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs.tsrx";
 
+declare global {
+  interface Window {
+    EXCALIDRAW_ASSET_PATH: string;
+  }
+}
+
 const LazyWhiteboardEditor = lazy(async () => {
+  window.EXCALIDRAW_ASSET_PATH = "/excalidraw/";
   const module = await import("~/board/components/whiteboard-editor.tsrx");
   return { default: module.WhiteboardEditor };
 });
@@ -92,7 +99,18 @@ export function DetailSheet() @{
 
   <Sheet
     open={open}
-    onOpenChange={(nextOpen) => {
+    onOpenChange={(nextOpen, eventDetails) => {
+      // Excalidraw detaches its textarea while committing Escape, before the
+      // dialog receives the event. Match the detached target to keep the sheet open.
+      if (
+        eventDetails.reason === "escape-key" &&
+        eventDetails.event.target instanceof HTMLTextAreaElement &&
+        detailTab === "whiteboard" &&
+        eventDetails.event.target.matches(".excalidraw-wysiwyg")
+      ) {
+        eventDetails.cancel();
+        return;
+      }
       if (!nextOpen) {
         store.send(BoardEvent.DetailsClose({}));
       }
