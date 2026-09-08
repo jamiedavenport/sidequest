@@ -5,7 +5,8 @@
     "src/**/*.tsrx",
     "*.ts",
     "*.d.ts",
-    "scripts/declaration-spacing*.ts"
+    "scripts/declaration-spacing*.ts",
+    "scripts/demo*.ts"
   ],
   "compilerOptions": {
     "allowImportingTsExtensions": true,

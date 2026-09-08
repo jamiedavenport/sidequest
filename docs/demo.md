@@ -32,6 +32,31 @@ All IDs are stable within a user's board. Builders return fresh objects. Fixture
 
 Onboarding has seven incomplete tasks. The demo has four custom lanes, 40 tasks (10 subtasks and eight completed), six substantive notes, empty notes for the remaining tasks, three link attachments, and one whiteboard. Completed tasks retain note records in storage; the existing sync snapshot omits their notes. Other semantic task and attachment IDs are authored in `src/board/seeds/demo.ts`.
 
-Recording layout and video production are outside this command.
+## Promotional screenshots
+
+```sh
+bun run demo:screenshots
+```
+
+This runs the same demo fixture in headless Chromium, captures four PNGs, and exits automatically. Images are saved in `.playwright/demo-screenshots/`, outside Playwright's disposable test-results directory. The account and temporary server data are cleaned up on success or failure. As with the interactive demo, run this separately from E2E tests because they share port 4173 and server state.
+
+Screenshots use a fixed `2026-09-08` anchor, noon UTC, `en-GB`, light mode, reduced motion, and 2× device resolution. Override the date with `DEMO_ANCHOR_DATE=2026-12-30 bun run demo:screenshots`. The normal `bun run demo` command remains interactive and defaults to today's date.
+
+Every screenshot uses the same 1392 × 982 viewport and exports at **2784 × 1964 pixels**. Captures keep the full browser viewport, including notes and whiteboards; there are no separate element crops or scene-specific viewport sizes.
+
+| File                | Framing                                    |
+| ------------------- | ------------------------------------------ |
+| `01-board.png`      | Today, Inbox, Launch, and Engineering      |
+| `02-projects.png`   | Launch, Engineering, Learning, and Life    |
+| `03-notes.png`      | Release notes with board context           |
+| `04-whiteboard.png` | Release-process drawing with board context |
+
+The capture accepts necessary cookies only, waits for seeded content and two consecutive identical renders, removes text selections and carets, and hides scrollbars for the export. Whiteboard capture waits for the saved scene and fits the drawing into view. It uses the real UI and does not change the demo content or application styles.
+
+Successful runs publish `manifest.json` with the anchor, browser settings, filenames, and actual pixel dimensions. Each PNG is also attached to the Playwright result. Reruns overwrite these filenames; copy approved assets elsewhere before another capture. If a capture fails, the command exits nonzero and no new manifest is published; any remaining PNGs may be from a partial or earlier run. Playwright's failure screenshot is available under `.playwright/test-results/`.
+
+The viewport fits four of the current 348px desktop lanes. The projects screenshot scrolls to Launch without changing the viewport. If that layout changes, update the shared viewport in `playwright.demo.config.ts` and review every export. The command verifies that all PNGs match the configured 2× viewport dimensions and removes the older mixed-size filenames after a successful capture. Images may differ slightly across operating systems because of system fonts and browser rendering. Promotional backgrounds, typography, and video production are separate steps.
+
+Screenshot API reference: Context7 `/microsoft/playwright/v1.58.2`, requested and installed Playwright version `1.58.2`.
 
 Documentation reference: Context7 `/better-auth/better-auth`, requested Better Auth version `1.7.2` (no version-specific Context7 entry available); behavior was also checked against the installed adapter and email OTP code.
