@@ -2,6 +2,13 @@
 // oxlint-disable jsx-a11y/no-noninteractive-tabindex
 const storage = [
   [
+    "Sidequest health reports",
+    "Sidequest / Axiom",
+    "Same-origin network requests and in-memory queue",
+    "Necessary error and sync diagnostics; browser performance measurements only with analytics consent. No task content, credentials or persistent telemetry identifier.",
+    "At most 100 queued reports for five minutes. The reporting identifier lasts for the page lifetime. Provider retention is configured separately; targets are 14 days for logs, 7 days for traces and 30 days for metrics. Consent withdrawal discards queued performance reports; in-flight requests may finish.",
+  ],
+  [
     "better-auth.session_token (prefixed __Secure- on HTTPS)",
     "Sidequest / Better Auth",
     "HTTP-only cookie",

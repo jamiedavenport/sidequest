@@ -77,3 +77,11 @@ Legacy unowned data remains untouched: IndexedDB database `offline-transactions`
 WebSocket sessions are checked against D1 at each operation and application delivery, including server broadcasts. Idle sockets need no polling. Revocation does not roll back operations already authorized and in flight. Authentication failures close with 4401; database-check failures close with 1011 and permit retry. Session IDs and credentials are never logged.
 
 References: Context7 `/tanstack/db`, requested `@tanstack/offline-transactions` 1.0.52, verified against installed source; `/websites/developers_cloudflare_durable-objects`, compatibility date 2026-08-29 and Wrangler 4.127.1.
+
+## Health telemetry
+
+The health integration adds Axiom to the provider disclosure and increments the custom consent revision to 4. Necessary error, storage and sync diagnostics use an in-memory queue with an ephemeral per-page reporting ID; it is unrelated to authentication session IDs. Server-derived opaque account IDs may accompany diagnostics. The same-origin ingestion route strips caller-supplied account identity and deployment metadata. Board content, credentials, raw URLs, exception messages/causes and SQL parameters are excluded.
+
+Navigation measurements and LCP/INP/CLS follow the existing analytics grant. Withdrawing it discards queued performance reports and prevents subsequent reports. The standard Web Vitals observer has no disposal API; it may continue calculating local values after withdrawal, but callbacks cannot enqueue them without consent. In-flight requests may finish. No telemetry is stored in IndexedDB, localStorage, OPFS or the mutation outbox. The privacy inventory records the 100-record/five-minute bound and provisional provider retention targets.
+
+Axiom retention, regional storage and transfer terms require account-level verification before enabling production export. Cloudflare platform logs remain in its dashboard for manual inspection. See [the health runbook](observability/README.md). This change does not assert that provider account settings or agreements have already been verified.

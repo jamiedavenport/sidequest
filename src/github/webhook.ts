@@ -1,3 +1,4 @@
+import { captureTelemetryContext } from "~/telemetry/runtime";
 import { and, eq } from "drizzle-orm";
 import { Effect, Result, Schema } from "effect";
 import { createDatabase } from "~/db/database";
@@ -61,6 +62,7 @@ const importWebhookIssues = Effect.fn("importWebhookIssues")(function* (
           connection.userId,
           connection.id,
           issueNumber,
+          captureTelemetryContext(),
         ),
       ).pipe(Effect.result),
     { concurrency: "unbounded" },
@@ -91,6 +93,13 @@ const processGithubWebhook = Effect.fn("processGithubWebhook")(function* (
   if (!["issues", "installation", "installation_repositories"].includes(event ?? "")) {
     return new Response(null, { status: 204 });
   }
+  yield* Effect.annotateCurrentSpan({
+    component: "github",
+    category: "webhook",
+    provider: "github",
+    eventType: event,
+    deliveryId: request.headers.get("x-github-delivery"),
+  });
   const decoded = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Payload))(
     new TextDecoder().decode(body),
   ).pipe(Effect.result);

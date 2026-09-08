@@ -18,6 +18,7 @@ export const getValidSessions = Effect.fn("getValidSessions")(function* (
   userId: string,
   sessionIds: ReadonlyArray<string>,
 ) {
+  yield* Effect.annotateCurrentSpan({ component: "d1", category: "storage", accountId: userId });
   const db = createDatabase(binding);
   const rows = yield* Effect.forEach(Array.chunksOf([...new Set(sessionIds)], 90), (ids) =>
     Effect.tryPromise({
@@ -29,6 +30,7 @@ export const getValidSessions = Effect.fn("getValidSessions")(function* (
       catch: () => new SessionCheckError(),
     }),
   );
+  yield* Effect.annotateCurrentSpan({ rowCount: rows.flat().length });
   const now = yield* Clock.currentTimeMillis;
   return new Set(
     rows

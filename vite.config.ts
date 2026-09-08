@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { cp, rm } from "node:fs/promises";
 import { Effect, Schema } from "effect";
 import { cloudflare } from "@cloudflare/vite-plugin";
@@ -34,7 +35,11 @@ const copyWhiteboardFonts = Effect.fn("copyWhiteboardFonts")(function* () {
 export default defineConfig(({ mode }) => {
   const isE2E = mode === "e2e";
 
+  const release =
+    process.env.GITHUB_SHA ??
+    execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
   return {
+    define: { "import.meta.env.VITE_APP_RELEASE": JSON.stringify(release) },
     resolve: {
       tsconfigPaths: true,
     },

@@ -1,3 +1,10 @@
+import { reportBrowserEvent } from "~/telemetry/browser";
+import {
+  createTelemetryContext,
+  parseTelemetryContext,
+  type BrowserRecord,
+  type TelemetryContext,
+} from "~/telemetry/schema";
 import { BillingRequiredError } from "~/billing/access";
 import type { SyncConfig } from "@tanstack/db";
 import { NonRetriableError } from "@tanstack/offline-transactions";
@@ -34,7 +41,7 @@ type CollectionHandler = {
 };
 
 type PendingAcknowledgement = {
-  resolve: () => void;
+  resolve: (serverContext?: TelemetryContext) => void;
   reject: (error: Error) => void;
 };
 
@@ -63,14 +70,13 @@ function mutationTelemetry(mutations: ReadonlyArray<Mutation>) {
   };
 }
 
-function logClientSync(event: string, details: Record<string, string | number | boolean> = {}) {
-  console.info(
-    JSON.stringify({
-      component: "sync-client",
-      event,
-      ...details,
-    }),
-  );
+function logClientSync(
+  event: BrowserRecord["event"],
+  details: Record<string, string | number | boolean> = {},
+  telemetry?: TelemetryContext,
+  link?: TelemetryContext,
+) {
+  reportBrowserEvent(event, { component: "sync-client", ...details }, telemetry, link);
 }
 
 export class SyncTransport {
@@ -162,41 +168,64 @@ export class SyncTransport {
     }
 
     const transactionId = crypto.randomUUID();
+    const telemetry = createTelemetryContext();
     const startedAt = Date.now();
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.#pending.delete(transactionId);
-        logClientSync("acknowledgement_timeout", {
-          durationMs: Date.now() - startedAt,
-          outcome: "timeout",
-          transactionId,
-        });
+        logClientSync(
+          "acknowledgement_timeout",
+          {
+            durationMs: Date.now() - startedAt,
+            outcome: "timeout",
+            transactionId,
+          },
+          telemetry,
+        );
         reject(new Error(`Transaction ${transactionId} timed out`));
       }, this.#transactionTimeoutMs);
 
       this.#pending.set(transactionId, {
-        resolve: () => {
+        resolve: (serverContext) => {
           clearTimeout(timeout);
-          logClientSync("acknowledgement_applied", {
-            durationMs: Date.now() - startedAt,
-            outcome: "success",
-            transactionId,
-          });
+          logClientSync(
+            "acknowledgement_applied",
+            {
+              durationMs: Date.now() - startedAt,
+              outcome: "success",
+              transactionId,
+            },
+            telemetry,
+            serverContext,
+          );
           resolve();
         },
         reject: (error) => {
           clearTimeout(timeout);
-          logClientSync("acknowledgement_error", {
-            durationMs: Date.now() - startedAt,
-            outcome: "failure",
-            transactionId,
-          });
+          logClientSync(
+            "acknowledgement_error",
+            {
+              durationMs: Date.now() - startedAt,
+              outcome: "failure",
+              transactionId,
+            },
+            telemetry,
+          );
           reject(error);
         },
       });
 
       try {
-        socket.send(JSON.stringify(new Mutate({ transactionId, idempotencyKey, mutations })));
+        socket.send(
+          JSON.stringify(
+            new Mutate({
+              transactionId,
+              idempotencyKey,
+              mutations,
+              telemetry,
+            }),
+          ),
+        );
         logClientSync("mutation_sent", {
           outcome: "success",
           transactionId,
@@ -300,7 +329,7 @@ export class SyncTransport {
         return;
       }
       logClientSync("socket_open", { outcome: "success" });
-      socket.send(JSON.stringify(new Sync({})));
+      socket.send(JSON.stringify(new Sync({ telemetry: createTelemetryContext() })));
       logClientSync("sync_request_sent", { outcome: "success" });
     });
 
@@ -318,8 +347,8 @@ export class SyncTransport {
       }
 
       const exit = Effect.runSync(Effect.exit(decodeServerMessage(parsed)));
+
       if (Exit.isFailure(exit)) {
-        console.error("Failed to decode sync message", exit.cause);
         logClientSync("message_decode_error", { outcome: "invalid_protocol" });
         return;
       }
@@ -351,11 +380,11 @@ export class SyncTransport {
             ? this.#dispatchData(message, socket)
             : undefined;
         })
-        .catch((error: unknown) => {
+        .catch(() => {
           if (this.#closed || this.#socket !== socket) {
             return;
           }
-          console.error("Failed to apply sync message", error);
+
           logClientSync("message_application_error", { outcome: "failure" });
           for (const pending of this.#pending.values()) {
             pending.reject(new Error("Failed to apply the authoritative sync state"));
@@ -396,7 +425,7 @@ export class SyncTransport {
       });
       if (pending !== undefined) {
         this.#pending.delete(message.transactionId);
-        pending.resolve();
+        pending.resolve(parseTelemetryContext(message.telemetry));
       }
       return;
     }
@@ -486,12 +515,17 @@ export class SyncTransport {
         });
       }),
     );
-    logClientSync("snapshot_applied", {
-      collectionCount: snapshot.collections.length,
-      durationMs: Date.now() - startedAt,
-      outcome: "success",
-      rowCount: snapshot.collections.reduce((total, entry) => total + entry.values.length, 0),
-    });
+    logClientSync(
+      "snapshot_applied",
+      {
+        collectionCount: snapshot.collections.length,
+        durationMs: Date.now() - startedAt,
+        outcome: "success",
+        rowCount: snapshot.collections.reduce((total, entry) => total + entry.values.length, 0),
+      },
+      createTelemetryContext(),
+      parseTelemetryContext(snapshot.telemetry),
+    );
   }
 
   async #applyChanges(changes: Changes) {
@@ -534,15 +568,20 @@ export class SyncTransport {
         });
       }),
     );
-    logClientSync("changes_applied", {
-      ...(changes.changeId === undefined ? {} : { changeId: changes.changeId }),
-      durationMs: Date.now() - startedAt,
-      outcome: "success",
-      ...(changes.originatingTransactionId === undefined
-        ? {}
-        : { originatingTransactionId: changes.originatingTransactionId }),
-      ...mutationTelemetry(changes.mutations),
-    });
+    logClientSync(
+      "changes_applied",
+      {
+        ...(changes.changeId === undefined ? {} : { changeId: changes.changeId }),
+        durationMs: Date.now() - startedAt,
+        outcome: "success",
+        ...(changes.originatingTransactionId === undefined
+          ? {}
+          : { originatingTransactionId: changes.originatingTransactionId }),
+        ...mutationTelemetry(changes.mutations),
+      },
+      createTelemetryContext(),
+      parseTelemetryContext(changes.telemetry),
+    );
   }
 }
 

@@ -1,3 +1,4 @@
+import { captureTelemetryContext } from "~/telemetry/runtime";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { env as bindings } from "cloudflare:workers";
@@ -71,7 +72,11 @@ export const getGithubStatus = createServerFn({ method: "GET" })
         const userId = yield* getGithubUserId();
         const linkedAccount = yield* getGithubAccount(userId);
         const connection = yield* fromGithubRpc(() =>
-          bindings.BOARD.getByName(userId).getGithubStatus(userId, data.laneId),
+          bindings.BOARD.getByName(userId).getGithubStatus(
+            userId,
+            data.laneId,
+            captureTelemetryContext(),
+          ),
         );
         return {
           enabled: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET && env.GITHUB_APP_SLUG),
@@ -115,7 +120,11 @@ export const saveGithubSettings = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const userId = yield* getGithubUserId(true);
         yield* fromGithubRpc(() =>
-          bindings.BOARD.getByName(userId).saveGithubSettings(userId, data),
+          bindings.BOARD.getByName(userId).saveGithubSettings(
+            userId,
+            data,
+            captureTelemetryContext(),
+          ),
         );
         return { ok: true };
       }),
@@ -129,7 +138,11 @@ export const syncGithubNow = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const userId = yield* getGithubUserId(true);
         yield* fromGithubRpc(() =>
-          bindings.BOARD.getByName(userId).syncGithubNow(userId, data.laneId),
+          bindings.BOARD.getByName(userId).syncGithubNow(
+            userId,
+            data.laneId,
+            captureTelemetryContext(),
+          ),
         );
         return { ok: true };
       }),
@@ -143,7 +156,11 @@ export const disconnectGithubLane = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const userId = yield* getGithubUserId(true);
         yield* fromGithubRpc(() =>
-          bindings.BOARD.getByName(userId).disconnectGithubLane(userId, data.laneId),
+          bindings.BOARD.getByName(userId).disconnectGithubLane(
+            userId,
+            data.laneId,
+            captureTelemetryContext(),
+          ),
         );
         return { ok: true };
       }),

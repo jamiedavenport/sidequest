@@ -1,3 +1,4 @@
+import { observeOperation } from "~/telemetry/runtime";
 import { env } from "~/env";
 import { and, desc, eq, lte, sql } from "drizzle-orm";
 import { createDatabase } from "~/db/database";
@@ -23,45 +24,51 @@ export async function saveSubscription(
   userId: string,
   subscription: Subscription,
 ) {
-  const interval = productInterval(subscription.productId);
-  if (
-    !interval ||
-    subscription.product.organizationId !== env.POLAR_ORGANIZATION_ID ||
-    subscription.customer.externalId !== userId
-  ) {
-    return;
-  }
-  const db = createDatabase(binding);
-  const snapshot = {
-    interval,
-    status: subscription.status,
-    periodStart: subscription.currentPeriodStart.getTime(),
-    periodEnd: subscription.currentPeriodEnd.getTime(),
-    cancelAtPeriodEnd: Number(subscription.cancelAtPeriodEnd),
-    revoked: Number(
-      subscription.endedAt !== null ||
-        subscription.status === "canceled" ||
-        subscription.status === "incomplete_expired",
-    ),
-    pendingInterval: productInterval(subscription.pendingUpdate?.productId ?? null),
-    pendingAt: subscription.pendingUpdate?.appliesAt.getTime() ?? null,
-    modifiedAt: (subscription.modifiedAt ?? subscription.createdAt).getTime(),
-  };
-  await db
-    .insert(billingSubscription)
-    .values({ id: subscription.id, userId, ...snapshot })
-    .onConflictDoUpdate({
-      target: billingSubscription.id,
-      set: {
-        ...snapshot,
-        cancelAtPeriodEnd: sql`case when ${snapshot.modifiedAt} = ${billingSubscription.modifiedAt} then max(${billingSubscription.cancelAtPeriodEnd}, ${snapshot.cancelAtPeriodEnd}) else ${snapshot.cancelAtPeriodEnd} end`,
-        revoked: sql`max(${billingSubscription.revoked}, ${snapshot.revoked})`,
-      },
-      setWhere: and(
-        lte(billingSubscription.modifiedAt, snapshot.modifiedAt),
-        eq(billingSubscription.userId, userId),
-      ),
-    });
+  return observeOperation(
+    "billing.saveSubscription",
+    async () => {
+      const interval = productInterval(subscription.productId);
+      if (
+        !interval ||
+        subscription.product.organizationId !== env.POLAR_ORGANIZATION_ID ||
+        subscription.customer.externalId !== userId
+      ) {
+        return;
+      }
+      const db = createDatabase(binding);
+      const snapshot = {
+        interval,
+        status: subscription.status,
+        periodStart: subscription.currentPeriodStart.getTime(),
+        periodEnd: subscription.currentPeriodEnd.getTime(),
+        cancelAtPeriodEnd: Number(subscription.cancelAtPeriodEnd),
+        revoked: Number(
+          subscription.endedAt !== null ||
+            subscription.status === "canceled" ||
+            subscription.status === "incomplete_expired",
+        ),
+        pendingInterval: productInterval(subscription.pendingUpdate?.productId ?? null),
+        pendingAt: subscription.pendingUpdate?.appliesAt.getTime() ?? null,
+        modifiedAt: (subscription.modifiedAt ?? subscription.createdAt).getTime(),
+      };
+      await db
+        .insert(billingSubscription)
+        .values({ id: subscription.id, userId, ...snapshot })
+        .onConflictDoUpdate({
+          target: billingSubscription.id,
+          set: {
+            ...snapshot,
+            cancelAtPeriodEnd: sql`case when ${snapshot.modifiedAt} = ${billingSubscription.modifiedAt} then max(${billingSubscription.cancelAtPeriodEnd}, ${snapshot.cancelAtPeriodEnd}) else ${snapshot.cancelAtPeriodEnd} end`,
+            revoked: sql`max(${billingSubscription.revoked}, ${snapshot.revoked})`,
+          },
+          setWhere: and(
+            lte(billingSubscription.modifiedAt, snapshot.modifiedAt),
+            eq(billingSubscription.userId, userId),
+          ),
+        });
+    },
+    { component: "billing", category: "integration" },
+  );
 }
 
 // A paid order must belong to this billing period. Reading a historical order's live
@@ -107,90 +114,108 @@ export async function savePaidOrder(
   order: Order,
   subscription: OrderSubscription,
 ) {
-  if (
-    !productInterval(order.productId) ||
-    order.product?.organizationId !== env.POLAR_ORGANIZATION_ID
-  ) {
-    return;
-  }
-  const interval = productInterval(order.productId);
-  const amount = interval === "month" ? 500 : 5000;
-  // Polar includes tax in the listed price in some countries and adds it in others.
-  if (order.netAmount !== amount && order.totalAmount !== amount) {
-    return;
-  }
-  const period = paidOrderPeriod(order, subscription);
-  const refunded = order.refundedAmount >= order.netAmount && order.netAmount > 0;
-  const db = createDatabase(binding);
-  const modifiedAt = (order.modifiedAt ?? order.createdAt).getTime();
-  const update = {
-    refunded: sql`max(${billingPaidPeriod.refunded}, ${Number(refunded)})`,
-    modifiedAt,
-  };
-  // Keep recorded historical periods intact when the provider has advanced its period.
-  if (!period) {
-    await db
-      .update(billingPaidPeriod)
-      .set(update)
-      .where(
-        and(eq(billingPaidPeriod.orderId, order.id), lte(billingPaidPeriod.modifiedAt, modifiedAt)),
-      );
-    return;
-  }
-  await db
-    .insert(billingPaidPeriod)
-    .values({
-      orderId: order.id,
-      subscriptionId: subscription.id,
-      periodStart: period.start,
-      periodEnd: period.end,
-      refunded: Number(refunded),
-      modifiedAt,
-    })
-    .onConflictDoUpdate({
-      target: billingPaidPeriod.orderId,
-      set: update,
-      setWhere: lte(billingPaidPeriod.modifiedAt, modifiedAt),
-    });
+  return observeOperation(
+    "billing.savePaidOrder",
+    async () => {
+      if (
+        !productInterval(order.productId) ||
+        order.product?.organizationId !== env.POLAR_ORGANIZATION_ID
+      ) {
+        return;
+      }
+      const interval = productInterval(order.productId);
+      const amount = interval === "month" ? 500 : 5000;
+      // Polar includes tax in the listed price in some countries and adds it in others.
+      if (order.netAmount !== amount && order.totalAmount !== amount) {
+        return;
+      }
+      const period = paidOrderPeriod(order, subscription);
+      const refunded = order.refundedAmount >= order.netAmount && order.netAmount > 0;
+      const db = createDatabase(binding);
+      const modifiedAt = (order.modifiedAt ?? order.createdAt).getTime();
+      const update = {
+        refunded: sql`max(${billingPaidPeriod.refunded}, ${Number(refunded)})`,
+        modifiedAt,
+      };
+      // Keep recorded historical periods intact when the provider has advanced its period.
+      if (!period) {
+        await db
+          .update(billingPaidPeriod)
+          .set(update)
+          .where(
+            and(
+              eq(billingPaidPeriod.orderId, order.id),
+              lte(billingPaidPeriod.modifiedAt, modifiedAt),
+            ),
+          );
+        return;
+      }
+      await db
+        .insert(billingPaidPeriod)
+        .values({
+          orderId: order.id,
+          subscriptionId: subscription.id,
+          periodStart: period.start,
+          periodEnd: period.end,
+          refunded: Number(refunded),
+          modifiedAt,
+        })
+        .onConflictDoUpdate({
+          target: billingPaidPeriod.orderId,
+          set: update,
+          setWhere: lte(billingPaidPeriod.modifiedAt, modifiedAt),
+        });
+    },
+    { component: "billing", category: "integration" },
+  );
 }
 
 export async function reconcileCustomer(binding: D1Database, userId: string) {
-  const db = createDatabase(binding);
-  const mapping = await db
-    .select({ customerId: billingCustomer.customerId })
-    .from(billingCustomer)
-    .where(eq(billingCustomer.userId, userId))
-    .get();
-  if (!mapping) {
-    return;
-  }
-  const polar = polarClient();
-  const subscriptions = new Map<string, Subscription>();
-  for await (const page of await polar.subscriptions.list({
-    customerId: mapping.customerId,
-    organizationId: env.POLAR_ORGANIZATION_ID,
-    limit: 100,
-  })) {
-    for (const subscription of page.result.items) {
-      if (!productInterval(subscription.productId) || subscription.customer.externalId !== userId) {
-        continue;
+  return observeOperation(
+    "billing.reconcileCustomer",
+    async () => {
+      const db = createDatabase(binding);
+      const mapping = await db
+        .select({ customerId: billingCustomer.customerId })
+        .from(billingCustomer)
+        .where(eq(billingCustomer.userId, userId))
+        .get();
+      if (!mapping) {
+        return;
       }
-      await saveSubscription(binding, userId, subscription);
-      subscriptions.set(subscription.id, subscription);
-    }
-  }
-  for await (const page of await polar.orders.list({
-    customerId: mapping.customerId,
-    organizationId: env.POLAR_ORGANIZATION_ID,
-    limit: 100,
-  })) {
-    for (const order of page.result.items) {
-      const subscription = subscriptions.get(order.subscriptionId ?? "");
-      if (subscription) {
-        await savePaidOrder(binding, order, subscription);
+      const polar = polarClient();
+      const subscriptions = new Map<string, Subscription>();
+      for await (const page of await polar.subscriptions.list({
+        customerId: mapping.customerId,
+        organizationId: env.POLAR_ORGANIZATION_ID,
+        limit: 100,
+      })) {
+        for (const subscription of page.result.items) {
+          if (
+            !productInterval(subscription.productId) ||
+            subscription.customer.externalId !== userId
+          ) {
+            continue;
+          }
+          await saveSubscription(binding, userId, subscription);
+          subscriptions.set(subscription.id, subscription);
+        }
       }
-    }
-  }
+      for await (const page of await polar.orders.list({
+        customerId: mapping.customerId,
+        organizationId: env.POLAR_ORGANIZATION_ID,
+        limit: 100,
+      })) {
+        for (const order of page.result.items) {
+          const subscription = subscriptions.get(order.subscriptionId ?? "");
+          if (subscription) {
+            await savePaidOrder(binding, order, subscription);
+          }
+        }
+      }
+    },
+    { component: "billing", category: "integration" },
+  );
 }
 
 async function customer(binding: D1Database, userId: string) {

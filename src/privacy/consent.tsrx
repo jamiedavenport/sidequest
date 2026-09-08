@@ -95,7 +95,7 @@ export function PrivacyNotification() @{
             <Switch id="necessary-storage" checked disabled />
           </div>
           <div className="flex items-center justify-between gap-4">
-            <label htmlFor="analytics-storage">Analytics (OpenPanel)</label>
+            <label htmlFor="analytics-storage">Analytics and performance</label>
             <Switch
               id="analytics-storage"
               checked={(draft ?? decisions).analytics}
@@ -103,8 +103,8 @@ export function PrivacyNotification() @{
             />
           </div>
           <p className="text-sm/6 text-muted-foreground">
-            Analytics records visits to the board, billing and connections pages. Sign-in, payments
-            and offline use work with analytics off.
+            Analytics records visits and browser performance on the board, billing and connections
+            pages. Sign-in, payments and offline use work with analytics off.
           </p>
           <PrivacyNavigation />
         </div>

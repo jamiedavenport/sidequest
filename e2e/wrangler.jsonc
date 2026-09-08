@@ -26,7 +26,16 @@
       "new_sqlite_classes": ["BoardObject"],
     },
   ],
+  "ratelimits": [
+    {
+      "name": "TELEMETRY_RATE_LIMITER",
+      "namespace_id": "1002",
+      "simple": { "limit": 30, "period": 60 },
+    },
+  ],
   "vars": {
+    "TELEMETRY_ENVIRONMENT": "e2e",
+    "TELEMETRY_ENABLED": "false",
     "BILLING_ENFORCEMENT_ENABLED": "true",
     "BILLING_CHECKOUT_ENABLED": "false",
     "MCP_ALLOWED_ORIGINS": "",

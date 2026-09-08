@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "state": "configured-and-queries-validated",
+  "environment": "production",
+  "region": "eu-central-1.aws.edge.axiom.co",
+  "datasets": [
+    {
+      "name": "sidequest-logs",
+      "kind": "events",
+      "retentionDays": 14
+    },
+    {
+      "name": "sidequest-traces",
+      "kind": "events",
+      "retentionDays": 7
+    },
+    {
+      "name": "sidequest-metrics",
+      "kind": "metrics",
+      "retentionDays": 30
+    }
+  ],
+  "notifier": {
+    "id": "5BhWpqzKe9MvSJgwDV",
+    "name": "Sidequest health email",
+    "properties": {
+      "email": {
+        "emails": ["x@jxd.dev"]
+      }
+    }
+  },
+  "filters": ["environment", "release", "component", "operation"],
+  "dashboards": [
+    {
+      "name": "Sidequest application health",
+      "uid": "sidequest-application-health",
+      "id": "Dv562rbIHXAoCodbox",
+      "definition": "dashboards.json",
+      "panels": [
+        "success",
+        "traffic",
+        "failures",
+        "duration",
+        "rpc",
+        "accounts",
+        "errors",
+        "request-metrics"
+      ]
+    },
+    {
+      "name": "Sidequest board and offline sync",
+      "uid": "sidequest-board-sync",
+      "id": "6N3kjI0RXYT5mJ8qZu",
+      "definition": "dashboards.json",
+      "panels": [
+        "snapshot",
+        "snapshot-size",
+        "ack",
+        "pending",
+        "queue",
+        "persist",
+        "connections",
+        "storage",
+        "broadcast",
+        "pending-detail"
+      ]
+    },
+    {
+      "name": "Sidequest integrations and MCP",
+      "uid": "sidequest-integrations-mcp",
+      "id": "COh0PcqI7hrMzswUfw",
+      "definition": "dashboards.json",
+      "panels": [
+        "provider",
+        "provider-time",
+        "rate-limits",
+        "webhooks",
+        "job-age",
+        "github",
+        "mcp",
+        "background"
+      ]
+    },
+    {
+      "name": "Sidequest browser health",
+      "uid": "sidequest-browser-health",
+      "id": "ClhkxD1xGV5gwE2fsK",
+      "definition": "dashboards.json",
+      "panels": [
+        "browser-errors",
+        "browser-sync",
+        "coverage",
+        "capability",
+        "lcp",
+        "inp",
+        "cls",
+        "navigation"
+      ]
+    },
+    {
+      "name": "Sidequest telemetry health",
+      "uid": "sidequest-telemetry-health",
+      "id": "bHaAr85K2T6DqmrXaU",
+      "definition": "dashboards.json",
+      "panels": ["volume", "sampling", "noisy", "latest", "metric-volume", "trace-links"]
+    }
+  ],
+  "monitorDefaults": {
+    "enabled": true,
+    "intervalMinutes": 1,
+    "ingestionAllowanceMinutes": 2,
+    "notifyRecovery": true,
+    "notifierIds": ["5BhWpqzKe9MvSJgwDV"],
+    "notifyEveryRun": false,
+    "repeatPolicy": "Notify on trigger and recovery. A 30-minute repeat interval is not exposed by the connected API."
+  },
+  "monitors": [
+    {
+      "id": "EABpmImCSNDFPeXjKZ",
+      "name": "Sidequest critical data and billing",
+      "definition": "monitors.json"
+    },
+    {
+      "id": "EJnTcuZAhXqtqMrbAh",
+      "name": "Sidequest application and integrations",
+      "definition": "monitors.json"
+    },
+    {
+      "id": "Hp7pHNFHWZXUvXvJe6",
+      "name": "Sidequest browser and sync",
+      "definition": "monitors.json"
+    }
+  ],
+  "deployment": {
+    "workerVersionId": "5fe8c33c-85df-47ae-aa6c-6145a1260b7c",
+    "date": "2026-09-08",
+    "telemetryEnabled": true
+  },
+  "configuredAt": "2026-09-08",
+  "alertConditions": [
+    {
+      "name": "Application failures",
+      "windowMinutes": 5,
+      "minimumFailures": 5,
+      "failureRateAbove": 0.05,
+      "excludeOperations": ["http.telemetry"],
+      "categories": ["http", "rpc"]
+    },
+    {
+      "name": "Board persistence or recovery invariant",
+      "windowMinutes": 1,
+      "operations": ["BoardObject.persist", "BoardObject.runMigrations", "mcp.recoverCommand"],
+      "unexpectedFailuresAtLeast": 1
+    },
+    {
+      "name": "Online acknowledgement timeouts",
+      "windowMinutes": 10,
+      "event": "acknowledgement_timeout",
+      "minimumFailures": 5,
+      "failureRateAbove": 0.05,
+      "requires": ["online"]
+    },
+    {
+      "name": "Stuck authorized edits",
+      "windowMinutes": 10,
+      "event": "outbox_observation",
+      "pendingAgeSecondsAbove": 300,
+      "consecutiveReports": 2,
+      "requires": ["online", "canWrite"]
+    },
+    {
+      "name": "Verified billing reconciliation failure",
+      "windowMinutes": 1,
+      "operation": "http.billingWebhook",
+      "unexpectedFailuresAtLeast": 1
+    },
+    {
+      "name": "Integration failures",
+      "windowMinutes": 10,
+      "category": "integration",
+      "minimumFailures": 5,
+      "failureRateAbove": 0.1
+    },
+    {
+      "name": "Interactive latency",
+      "windowMinutes": 10,
+      "categories": ["http", "rpc"],
+      "percentile": 95,
+      "durationSecondsAbove": 2,
+      "minimumOperations": 100,
+      "excludeOperations": ["http.telemetry"]
+    },
+    {
+      "name": "Browser regression",
+      "windowMinutes": 15,
+      "distinctReportingSessionsAtLeast": 3,
+      "groupBy": ["clientRelease", "fingerprint"]
+    }
+  ],
+  "plan": {
+    "monitorLimit": 3,
+    "strategy": "Group eight conditions into three monitors; preserve rule and operation in alert groups."
+  },
+  "validation": {
+    "uniqueQueries": 47,
+    "liveQueries": "pass",
+    "syntheticThresholdQueries": "pass",
+    "notificationTest": "Axiom trigger and recovery verified; inbox receipt unverified"
+  },
+  "console": {
+    "url": "https://app.axiom.co",
+    "dashboards": "Select the connected organization, open Dashboards, and search Sidequest.",
+    "monitors": "Select the connected organization, open Monitors, and search Sidequest.",
+    "directResourceLinks": "The connector does not expose the organization URL; resource UIDs and IDs are recorded above."
+  }
+}

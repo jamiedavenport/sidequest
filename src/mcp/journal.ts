@@ -1,3 +1,5 @@
+import { annotateOperation, observeBackground } from "~/telemetry/runtime";
+import type { TelemetryContext } from "~/telemetry/schema";
 import { ToolError, type ToolResult } from "~/mcp/schema";
 
 export type JournalEntry<T> = {
@@ -7,6 +9,8 @@ export type JournalEntry<T> = {
   prepared: T;
   result: ToolResult;
   complete: boolean;
+  telemetry?: TelemetryContext;
+  createdAt?: number;
 };
 
 export type JournalStore = {
@@ -30,14 +34,24 @@ export class CommandJournal<T> {
     if (!pending) {
       return;
     }
-    const stored = await this.storage.get<JournalEntry<T>>(pending.key);
-    if (!stored?.complete) {
-      await this.apply(pending);
-      await this.storage.put(pending.key, { ...pending, complete: true });
-    }
-    // A full snapshot also repairs a crash after persistence but before any client saw the commit.
-    await this.broadcast();
-    await this.storage.delete(pendingKey);
+    return observeBackground(
+      "mcp.recoverCommand",
+      async () => {
+        annotateOperation({
+          processingAgeMs: pending.createdAt === undefined ? 0 : Date.now() - pending.createdAt,
+          retryAttempt: 1,
+        });
+        const stored = await this.storage.get<JournalEntry<T>>(pending.key);
+        if (!stored?.complete) {
+          await this.apply(pending);
+          await this.storage.put(pending.key, { ...pending, complete: true });
+        }
+        // A full snapshot also repairs a crash after persistence but before any client saw the commit.
+        await this.broadcast();
+        await this.storage.delete(pendingKey);
+      },
+      pending.telemetry,
+    );
   }
 
   async execute(

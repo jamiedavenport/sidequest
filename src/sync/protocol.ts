@@ -16,9 +16,12 @@ export class Mutation extends Schema.Class<Mutation>("Mutation")({
   value: Schema.optionalKey(Schema.Unknown),
 }) {}
 
-export class Sync extends Schema.TaggedClass<Sync>()("Sync", {}) {}
+export class Sync extends Schema.TaggedClass<Sync>()("Sync", {
+  telemetry: Schema.optionalKey(Schema.Unknown),
+}) {}
 
 export class Mutate extends Schema.TaggedClass<Mutate>()("Mutate", {
+  telemetry: Schema.optionalKey(Schema.Unknown),
   transactionId: Schema.String,
   idempotencyKey: Schema.optionalKey(Schema.String),
   mutations: Schema.Array(Mutation),
@@ -32,20 +35,24 @@ export class CollectionSnapshot extends Schema.Class<CollectionSnapshot>("Collec
 }) {}
 
 export class Snapshot extends Schema.TaggedClass<Snapshot>()("Snapshot", {
+  telemetry: Schema.optionalKey(Schema.Unknown),
   collections: Schema.Array(CollectionSnapshot),
 }) {}
 
 export class Changes extends Schema.TaggedClass<Changes>()("Changes", {
+  telemetry: Schema.optionalKey(Schema.Unknown),
   changeId: Schema.optionalKey(Schema.String),
   originatingTransactionId: Schema.optionalKey(Schema.String),
   mutations: Schema.Array(Mutation),
 }) {}
 
 export class Ack extends Schema.TaggedClass<Ack>()("Ack", {
+  telemetry: Schema.optionalKey(Schema.Unknown),
   transactionId: Schema.String,
 }) {}
 
 export class Reject extends Schema.TaggedClass<Reject>()("Reject", {
+  telemetry: Schema.optionalKey(Schema.Unknown),
   code: Schema.optionalKey(Schema.Literals(["billing_required", "temporarily_unavailable"])),
   transactionId: Schema.String,
   message: Schema.String,

@@ -1,3 +1,5 @@
+import { observeOperation } from "~/telemetry/runtime";
+import { captureTelemetryContext } from "~/telemetry/runtime";
 import { env as bindings } from "cloudflare:workers";
 import { BoardSeedError } from "~/board/seeds/schema";
 import { oauthProvider } from "@better-auth/oauth-provider";
@@ -54,7 +56,7 @@ const welcomeNewUser = Effect.fn("welcomeNewUser")(function* (user: {
   emailVerified: boolean;
 }) {
   yield* Effect.tryPromise({
-    try: () => bindings.BOARD.getByName(user.id).seedOnboarding(user.id),
+    try: () => bindings.BOARD.getByName(user.id).seedOnboarding(user.id, captureTelemetryContext()),
     catch: () => new BoardSeedError({ message: "Onboarding board initialization failed." }),
   }).pipe(
     Effect.catchTag("BoardSeedError", (error) =>
@@ -97,23 +99,29 @@ const sendWelcomeEmail = Effect.fn("sendWelcomeEmail")(function* (
 });
 
 async function deliverSignInCode(email: string, otp: string): Promise<void> {
-  const { error } = await resend.emails.send({
-    from: EMAIL_SENDER,
-    subject: `${otp} is your Sidequest sign-in code`,
-    text: [
-      "Your Sidequest sign-in code is:",
-      "",
-      otp,
-      "",
-      `This code expires in ${EMAIL_CODE_EXPIRY_MINUTES} minutes.`,
-      "If you did not request this code, you can safely ignore this email. Never share this code with anyone.",
-    ].join("\n"),
-    to: email,
-  });
+  return observeOperation(
+    "auth.deliverSignInCode",
+    async () => {
+      const { error } = await resend.emails.send({
+        from: EMAIL_SENDER,
+        subject: `${otp} is your Sidequest sign-in code`,
+        text: [
+          "Your Sidequest sign-in code is:",
+          "",
+          otp,
+          "",
+          `This code expires in ${EMAIL_CODE_EXPIRY_MINUTES} minutes.`,
+          "If you did not request this code, you can safely ignore this email. Never share this code with anyone.",
+        ].join("\n"),
+        to: email,
+      });
 
-  if (error !== null) {
-    throw new Error(`Resend could not deliver the sign-in code: ${error.message}`);
-  }
+      if (error !== null) {
+        throw new Error(`Resend could not deliver the sign-in code: ${error.message}`);
+      }
+    },
+    { component: "auth", category: "integration" },
+  );
 }
 
 function signInCodeIdentifier(email: string): string {

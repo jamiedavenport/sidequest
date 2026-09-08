@@ -28,6 +28,7 @@
   ],
   "observability": {
     "enabled": true,
+    "logs": { "enabled": true, "invocation_logs": false },
   },
   "routes": [
     {
@@ -40,7 +41,18 @@
     },
   ],
   // Leave secrets.required unset so optional Polar secrets load from .dev.vars locally.
+  "ratelimits": [
+    {
+      "name": "TELEMETRY_RATE_LIMITER",
+      "namespace_id": "1002",
+      "simple": { "limit": 30, "period": 60 },
+    },
+  ],
   "vars": {
+    "TELEMETRY_ENABLED": "true",
+    "TELEMETRY_ENVIRONMENT": "production",
+    "TELEMETRY_RELEASE": "unreleased",
+    "AXIOM_ENDPOINT": "https://eu-central-1.aws.edge.axiom.co",
     "BILLING_CHECKOUT_ENABLED": "true",
     "BILLING_ENFORCEMENT_ENABLED": "true",
     "POLAR_SERVER": "production",

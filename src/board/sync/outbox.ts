@@ -1,3 +1,4 @@
+import { reportBrowserEvent } from "~/telemetry/browser";
 import {
   BroadcastChannelLeader,
   IndexedDBAdapter,
@@ -28,6 +29,9 @@ export const openBoardOutbox = Effect.fn("openBoardOutbox")(function* (userId: s
         },
         catch: () => new BoardStorageError(),
       });
+  reportBrowserEvent(indexedDB.available ? "storage_initialized" : "storage_fallback", {
+    storage: indexedDB.available ? "indexeddb" : "localstorage",
+  });
   const leaderElection = yield* Effect.acquireRelease(
     Effect.sync(() =>
       WebLocksLeader.isSupported()

@@ -18,6 +18,7 @@ import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ApiBoardRouteImport } from './routes/api/board'
+import { Route as ApiTelemetryRouteImport } from './routes/api/telemetry'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiBillingWebhookRouteImport } from './routes/api/billing/webhook'
 import { Route as ApiE2eSessionRouteImport } from './routes/api/e2e/session'
@@ -68,6 +69,11 @@ const ApiBoardRoute = ApiBoardRouteImport.update({
   path: '/api/board',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTelemetryRoute = ApiTelemetryRouteImport.update({
+  id: '/api/telemetry',
+  path: '/api/telemetry',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/api/board': typeof ApiBoardRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
   '/api/e2e/session': typeof ApiE2eSessionRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/api/board': typeof ApiBoardRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
   '/api/e2e/session': typeof ApiE2eSessionRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/api/board': typeof ApiBoardRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
   '/api/e2e/session': typeof ApiE2eSessionRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/api/board'
+    | '/api/telemetry'
     | '/api/auth/$'
     | '/api/billing/webhook'
     | '/api/e2e/session'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/api/board'
+    | '/api/telemetry'
     | '/api/auth/$'
     | '/api/billing/webhook'
     | '/api/e2e/session'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/api/board'
+    | '/api/telemetry'
     | '/api/auth/$'
     | '/api/billing/webhook'
     | '/api/e2e/session'
@@ -193,6 +205,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   ApiBoardRoute: typeof ApiBoardRoute
+  ApiTelemetryRoute: typeof ApiTelemetryRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiBillingWebhookRoute: typeof ApiBillingWebhookRoute
   ApiE2eSessionRoute: typeof ApiE2eSessionRoute
@@ -264,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBoardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/telemetry': {
+      id: '/api/telemetry'
+      path: '/api/telemetry'
+      fullPath: '/api/telemetry'
+      preLoaderRoute: typeof ApiTelemetryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -305,6 +325,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   ApiBoardRoute: ApiBoardRoute,
+  ApiTelemetryRoute: ApiTelemetryRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiBillingWebhookRoute: ApiBillingWebhookRoute,
   ApiE2eSessionRoute: ApiE2eSessionRoute,
@@ -315,10 +336,11 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

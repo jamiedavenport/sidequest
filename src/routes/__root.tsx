@@ -1,3 +1,4 @@
+import { ReportedError } from "~/telemetry/error-boundary.tsrx";
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
@@ -39,6 +40,7 @@ export const Route = createRootRoute({
     ],
   }),
   notFoundComponent: NotFound,
+  errorComponent: ReportedError,
   shellComponent: RootDocument,
   component: RootLayout,
 });

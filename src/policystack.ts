@@ -32,6 +32,7 @@ const policy = defineConfig({
         "IP address and user agent",
         "Hashed sign-in codes",
         "Request and error information",
+        "Sanitized health measurements, opaque account IDs, trace IDs and temporary reporting IDs",
       ],
       "User content": [
         "Tasks, lanes and projects",
@@ -52,6 +53,7 @@ const policy = defineConfig({
       Analytics: [
         "Visits to the board, billing and connections pages",
         "Static page labels",
+        "Consented navigation performance and Web Vitals",
         "IP address and browser information received by OpenPanel",
       ],
       "Connected apps": [
@@ -143,6 +145,12 @@ const policy = defineConfig({
   },
   thirdParties: [
     {
+      name: "Axiom",
+      purpose:
+        "Application health, error diagnostics and operational measurements; optional browser performance measurements follow analytics consent. Credentials and board content are excluded.",
+      policyUrl: "https://axiom.co/privacy",
+    },
+    {
       name: "Cloudflare",
       purpose:
         "Hosting, request delivery, security, D1 account and billing storage, and Durable Objects board storage and sync.",
@@ -191,7 +199,7 @@ const policy = defineConfig({
         lawfulBasis: LegalBases.Consent,
         label: "Analytics",
         description:
-          "Allow OpenPanel to measure visits to the board, billing and connections pages.",
+          "Allow OpenPanel to measure visits and Axiom to receive browser performance measurements.",
       },
     },
   },
@@ -213,5 +221,5 @@ const policy = defineConfig({
 // the custom dictionary or storage inventory, which are outside SDK hashing.
 export default {
   ...policy,
-  cookieVersion: `${policy.cookieVersion}:${policy.privacyVersion}:3`,
+  cookieVersion: `${policy.cookieVersion}:${policy.privacyVersion}:4`,
 };

@@ -1,3 +1,4 @@
+import { annotateOperation, captureTelemetryContext, observeOperation } from "~/telemetry/runtime";
 import { env } from "~/env";
 import { eq } from "drizzle-orm";
 import { createDatabase } from "~/db/database";
@@ -49,6 +50,12 @@ export async function receiveBillingWebhook(request: Request, bindings: WorkerBi
   if (!billingWebhookEvents.some((type) => type === event.type)) {
     return new Response(null, { status: 204 });
   }
+  annotateOperation({
+    eventId: id,
+    eventType: event.type,
+    component: "billing",
+    provider: "polar",
+  });
   let userId: string | null = null;
   if ("customer" in event.data && "externalId" in event.data.customer) {
     userId = event.data.customer.externalId ?? null;
@@ -63,12 +70,26 @@ export async function receiveBillingWebhook(request: Request, bindings: WorkerBi
         .where(eq(billingCustomer.userId, userId))
         .get();
       if (mapping) {
-        await bindings.BOARD.getByName(userId).processBillingEvent(userId, body);
+        const accountId = userId;
+        await observeOperation(
+          "billing.webhook",
+          () =>
+            bindings.BOARD.getByName(accountId).processBillingEvent(
+              accountId,
+              body,
+              captureTelemetryContext(),
+            ),
+          { component: "billing", category: "webhook", eventId: id, accountId },
+        );
       }
     }
     return new Response(null, { status: 204 });
   } catch {
-    console.error(JSON.stringify({ event: "billing.webhook_failed", eventId: id }));
+    annotateOperation({
+      outcome: "unexpected_failure",
+      failureStage: "billing_reconciliation",
+      eventId: id,
+    });
     return new Response("Webhook processing failed", { status: 500 });
   }
 }

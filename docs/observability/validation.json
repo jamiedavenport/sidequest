@@ -1,0 +1,89 @@
+{
+  "date": "2026-09-08",
+  "queries": {
+    "unique": 47,
+    "dataPanels": 40,
+    "uniqueFilterQueries": 4,
+    "monitorQueries": 3,
+    "result": "pass",
+    "mplParameters": "Validated after expanding documented dashboard filter clauses to the defaults: production, other filters unset. Interactive UI binding was not tested."
+  },
+  "dashboards": [
+    {
+      "uid": "sidequest-application-health",
+      "id": "Dv562rbIHXAoCodbox",
+      "createdAt": "2026-09-08T21:32:34.545Z",
+      "queryCount": 8,
+      "queriesMatch": true
+    },
+    {
+      "uid": "sidequest-board-sync",
+      "id": "6N3kjI0RXYT5mJ8qZu",
+      "createdAt": "2026-09-08T21:32:40.270Z",
+      "queryCount": 10,
+      "queriesMatch": true
+    },
+    {
+      "uid": "sidequest-integrations-mcp",
+      "id": "COh0PcqI7hrMzswUfw",
+      "createdAt": "2026-09-08T21:32:40.784Z",
+      "queryCount": 8,
+      "queriesMatch": true
+    },
+    {
+      "uid": "sidequest-browser-health",
+      "id": "ClhkxD1xGV5gwE2fsK",
+      "createdAt": "2026-09-08T21:32:41.355Z",
+      "queryCount": 8,
+      "queriesMatch": true
+    },
+    {
+      "uid": "sidequest-telemetry-health",
+      "id": "bHaAr85K2T6DqmrXaU",
+      "createdAt": "2026-09-08T21:32:41.787Z",
+      "queryCount": 6,
+      "queriesMatch": true
+    }
+  ],
+  "thresholdChecks": [
+    {
+      "name": "critical-positive",
+      "result": "# Query results\n\n## results.csv\n\nrule,operation,provider,release,errorClass,value\npersistence_or_recovery_failure,BoardObject.persist,,synthetic-query-only,,1\npersistence_or_recovery_failure,BoardObject.runMigrations,,synthetic-query-only,,1\npersistence_or_recovery_failure,mcp.recoverCommand,,synthetic-query-only,,1\nverified_billing_failure,http.billingWebhook,,synthetic-query-only,,1\n"
+    },
+    {
+      "name": "critical-negative",
+      "result": "# Query results\n\n## results.csv\n\nNo data\n"
+    },
+    {
+      "name": "application-negative",
+      "result": "# Query results\n\n## results.csv\n\nrule,operation,provider,release,errorClass,value\napplication_http,http.synthetic,,synthetic-query-only,unexpected_failure,0\napplication_rpc,rpc.synthetic,,synthetic-query-only,unexpected_failure,0\nlatency_http,http.synthetic,,synthetic-query-only,slow_operation,0\nlatency_rpc,rpc.synthetic,,synthetic-query-only,slow_operation,0\nintegration_failure_rate,provider.synthetic,,synthetic-query-only,unexpected_failure,0\n"
+    },
+    {
+      "name": "application-boundary",
+      "result": "# Query results\n\n## results.csv\n\nrule,operation,provider,release,errorClass,value\nintegration_failure_rate,provider.synthetic,,synthetic-query-only,unexpected_failure,0\nlatency_http,http.synthetic,,synthetic-query-only,slow_operation,0\nlatency_rpc,rpc.synthetic,,synthetic-query-only,slow_operation,0\napplication_http,http.synthetic,,synthetic-query-only,unexpected_failure,0\napplication_rpc,rpc.synthetic,,synthetic-query-only,unexpected_failure,0\n"
+    },
+    {
+      "name": "browser-positive",
+      "result": "# Query results\n\n## results.csv\n\nrule,operation,provider,release,errorClass,value\nonline_ack_timeouts,sync.acknowledgement,,synthetic-query-only,timeout,1\nbrowser_error_regression,browser.errors,,synthetic-query-only,synthetic-error,1\nstuck_authorized_edits,sync.outbox,,synthetic-query-only,pending_over_5m,1\n"
+    },
+    {
+      "name": "browser-negative",
+      "result": "# Query results\n\n## results.csv\n\nrule,operation,provider,release,errorClass,value\nstuck_authorized_edits,sync.outbox,,synthetic-query-only,pending_over_5m,0\nonline_ack_timeouts,sync.acknowledgement,,synthetic-query-only,timeout,0\nbrowser_error_regression,browser.errors,,synthetic-query-only,synthetic-error,0\n"
+    }
+  ],
+  "applicationPositive": "# Query results\n\n## results.csv\n\nrule,operation,provider,release,errorClass,value\nlatency_http,http.synthetic,,synthetic-query-only,slow_operation,1\nlatency_rpc,rpc.synthetic,,synthetic-query-only,slow_operation,1\napplication_http,http.synthetic,,synthetic-query-only,unexpected_failure,1\napplication_rpc,rpc.synthetic,,synthetic-query-only,unexpected_failure,1\nintegration_failure_rate,provider.synthetic,,synthetic-query-only,unexpected_failure,1\n",
+  "notificationTest": {
+    "monitorId": "EABpmImCSNDFPeXjKZ",
+    "triggeredAt": "2026-09-08T21:36:55.738Z",
+    "resolvedAt": "2026-09-08T21:37:53.028Z",
+    "productionQueryRestored": true,
+    "inboxReceiptVerified": false,
+    "method": "Temporary query-only notification_test branch, with automatic expiry; no synthetic failure events ingested."
+  },
+  "limitations": [
+    "No authenticated browser tool: dashboard rendering and interactive filter binding not visually verified.",
+    "Notifier attached; Axiom trigger and resolution verified. No access to recipient inbox or provider delivery receipts.",
+    "No organization URL in connector responses: resource IDs provided instead of guessed deep links.",
+    "Standalone saved-query creation and exact 30-minute repeat configuration are not exposed by connected tools."
+  ]
+}

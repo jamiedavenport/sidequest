@@ -1,3 +1,10 @@
+import {
+  annotateOperation,
+  captureTelemetryContext,
+  observeBackground,
+  observeInvocation,
+} from "~/telemetry/runtime";
+import type { TelemetryContext } from "~/telemetry/schema";
 import { isE2EEnabled } from "~/auth/e2e-guard";
 import { createDemoSeed } from "~/board/seeds/demo";
 import { createOnboardingSeed } from "~/board/seeds/onboarding";
@@ -8,7 +15,6 @@ import { GitHubBoard } from "~/github/board";
 import { GitHubError, GitHubSettings, fromGithubPromise, toGithubError } from "~/github/schema";
 import { BillingActionError } from "~/billing/config";
 import { PolarError } from "@polar-sh/sdk/models/errors/polarerror";
-import { HTTPValidationError } from "@polar-sh/sdk/models/errors/httpvalidationerror";
 import { canWrite } from "~/billing/access";
 import { readBillingAccess } from "~/billing/store";
 import { billingOperation, type BillingAction } from "~/billing/provider";
@@ -130,34 +136,84 @@ export class BoardObject extends SyncDurableObject<Env> {
     broadcast: () => this.broadcastSyncSnapshot(),
   });
 
-  async getGithubStatus(userId: string, laneId: string) {
-    await this.bindOwner(userId);
-    return this.serialized(() => runGithub(this.#github.getLaneConnection(laneId)));
-  }
-
-  async saveGithubSettings(userId: string, input: GitHubSettings) {
-    await this.bindOwner(userId);
-    return runGithub(
-      Schema.decodeUnknownEffect(GitHubSettings)(input).pipe(
-        Effect.mapError(toGithubError),
-        Effect.flatMap((settings) => this.#github.saveSettings(settings)),
-      ),
+  async getGithubStatus(userId: string, laneId: string, telemetry?: TelemetryContext) {
+    return observeInvocation(
+      this.env,
+      (promise) => this.ctx.waitUntil(promise),
+      "BoardObject.getGithubStatus",
+      async () => {
+        await this.bindOwner(userId);
+        return this.serialized(() => runGithub(this.#github.getLaneConnection(laneId)));
+      },
+      telemetry,
+      { component: "board", category: "domain", accountId: userId },
     );
   }
 
-  async disconnectGithubLane(userId: string, laneId: string) {
-    await this.bindOwner(userId);
-    return this.serialized(() => runGithub(this.#github.disconnectLane(laneId)));
+  async saveGithubSettings(userId: string, input: GitHubSettings, telemetry?: TelemetryContext) {
+    return observeInvocation(
+      this.env,
+      (promise) => this.ctx.waitUntil(promise),
+      "BoardObject.saveGithubSettings",
+      async () => {
+        await this.bindOwner(userId);
+        return runGithub(
+          Schema.decodeUnknownEffect(GitHubSettings)(input).pipe(
+            Effect.mapError(toGithubError),
+            Effect.flatMap((settings) => this.#github.saveSettings(settings)),
+          ),
+        );
+      },
+      telemetry,
+      { component: "board", category: "domain", accountId: userId },
+    );
   }
 
-  async syncGithubNow(userId: string, laneId: string) {
-    await this.bindOwner(userId);
-    return runGithub(this.#github.syncLane(laneId));
+  async disconnectGithubLane(userId: string, laneId: string, telemetry?: TelemetryContext) {
+    return observeInvocation(
+      this.env,
+      (promise) => this.ctx.waitUntil(promise),
+      "BoardObject.disconnectGithubLane",
+      async () => {
+        await this.bindOwner(userId);
+        return this.serialized(() => runGithub(this.#github.disconnectLane(laneId)));
+      },
+      telemetry,
+      { component: "board", category: "domain", accountId: userId },
+    );
   }
 
-  async importGithubIssues(userId: string, connectionId: string, issueNumber?: number) {
-    await this.bindOwner(userId);
-    return runGithub(this.#github.importIssues(connectionId, issueNumber));
+  async syncGithubNow(userId: string, laneId: string, telemetry?: TelemetryContext) {
+    return observeInvocation(
+      this.env,
+      (promise) => this.ctx.waitUntil(promise),
+      "BoardObject.syncGithubNow",
+      async () => {
+        await this.bindOwner(userId);
+        return runGithub(this.#github.syncLane(laneId));
+      },
+      telemetry,
+      { component: "board", category: "domain", accountId: userId },
+    );
+  }
+
+  async importGithubIssues(
+    userId: string,
+    connectionId: string,
+    issueNumber?: number,
+    telemetry?: TelemetryContext,
+  ) {
+    return observeInvocation(
+      this.env,
+      (promise) => this.ctx.waitUntil(promise),
+      "BoardObject.importGithubIssues",
+      async () => {
+        await this.bindOwner(userId);
+        return runGithub(this.#github.importIssues(connectionId, issueNumber));
+      },
+      telemetry,
+      { component: "board", category: "domain", accountId: userId },
+    );
   }
 
   protected override isSyncOwner(userId: string) {
@@ -168,12 +224,24 @@ export class BoardObject extends SyncDurableObject<Env> {
     if (this.env.BOARD.idFromName(userId).toString() !== this.ctx.id.toString()) {
       throw new Error("Board account mismatch.");
     }
+    annotateOperation({ accountId: userId, boardId: this.ctx.id.toString() });
     await this.ctx.storage.put("billing:owner", userId);
   }
 
-  async seedOnboarding(userId: string) {
-    await this.bindOwner(userId);
-    return this.serialized(() => serverRuntime.runPromise(this.#seedBoard(createOnboardingSeed())));
+  async seedOnboarding(userId: string, telemetry?: TelemetryContext) {
+    return observeInvocation(
+      this.env,
+      (promise) => this.ctx.waitUntil(promise),
+      "BoardObject.seedOnboarding",
+      async () => {
+        await this.bindOwner(userId);
+        return this.serialized(() =>
+          serverRuntime.runPromise(this.#seedBoard(createOnboardingSeed())),
+        );
+      },
+      telemetry,
+      { component: "board", category: "domain", accountId: userId },
+    );
   }
 
   async seedE2E(userId: string, options: SeedOptions, requestUrl: string, secret: string | null) {
@@ -218,36 +286,47 @@ export class BoardObject extends SyncDurableObject<Env> {
     return seeded;
   });
 
-  async billing(userId: string, action: BillingAction) {
-    await this.bindOwner(userId);
-    try {
-      return await this.serialized(() => billingOperation(this.env.DB, userId, action));
-    } catch (error) {
-      console.error(
-        JSON.stringify({
-          event: "billing.operation_failed",
-          action: action.kind,
-          errorType: error instanceof Error ? error.name : "Unknown",
-          status: error instanceof PolarError ? error.statusCode : null,
-          fields:
-            error instanceof HTTPValidationError
-              ? error.detail?.map((issue) => issue.loc)
-              : undefined,
-        }),
-      );
-      // SDK errors can include authorization headers and checkout secrets. Do not serialize their causes over RPC.
-      // oxlint-disable-next-line eslint/preserve-caught-error
-      throw new Error(
-        error instanceof BillingActionError
-          ? error.message
-          : "Billing is temporarily unavailable. Please try again.",
-      );
-    }
+  async billing(userId: string, action: BillingAction, telemetry?: TelemetryContext) {
+    return observeInvocation(
+      this.env,
+      (promise) => this.ctx.waitUntil(promise),
+      "BoardObject.billing",
+      async () => {
+        await this.bindOwner(userId);
+        try {
+          return await this.serialized(() => billingOperation(this.env.DB, userId, action));
+        } catch (error) {
+          annotateOperation({
+            outcome:
+              error instanceof BillingActionError ? "expected_rejection" : "unexpected_failure",
+            status: error instanceof PolarError ? error.statusCode : undefined,
+          });
+          // SDK errors can include authorization headers and checkout secrets. Do not serialize their causes over RPC.
+          // oxlint-disable-next-line eslint/preserve-caught-error
+          throw new Error(
+            error instanceof BillingActionError
+              ? error.message
+              : "Billing is temporarily unavailable. Please try again.",
+          );
+        }
+      },
+      telemetry,
+      { component: "board", category: "domain", accountId: userId },
+    );
   }
 
-  async processBillingEvent(userId: string, body: string) {
-    await this.bindOwner(userId);
-    return this.serialized(() => processCustomerEvent(this.env.DB, userId, body));
+  async processBillingEvent(userId: string, body: string, telemetry?: TelemetryContext) {
+    return observeInvocation(
+      this.env,
+      (promise) => this.ctx.waitUntil(promise),
+      "BoardObject.processBillingEvent",
+      async () => {
+        await this.bindOwner(userId);
+        return this.serialized(() => processCustomerEvent(this.env.DB, userId, body));
+      },
+      telemetry,
+      { component: "board", category: "domain", accountId: userId },
+    );
   }
 
   protected override async canMutate() {
@@ -297,72 +376,39 @@ export class BoardObject extends SyncDurableObject<Env> {
     return this.#journal.recover();
   }
 
-  async callTool(clientId: string, name: ToolName, raw: unknown): Promise<ToolReply> {
+  async callTool(
+    clientId: string,
+    name: ToolName,
+    raw: unknown,
+    telemetry?: TelemetryContext,
+  ): Promise<ToolReply> {
+    return observeInvocation(
+      this.env,
+      (promise) => this.ctx.waitUntil(promise),
+      "BoardObject.callTool",
+      () => this.#callTool(clientId, name, raw),
+      telemetry,
+      { component: "mcp", category: "domain" },
+    );
+  }
+
+  async #callTool(clientId: string, name: ToolName, raw: unknown): Promise<ToolReply> {
     const startedAt = Date.now();
     let reply: ToolReply;
     try {
-      reply = await this.serialized(async () => {
-        const input = normalizedInput(name, raw);
-        const state = {
-          lanes: this.lanes.toArray,
-          tasks: this.tasks.toArray,
-          revision: this.#revision,
-        };
-        if (!isWriteTool(name)) {
-          return { ok: true as const, result: await queryBoard(state, name, raw), replay: false };
-        }
-        if (!(await this.canMutate())) {
-          throw new ToolError({
-            code: "billing_required",
-            message: "Subscribe or update payment at /billing to resume editing.",
-          });
-        }
-        if (!("idempotencyKey" in input)) {
-          throw new ToolError({
-            code: "invalid_input",
-            message: "Writes require an idempotencyKey.",
-          });
-        }
-        const key = `mcp:command:${await digest({ clientId, key: input.idempotencyKey })}`;
-        const hash = await digest({ name, input });
-        const outcome = await this.#journal.execute(key, hash, async () => {
-          const operationId = crypto.randomUUID();
-          const plan = planCommand(state, name, raw, operationId);
-          const mutations = plan.tasks.map(
-            (task) =>
-              new Mutation({
-                collection: taskCollectionId,
-                type: this.tasks.has(task.id) ? "update" : "insert",
-                key: task.id,
-                value: task,
-              }),
-          );
-          const prepared = await serverRuntime.runPromise(this.#prepareMutations(mutations));
-          return { operationId, result: plan.result, prepared };
-        });
-        const mutations = (outcome.result.affectedTaskIds ?? []).map(
-          (id) =>
-            new Mutation({
-              collection: taskCollectionId,
-              key: id,
-              type: "update",
-              value: this.tasks.get(id),
-            }),
-        );
-        this.#enqueueLinkEnrichment(mutations, outcome.result.operationId ?? "");
-        return { ok: true as const, ...outcome };
-      });
+      reply = await this.serialized(() => this.#executeTool(clientId, name, raw));
     } catch (error) {
-      reply = {
-        ok: false,
-        error:
-          error instanceof ToolError
-            ? { code: error.code, message: error.message }
-            : {
-                code: "internal_error",
-                message: "Board operation failed. Retry with the same idempotency key.",
-              },
-      };
+      if (error instanceof ToolError) {
+        reply = { ok: false, error: { code: error.code, message: error.message } };
+      } else {
+        reply = {
+          ok: false,
+          error: {
+            code: "internal_error",
+            message: "Board operation failed. Retry with the same idempotency key.",
+          },
+        };
+      }
     }
     await serverRuntime.runPromise(
       Effect.logInfo("mcp.tool").pipe(
@@ -375,7 +421,77 @@ export class BoardObject extends SyncDurableObject<Env> {
         }),
       ),
     );
+    let outcome = "success";
+    if (!reply.ok) {
+      outcome = "expected_rejection";
+      if (reply.error.code === "internal_error") {
+        outcome = "unexpected_failure";
+      }
+    }
+    annotateOperation({ outcome, operation: name });
     return Schema.decodeUnknownSync(ToolReply)(reply);
+  }
+
+  async #executeTool(clientId: string, name: ToolName, raw: unknown) {
+    const input = normalizedInput(name, raw);
+    const state = {
+      lanes: this.lanes.toArray,
+      tasks: this.tasks.toArray,
+      revision: this.#revision,
+    };
+    if (!isWriteTool(name)) {
+      return {
+        ok: true as const,
+        result: await queryBoard(state, name, raw),
+        replay: false,
+      };
+    }
+    if (!(await this.canMutate())) {
+      throw new ToolError({
+        code: "billing_required",
+        message: "Subscribe or update payment at /billing to resume editing.",
+      });
+    }
+    if (!("idempotencyKey" in input)) {
+      throw new ToolError({
+        code: "invalid_input",
+        message: "Writes require an idempotencyKey.",
+      });
+    }
+    const key = `mcp:command:${await digest({ clientId, key: input.idempotencyKey })}`;
+    const hash = await digest({ name, input });
+    const outcome = await this.#journal.execute(key, hash, async () => {
+      const operationId = crypto.randomUUID();
+      const plan = planCommand(state, name, raw, operationId);
+      const mutations = plan.tasks.map(
+        (task) =>
+          new Mutation({
+            collection: taskCollectionId,
+            type: this.tasks.has(task.id) ? "update" : "insert",
+            key: task.id,
+            value: task,
+          }),
+      );
+      const prepared = await serverRuntime.runPromise(this.#prepareMutations(mutations));
+      return {
+        operationId,
+        result: plan.result,
+        prepared,
+        telemetry: captureTelemetryContext(),
+        createdAt: Date.now(),
+      };
+    });
+    const mutations = (outcome.result.affectedTaskIds ?? []).map(
+      (id) =>
+        new Mutation({
+          collection: taskCollectionId,
+          key: id,
+          type: "update",
+          value: this.tasks.get(id),
+        }),
+    );
+    this.#enqueueLinkEnrichment(mutations, outcome.result.operationId ?? "");
+    return { ok: true as const, ...outcome };
   }
 
   protected override async initializeSync() {
@@ -539,14 +655,16 @@ export class BoardObject extends SyncDurableObject<Env> {
     if (completed.length > 0) {
       // Start after the write; GitHub failures do not roll back local completion.
       this.ctx.waitUntil(
-        serverRuntime.runPromise(
-          this.#github
-            .closeCompletedIssues(completed)
-            .pipe(
-              Effect.catch((error) =>
-                Effect.logWarning("github.closure_failed", { message: error.message }),
+        observeBackground("github.closeCompletedIssues", () =>
+          serverRuntime.runPromise(
+            this.#github
+              .closeCompletedIssues(completed)
+              .pipe(
+                Effect.catch((error) =>
+                  Effect.logWarning("github.closure_failed", { message: error.message }),
+                ),
               ),
-            ),
+          ),
         ),
       );
     }
@@ -1057,16 +1175,23 @@ export class BoardObject extends SyncDurableObject<Env> {
     const startedAt = Date.now();
     const enrichmentId = crypto.randomUUID();
     this.ctx.waitUntil(
-      linkPreviewRuntime.runPromise(
-        this.#enrichInsertedTasks(taskIds, startedAt, enrichmentId, originatingTransactionId).pipe(
-          Effect.catch(() =>
-            logBoardSync("enrichment_finished", {
-              durationMs: Date.now() - startedAt,
-              enrichmentId,
-              originatingTransactionId,
-              outcome: "failure",
-              taskCount: taskIds.length,
-            }),
+      observeBackground("board.enrichInsertedTasks", () =>
+        linkPreviewRuntime.runPromise(
+          this.#enrichInsertedTasks(
+            taskIds,
+            startedAt,
+            enrichmentId,
+            originatingTransactionId,
+          ).pipe(
+            Effect.catch(() =>
+              logBoardSync("enrichment_finished", {
+                durationMs: Date.now() - startedAt,
+                enrichmentId,
+                originatingTransactionId,
+                outcome: "failure",
+                taskCount: taskIds.length,
+              }),
+            ),
           ),
         ),
       ),
@@ -1204,5 +1329,11 @@ export async function handleBoardRequest(
 ): Promise<Response> {
   const board = bindings.BOARD.get(bindings.BOARD.idFromName(id));
   await board.bindOwner(id);
-  return board.fetch(request);
+  const headers = new Headers(request.headers);
+  const telemetry = captureTelemetryContext();
+  if (telemetry) {
+    headers.set("traceparent", telemetry.traceparent);
+    headers.set("x-sidequest-operation-id", telemetry.operationId);
+  }
+  return board.fetch(new Request(request, { headers }));
 }

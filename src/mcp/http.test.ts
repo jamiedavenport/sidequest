@@ -54,7 +54,7 @@ beforeEach(() => {
 it("selects the board solely from authenticated identity", async () => {
   expect((await handleMcpRoutes(request(), env))?.status).toBe(200);
   expect(mock.getByName).toHaveBeenCalledWith("user-1");
-  expect(mock.call).toHaveBeenCalledWith("client-1", "list_tasks", {});
+  expect(mock.call).toHaveBeenCalledWith("client-1", "list_tasks", {}, undefined);
 });
 
 it.each([

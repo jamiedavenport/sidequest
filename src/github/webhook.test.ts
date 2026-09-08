@@ -65,7 +65,12 @@ describe("GitHub direct webhook regressions", () => {
     const f = await fixture();
     const response = await handleGithubWebhook(request(event, payload), f.bindings);
     expect(response.status).toBe(204);
-    expect(f.importGithubIssues).toHaveBeenCalledExactlyOnceWith("user", "connection", issueNumber);
+    expect(f.importGithubIssues).toHaveBeenCalledExactlyOnceWith(
+      "user",
+      "connection",
+      issueNumber,
+      undefined,
+    );
   });
 
   it("waits for the import and reports a failed import instead of acknowledging it", async () => {

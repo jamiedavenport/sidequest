@@ -1,0 +1,1267 @@
+[
+  {
+    "uid": "sidequest-application-health",
+    "name": "Sidequest application health",
+    "owner": "X-AXIOM-EVERYONE",
+    "description": "Rates use unsampled completion summaries. HTTP and RPC stay separate to avoid counting the same interaction twice. Expected rejections are excluded from unexpected failures. Click trace_id in diagnostic rows to open a waterfall.",
+    "charts": [
+      {
+        "id": "filters",
+        "name": "Filters",
+        "type": "SmartFilter",
+        "query": {
+          "apl": ""
+        },
+        "filters": [
+          {
+            "id": "environment_filter",
+            "name": "Environment",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.environment']\n| where isnotempty(['attributes.environment'])\n| project key=['attributes.environment'], value=['attributes.environment']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": false
+              },
+              {
+                "key": "Production",
+                "value": "production",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "release_filter",
+            "name": "Release",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.release']\n| where isnotempty(['attributes.release'])\n| project key=['attributes.release'], value=['attributes.release']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "component_filter",
+            "name": "Component",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.component']\n| where isnotempty(['attributes.component'])\n| project key=['attributes.component'], value=['attributes.component']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "operation_filter",
+            "name": "Operation",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.operation']\n| where isnotempty(['attributes.operation'])\n| project key=['attributes.operation'], value=['attributes.operation']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "guide",
+        "name": "Reading this dashboard",
+        "type": "Note",
+        "text": "Rates use unsampled completion summaries. HTTP and RPC stay separate to avoid counting the same interaction twice. Expected rejections are excluded from unexpected failures. Click trace_id in diagnostic rows to open a waterfall.\n\nTriage: Check recent failures by release and operation, then open a sampled trace. Keep HTTP and RPC rates separate.\n\nFull runbook: docs/observability/README.md in the Sidequest repository."
+      },
+      {
+        "id": "success",
+        "name": "Requests without unexpected failure (%)",
+        "type": "Statistic",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category == 'http' and operation != 'http.telemetry'\n| summarize value=100.0 * countif(outcome != 'unexpected_failure') / count()"
+        },
+        "customUnits": "%",
+        "unit": "Percent100"
+      },
+      {
+        "id": "traffic",
+        "name": "HTTP operations per minute",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category == 'http' and operation != 'http.telemetry'\n| summarize operations=count() by bin(_time, 1m), operation"
+        }
+      },
+      {
+        "id": "failures",
+        "name": "HTTP unexpected failures (%)",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category == 'http' and operation != 'http.telemetry'\n| summarize failurePercent=100.0 * countif(outcome == 'unexpected_failure') / count() by bin(_time, 1m), operation"
+        },
+        "customUnits": "%"
+      },
+      {
+        "id": "duration",
+        "name": "HTTP duration p50 / p95 / p99 (seconds)",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category == 'http' and operation != 'http.telemetry'\n| summarize p50=percentile(seconds,50), p95=percentile(seconds,95), p99=percentile(seconds,99) by bin(_time, 1m)"
+        },
+        "customUnits": "s"
+      },
+      {
+        "id": "rpc",
+        "name": "RPC outcomes",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category == 'rpc'\n| summarize operations=count() by operation, outcome"
+        }
+      },
+      {
+        "id": "accounts",
+        "name": "Accounts with unexpected failures",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category in ('http','rpc','domain') and outcome == 'unexpected_failure' and isnotempty(account)\n| summarize accounts=dcount(account) by release, category"
+        }
+      },
+      {
+        "id": "errors",
+        "name": "Recent failures: click trace_id",
+        "type": "LogStream",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where outcome == 'unexpected_failure'\n| project _time, operation, component, release, errorClass, stage, fingerprint, account, trace_id\n| order by _time desc\n| take 30"
+        }
+      },
+      {
+        "id": "request-metrics",
+        "name": "HTTP duration histogram p95 (seconds)",
+        "type": "TimeSeries",
+        "query": {
+          "mpl": "`sidequest-metrics`:`sidequest.operation.duration`\n| ifdef($environment_filter) { where environment == $environment_filter }\n| ifdef($release_filter) { where `service.version` == $release_filter }\n| ifdef($component_filter) { where component == $component_filter }\n| ifdef($operation_filter) { where operation == $operation_filter }\n| where operation == #/^http[.]/ and operation != \"http.telemetry\"\n| bucket by operation to 5m using interpolate_delta_histogram(0.95)",
+          "metricsDataset": "sidequest-metrics"
+        },
+        "customUnits": "s"
+      }
+    ],
+    "layout": [
+      {
+        "i": "filters",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 1
+      },
+      {
+        "i": "guide",
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 3
+      },
+      {
+        "i": "success",
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "traffic",
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "failures",
+        "x": 0,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "duration",
+        "x": 6,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "rpc",
+        "x": 0,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "accounts",
+        "x": 6,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "errors",
+        "x": 0,
+        "y": 19,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "request-metrics",
+        "x": 6,
+        "y": 19,
+        "w": 6,
+        "h": 5
+      }
+    ],
+    "refreshTime": 60,
+    "schemaVersion": 2,
+    "timeWindowStart": "qr-now-1h",
+    "timeWindowEnd": "qr-now"
+  },
+  {
+    "uid": "sidequest-board-sync",
+    "name": "Sidequest board and offline sync",
+    "owner": "X-AXIOM-EVERYONE",
+    "description": "Server snapshot/persistence signals are separate from best-effort browser acknowledgements. Pending age is the maximum observed age per reporting session, not a globally summable gauge. Socket opens show connection activity, not a precise reconnect count.",
+    "charts": [
+      {
+        "id": "filters",
+        "name": "Filters",
+        "type": "SmartFilter",
+        "query": {
+          "apl": ""
+        },
+        "filters": [
+          {
+            "id": "environment_filter",
+            "name": "Environment",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.environment']\n| where isnotempty(['attributes.environment'])\n| project key=['attributes.environment'], value=['attributes.environment']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": false
+              },
+              {
+                "key": "Production",
+                "value": "production",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "release_filter",
+            "name": "Release",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.release']\n| where isnotempty(['attributes.release'])\n| project key=['attributes.release'], value=['attributes.release']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "component_filter",
+            "name": "Component",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.component']\n| where isnotempty(['attributes.component'])\n| project key=['attributes.component'], value=['attributes.component']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "operation_filter",
+            "name": "Operation",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.operation']\n| where isnotempty(['attributes.operation'])\n| project key=['attributes.operation'], value=['attributes.operation']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "guide",
+        "name": "Reading this dashboard",
+        "type": "Note",
+        "text": "Server snapshot/persistence signals are separate from best-effort browser acknowledgements. Pending age is the maximum observed age per reporting session, not a globally summable gauge. Socket opens show connection activity, not a precise reconnect count.\n\nTriage: Inspect account/transaction correlation and browser acknowledgement records. Preserve the outbox and durable journal; do not clear edits to silence alerts.\n\nFull runbook: docs/observability/README.md in the Sidequest repository."
+      },
+      {
+        "id": "snapshot",
+        "name": "Snapshot read duration p95 (seconds)",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'sync.lifecycle' and event == 'snapshot_read'\n| summarize p95=percentile(milliseconds / 1000.0,95) by bin(_time, 1m)"
+        },
+        "customUnits": "s"
+      },
+      {
+        "id": "snapshot-size",
+        "name": "Snapshot size (bytes)",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'sync.lifecycle' and event == 'snapshot_read'\n| summarize bytes=max(['attributes.snapshotBytes']) by bin(_time, 1m)"
+        },
+        "customUnits": "bytes"
+      },
+      {
+        "id": "ack",
+        "name": "Online acknowledgement duration p95 (seconds)",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'browser.health'\n| where event == 'acknowledgement_applied' and online\n| summarize p95=percentile(milliseconds / 1000.0,95) by bin(_time, 1m)"
+        },
+        "customUnits": "s"
+      },
+      {
+        "id": "pending",
+        "name": "Observed pending edit age (seconds)",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'browser.health'\n| where event == 'outbox_observation'\n| summarize ageSeconds=max(ageMs / 1000.0) by bin(_time, 1m), online"
+        },
+        "customUnits": "s"
+      },
+      {
+        "id": "queue",
+        "name": "Server queue wait p95 (seconds)",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where isnotnull(['attributes.queueWaitMs'])\n| summarize p95=percentile(todouble(['attributes.queueWaitMs']) / 1000.0,95) by bin(_time, 1m), operation"
+        },
+        "customUnits": "s"
+      },
+      {
+        "id": "persist",
+        "name": "Persistence and recovery outcomes",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where operation in ('BoardObject.persist','BoardObject.runMigrations','mcp.recoverCommand')\n| summarize operations=count() by operation, outcome"
+        }
+      },
+      {
+        "id": "connections",
+        "name": "Socket activity and acknowledgement failures",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'browser.health'\n| where event in ('socket_open','socket_close','acknowledgement_timeout','acknowledgement_rejected')\n| summarize events=count() by bin(_time, 1m), event"
+        }
+      },
+      {
+        "id": "storage",
+        "name": "Browser storage and apply failures",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'browser.health'\n| where event in ('storage_failed','storage_fallback','message_application_error','mutation_send_error')\n| summarize events=count() by event, release"
+        }
+      },
+      {
+        "id": "broadcast",
+        "name": "Broadcast socket delivery failures",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'sync.lifecycle' and event == 'changes_broadcast'\n| summarize failedSockets=sum(['attributes.failedSocketCount']), sentSockets=sum(['attributes.sentSocketCount']) by bin(_time, 1m)"
+        }
+      },
+      {
+        "id": "pending-detail",
+        "name": "Latest outbox observation per reporting session",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'browser.health'\n| where event == 'outbox_observation'\n| summarize arg_max(_time, ['attributes.pendingCount'], ['attributes.pendingAgeMs'], ['attributes.online']) by ['attributes.accountId'], ['attributes.reportingSession']\n| take 30"
+        }
+      }
+    ],
+    "layout": [
+      {
+        "i": "filters",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 1
+      },
+      {
+        "i": "guide",
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 3
+      },
+      {
+        "i": "snapshot",
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "snapshot-size",
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "ack",
+        "x": 0,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "pending",
+        "x": 6,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "queue",
+        "x": 0,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "persist",
+        "x": 6,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "connections",
+        "x": 0,
+        "y": 19,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "storage",
+        "x": 6,
+        "y": 19,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "broadcast",
+        "x": 0,
+        "y": 24,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "pending-detail",
+        "x": 6,
+        "y": 24,
+        "w": 6,
+        "h": 5
+      }
+    ],
+    "refreshTime": 60,
+    "schemaVersion": 2,
+    "timeWindowStart": "qr-now-1h",
+    "timeWindowEnd": "qr-now"
+  },
+  {
+    "uid": "sidequest-integrations-mcp",
+    "name": "Sidequest integrations and MCP",
+    "owner": "X-AXIOM-EVERYONE",
+    "description": "Empty provider/webhook panels mean no matching events in this time window. Provider-call rates exclude storage and domain summaries. Billing alerts require a verified webhook event ID. Internal helpers are useful diagnostics but are not availability denominators.",
+    "charts": [
+      {
+        "id": "filters",
+        "name": "Filters",
+        "type": "SmartFilter",
+        "query": {
+          "apl": ""
+        },
+        "filters": [
+          {
+            "id": "environment_filter",
+            "name": "Environment",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.environment']\n| where isnotempty(['attributes.environment'])\n| project key=['attributes.environment'], value=['attributes.environment']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": false
+              },
+              {
+                "key": "Production",
+                "value": "production",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "release_filter",
+            "name": "Release",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.release']\n| where isnotempty(['attributes.release'])\n| project key=['attributes.release'], value=['attributes.release']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "component_filter",
+            "name": "Component",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.component']\n| where isnotempty(['attributes.component'])\n| project key=['attributes.component'], value=['attributes.component']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "operation_filter",
+            "name": "Operation",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.operation']\n| where isnotempty(['attributes.operation'])\n| project key=['attributes.operation'], value=['attributes.operation']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "guide",
+        "name": "Reading this dashboard",
+        "type": "Note",
+        "text": "Empty provider/webhook panels mean no matching events in this time window. Provider-call rates exclude storage and domain summaries. Billing alerts require a verified webhook event ID. Internal helpers are useful diagnostics but are not availability denominators.\n\nTriage: Check verified event IDs, failure stages and provider rate limits. Preserve webhook retry behavior; do not manually grant billing access.\n\nFull runbook: docs/observability/README.md in the Sidequest repository."
+      },
+      {
+        "id": "provider",
+        "name": "Provider outcomes",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category == 'integration'\n| summarize operations=count() by provider, operation, outcome"
+        }
+      },
+      {
+        "id": "provider-time",
+        "name": "Provider duration p95 (seconds)",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category == 'integration'\n| summarize p95=percentile(seconds,95) by bin(_time, 1m), provider, operation"
+        },
+        "customUnits": "s"
+      },
+      {
+        "id": "rate-limits",
+        "name": "Provider HTTP 429 responses",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category == 'integration' and ['attributes.status'] == 429\n| summarize responses=count() by bin(_time, 1m), provider"
+        }
+      },
+      {
+        "id": "webhooks",
+        "name": "Webhook processing and reconciliation",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category == 'webhook' or operation in ('http.billingWebhook','http.githubWebhook','billing.reconcileCustomer')\n| summarize events=count() by operation, outcome, release"
+        }
+      },
+      {
+        "id": "job-age",
+        "name": "Reported processing age (seconds)",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| extend age=todouble(column_ifexists('attributes.processingAgeMs', real(null)))\n| where isnotnull(age)\n| summarize ageSeconds=max(age / 1000.0) by bin(_time, 1m), operation"
+        },
+        "customUnits": "s"
+      },
+      {
+        "id": "github",
+        "name": "GitHub operations",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where operation contains 'Github' or operation startswith 'github.'\n| summarize operations=count(), p95Seconds=percentile(seconds,95) by operation, outcome"
+        }
+      },
+      {
+        "id": "mcp",
+        "name": "MCP tool outcomes",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where component == 'mcp' and category == 'domain'\n| summarize calls=count() by operation, outcome"
+        }
+      },
+      {
+        "id": "background",
+        "name": "Background work and recovery outcomes",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category == 'background'\n| summarize operations=count(), p95Seconds=percentile(seconds,95) by operation, outcome"
+        }
+      }
+    ],
+    "layout": [
+      {
+        "i": "filters",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 1
+      },
+      {
+        "i": "guide",
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 3
+      },
+      {
+        "i": "provider",
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "provider-time",
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "rate-limits",
+        "x": 0,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "webhooks",
+        "x": 6,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "job-age",
+        "x": 0,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "github",
+        "x": 6,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "mcp",
+        "x": 0,
+        "y": 19,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "background",
+        "x": 6,
+        "y": 19,
+        "w": 6,
+        "h": 5
+      }
+    ],
+    "refreshTime": 60,
+    "schemaVersion": 2,
+    "timeWindowStart": "qr-now-1h",
+    "timeWindowEnd": "qr-now"
+  },
+  {
+    "uid": "sidequest-browser-health",
+    "name": "Sidequest browser health",
+    "owner": "X-AXIOM-EVERYONE",
+    "description": "Browser diagnostics are best effort and use ephemeral reporting sessions. Web Vitals require analytics consent. Reporting-session counts measure observed coverage, not all active users. Error fingerprints contain no messages or application content.",
+    "charts": [
+      {
+        "id": "filters",
+        "name": "Filters",
+        "type": "SmartFilter",
+        "query": {
+          "apl": ""
+        },
+        "filters": [
+          {
+            "id": "environment_filter",
+            "name": "Environment",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.environment']\n| where isnotempty(['attributes.environment'])\n| project key=['attributes.environment'], value=['attributes.environment']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": false
+              },
+              {
+                "key": "Production",
+                "value": "production",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "release_filter",
+            "name": "Release",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.release']\n| where isnotempty(['attributes.release'])\n| project key=['attributes.release'], value=['attributes.release']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "component_filter",
+            "name": "Component",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.component']\n| where isnotempty(['attributes.component'])\n| project key=['attributes.component'], value=['attributes.component']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "operation_filter",
+            "name": "Operation",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.operation']\n| where isnotempty(['attributes.operation'])\n| project key=['attributes.operation'], value=['attributes.operation']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "guide",
+        "name": "Reading this dashboard",
+        "type": "Note",
+        "text": "Browser diagnostics are best effort and use ephemeral reporting sessions. Web Vitals require analytics consent. Reporting-session counts measure observed coverage, not all active users. Error fingerprints contain no messages or application content.\n\nTriage: Compare fingerprints across reporting sessions and releases. Check online/storage state and consent before interpreting missing browser reports.\n\nFull runbook: docs/observability/README.md in the Sidequest repository."
+      },
+      {
+        "id": "browser-errors",
+        "name": "Errors by fingerprint, release and browser",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'browser.health'\n| where event in ('global_error','render_error','unhandled_rejection')\n| summarize errors=count(), reportingSessions=dcount(session) by fingerprint, ['attributes.clientRelease'], ['attributes.browser']"
+        }
+      },
+      {
+        "id": "browser-sync",
+        "name": "Storage and sync failure events",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'browser.health'\n| where event in ('storage_failed','storage_fallback','message_application_error','acknowledgement_timeout','mutation_send_error')\n| summarize events=count() by bin(_time, 1m), event"
+        }
+      },
+      {
+        "id": "coverage",
+        "name": "Reporting sessions by browser",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'browser.health'\n| summarize reportingSessions=dcount(session) by ['attributes.browser'], ['attributes.clientRelease']"
+        }
+      },
+      {
+        "id": "capability",
+        "name": "Boot reports: persistent storage capability",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'browser.health'\n| where event == 'boot'\n| summarize reports=count() by ['attributes.persistentStorage'], ['attributes.browser']"
+        }
+      },
+      {
+        "id": "lcp",
+        "name": "Consented LCP p75 / p95 (seconds)",
+        "type": "TimeSeries",
+        "query": {
+          "mpl": "`sidequest-metrics`:`sidequest.browser.lcp`\n| ifdef($environment_filter) { where environment == $environment_filter }\n| ifdef($release_filter) { where `service.version` == $release_filter }\n| ifdef($component_filter) { where component == $component_filter }\n| ifdef($operation_filter) { where operation == $operation_filter }\n| bucket to 5m using interpolate_delta_histogram(0.75, 0.95)",
+          "metricsDataset": "sidequest-metrics"
+        },
+        "customUnits": "s"
+      },
+      {
+        "id": "inp",
+        "name": "Consented INP p75 / p95 (seconds)",
+        "type": "TimeSeries",
+        "query": {
+          "mpl": "`sidequest-metrics`:`sidequest.browser.inp`\n| ifdef($environment_filter) { where environment == $environment_filter }\n| ifdef($release_filter) { where `service.version` == $release_filter }\n| ifdef($component_filter) { where component == $component_filter }\n| ifdef($operation_filter) { where operation == $operation_filter }\n| bucket to 5m using interpolate_delta_histogram(0.75, 0.95)",
+          "metricsDataset": "sidequest-metrics"
+        },
+        "customUnits": "s"
+      },
+      {
+        "id": "cls",
+        "name": "Consented CLS p75 / p95",
+        "type": "TimeSeries",
+        "query": {
+          "mpl": "`sidequest-metrics`:`sidequest.browser.cls`\n| ifdef($environment_filter) { where environment == $environment_filter }\n| ifdef($release_filter) { where `service.version` == $release_filter }\n| ifdef($component_filter) { where component == $component_filter }\n| ifdef($operation_filter) { where operation == $operation_filter }\n| bucket to 5m using interpolate_delta_histogram(0.75, 0.95)",
+          "metricsDataset": "sidequest-metrics"
+        }
+      },
+      {
+        "id": "navigation",
+        "name": "Consented navigation observations",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'browser.health'\n| where event == 'navigation'\n| summarize navigations=count() by bin(_time, 1m), operation"
+        }
+      }
+    ],
+    "layout": [
+      {
+        "i": "filters",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 1
+      },
+      {
+        "i": "guide",
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 3
+      },
+      {
+        "i": "browser-errors",
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "browser-sync",
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "coverage",
+        "x": 0,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "capability",
+        "x": 6,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "lcp",
+        "x": 0,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "inp",
+        "x": 6,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "cls",
+        "x": 0,
+        "y": 19,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "navigation",
+        "x": 6,
+        "y": 19,
+        "w": 6,
+        "h": 5
+      }
+    ],
+    "refreshTime": 60,
+    "schemaVersion": 2,
+    "timeWindowStart": "qr-now-1h",
+    "timeWindowEnd": "qr-now"
+  },
+  {
+    "uid": "sidequest-telemetry-health",
+    "name": "Sidequest telemetry health",
+    "owner": "X-AXIOM-EVERYONE",
+    "description": "Application logs and metrics are unsampled; traces use deterministic 10% head sampling. Sampling is approximate at low volume. Export failures and drops are inspected manually in Cloudflare. There is no scheduled heartbeat or uptime monitor.",
+    "charts": [
+      {
+        "id": "filters",
+        "name": "Filters",
+        "type": "SmartFilter",
+        "query": {
+          "apl": ""
+        },
+        "filters": [
+          {
+            "id": "environment_filter",
+            "name": "Environment",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.environment']\n| where isnotempty(['attributes.environment'])\n| project key=['attributes.environment'], value=['attributes.environment']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": false
+              },
+              {
+                "key": "Production",
+                "value": "production",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "release_filter",
+            "name": "Release",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.release']\n| where isnotempty(['attributes.release'])\n| project key=['attributes.release'], value=['attributes.release']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "component_filter",
+            "name": "Component",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.component']\n| where isnotempty(['attributes.component'])\n| project key=['attributes.component'], value=['attributes.component']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          },
+          {
+            "id": "operation_filter",
+            "name": "Operation",
+            "type": "select",
+            "selectType": "apl",
+            "active": true,
+            "apl": {
+              "apl": "['sidequest-logs']\n| distinct ['attributes.operation']\n| where isnotempty(['attributes.operation'])\n| project key=['attributes.operation'], value=['attributes.operation']\n| order by key asc",
+              "queryOptions": {
+                "quickRange": "1h"
+              }
+            },
+            "options": [
+              {
+                "key": "All",
+                "value": "",
+                "default": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "guide",
+        "name": "Reading this dashboard",
+        "type": "Note",
+        "text": "Application logs and metrics are unsampled; traces use deterministic 10% head sampling. Sampling is approximate at low volume. Export failures and drops are inspected manually in Cloudflare. There is no scheduled heartbeat or uptime monitor.\n\nTriage: Check the Cloudflare Worker dashboard for exporter failures or drops. Verify token scopes, regional endpoint and dataset kinds. Disable TELEMETRY_ENABLED and deploy if exports need to stop.\n\nFull runbook: docs/observability/README.md in the Sidequest repository."
+      },
+      {
+        "id": "volume",
+        "name": "Received log records per minute",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| summarize records=count() by bin(_time, 1m), body"
+        }
+      },
+      {
+        "id": "sampling",
+        "name": "Sampled server invocation summaries (%)",
+        "type": "TimeSeries",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where category in ('http','domain')\n| summarize sampledPercent=100.0 * countif(['attributes.sampled'] == true) / count() by bin(_time, 5m), category"
+        },
+        "customUnits": "%"
+      },
+      {
+        "id": "noisy",
+        "name": "Highest-volume operations",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| summarize records=count() by operation, category\n| top 20 by records"
+        }
+      },
+      {
+        "id": "latest",
+        "name": "Latest received event by component",
+        "type": "Table",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| summarize lastSeen=max(_time), records=count() by component"
+        }
+      },
+      {
+        "id": "metric-volume",
+        "name": "Operation metric increments by component",
+        "type": "TimeSeries",
+        "query": {
+          "mpl": "`sidequest-metrics`:`sidequest.operation.count`\n| ifdef($environment_filter) { where environment == $environment_filter }\n| ifdef($release_filter) { where `service.version` == $release_filter }\n| ifdef($component_filter) { where component == $component_filter }\n| ifdef($operation_filter) { where operation == $operation_filter }\n| align to 5m using sum\n| group by component using sum",
+          "metricsDataset": "sidequest-metrics"
+        }
+      },
+      {
+        "id": "trace-links",
+        "name": "Recent correlations: click trace_id",
+        "type": "LogStream",
+        "query": {
+          "apl": "declare query_parameters (environment_filter:string=\"production\", release_filter:string=\"\", component_filter:string=\"\", operation_filter:string=\"\");\n['sidequest-logs']\n| extend operation=tostring(['attributes.operation']), category=tostring(['attributes.category']), component=tostring(['attributes.component']), release=tostring(['attributes.release']), outcome=tostring(['attributes.outcome']), event=tostring(['attributes.event']), account=tostring(['attributes.accountId']), session=tostring(['attributes.reportingSession']), seconds=todouble(['attributes.durationSeconds']), milliseconds=todouble(['attributes.durationMs']), provider=tostring(column_ifexists('attributes.provider', '')), fingerprint=tostring(column_ifexists('attributes.fingerprint', '')), errorClass=tostring(column_ifexists('attributes.errorTag', '')), stage=tostring(column_ifexists('attributes.failureStage', '')), eventId=tostring(column_ifexists('attributes.eventId', '')), canWrite=tobool(column_ifexists('attributes.canWrite', false)), ageMs=todouble(['attributes.pendingAgeMs']), online=tobool(['attributes.online'])\n| where isempty(environment_filter) or ['attributes.environment'] == environment_filter\n| where isempty(release_filter) or release == release_filter\n| where isempty(component_filter) or component == component_filter\n| where isempty(operation_filter) or operation == operation_filter\n| where body == 'operation.completed'\n| where ['attributes.sampled'] == true and category != 'internal'\n| project _time, trace_id, operation, component, release\n| order by _time desc\n| take 30"
+        }
+      }
+    ],
+    "layout": [
+      {
+        "i": "filters",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 1
+      },
+      {
+        "i": "guide",
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 3
+      },
+      {
+        "i": "volume",
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "sampling",
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "noisy",
+        "x": 0,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "latest",
+        "x": 6,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "metric-volume",
+        "x": 0,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      },
+      {
+        "i": "trace-links",
+        "x": 6,
+        "y": 14,
+        "w": 6,
+        "h": 5
+      }
+    ],
+    "refreshTime": 60,
+    "schemaVersion": 2,
+    "timeWindowStart": "qr-now-1h",
+    "timeWindowEnd": "qr-now"
+  }
+]

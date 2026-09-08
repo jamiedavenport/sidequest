@@ -1,3 +1,10 @@
+import {
+  annotateOperation,
+  captureTelemetryContext,
+  observeInvocation,
+  requestTelemetryContext,
+} from "~/telemetry/runtime";
+import { parseTelemetryContext } from "~/telemetry/schema";
 import { DurableObject } from "cloudflare:workers";
 import { Effect, Schema } from "effect";
 
@@ -41,7 +48,7 @@ function logServerSync(event: string, annotations: Record<string, string | numbe
 }
 
 export abstract class SyncDurableObject<
-  TEnv extends { DB: D1Database },
+  TEnv extends { DB: D1Database } & import("~/telemetry/runtime").TelemetryBindings,
 > extends DurableObject<TEnv> {
   #ready: Promise<void> | undefined;
 
@@ -54,8 +61,10 @@ export abstract class SyncDurableObject<
   protected async recoverPendingWork(): Promise<void> {}
 
   protected async serialized<T>(work: () => Promise<T>): Promise<T> {
+    const queuedAt = Date.now();
     await this.#ensureReady();
     const pending = this.#queue.then(async () => {
+      annotateOperation({ queueWaitMs: Date.now() - queuedAt });
       await this.recoverPendingWork();
       return work();
     });
@@ -95,6 +104,9 @@ export abstract class SyncDurableObject<
     );
     const connections = attached.filter((entry) => entry !== undefined);
     const owner = connections[0]?.identity.userId;
+    if (owner) {
+      annotateOperation({ accountId: owner, boardId: this.ctx.id.toString() });
+    }
     if (owner === undefined) {
       return [];
     }
@@ -130,7 +142,7 @@ export abstract class SyncDurableObject<
   #sendMessage = Effect.fn("SyncDurableObject.sendMessage")(function* (
     this: SyncDurableObject<TEnv>,
     sockets: ReadonlyArray<WebSocket>,
-    message: unknown,
+    message: Ack | Changes | Snapshot | Reject,
     acknowledgement?: SocketAcknowledgement,
   ) {
     const authorized = yield* this.#authorizeSockets(sockets);
@@ -139,9 +151,20 @@ export abstract class SyncDurableObject<
         try: () => {
           // Keep the origin's acknowledgement and changes together after one fresh batch check.
           if (acknowledgement?.socket === socket) {
-            socket.send(JSON.stringify(acknowledgement.message));
+            socket.send(
+              JSON.stringify(
+                new Ack({
+                  transactionId: acknowledgement.message.transactionId,
+                  telemetry: captureTelemetryContext(),
+                }),
+              ),
+            );
           }
-          socket.send(JSON.stringify(message));
+          socket.send(
+            JSON.stringify(
+              Object.assign(Object.create(null), message, { telemetry: captureTelemetryContext() }),
+            ),
+          );
           return true;
         },
         catch: () => new SyncProtocolError({ message: "Sync delivery failed" }),
@@ -180,6 +203,17 @@ export abstract class SyncDurableObject<
   ): Promise<ReadonlyArray<Mutation>>;
 
   async fetch(request: Request): Promise<Response> {
+    return observeInvocation(
+      this.env,
+      (promise) => this.ctx.waitUntil(promise),
+      "sync.upgrade",
+      () => this.#fetch(request),
+      requestTelemetryContext(request),
+      { component: "sync-server", category: "domain" },
+    );
+  }
+
+  async #fetch(request: Request): Promise<Response> {
     if (request.method !== "GET") {
       return new Response("Expected GET", { status: 405 });
     }
@@ -203,6 +237,26 @@ export abstract class SyncDurableObject<
   }
 
   override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    let context;
+    try {
+      const input = JSON.parse(
+        typeof message === "string" ? message : new TextDecoder().decode(message),
+      );
+      context = parseTelemetryContext(input?.telemetry);
+    } catch {
+      /* Protocol validation remains in the handler. */
+    }
+    return observeInvocation(
+      this.env,
+      (promise) => this.ctx.waitUntil(promise),
+      "sync.message",
+      () => this.#receiveMessage(ws, message),
+      context,
+      { component: "sync-server", category: "domain", protocolVersion: 2 },
+    );
+  }
+
+  async #receiveMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     await this.#ensureReady();
     const raw = typeof message === "string" ? message : new TextDecoder().decode(message);
     let parsed: unknown;
@@ -217,7 +271,8 @@ export abstract class SyncDurableObject<
 
     try {
       await this.serialized(() => serverRuntime.runPromise(this.#handleMessage(ws, parsed)));
-    } catch (error) {
+    } catch {
+      annotateOperation({ outcome: "unexpected_failure" });
       const transactionId =
         typeof parsed === "object" &&
         parsed !== null &&
@@ -232,7 +287,10 @@ export abstract class SyncDurableObject<
         }),
       );
       await serverRuntime.runPromise(
-        this.#sendMessage([ws], new Reject({ transactionId, message: String(error) })),
+        this.#sendMessage(
+          [ws],
+          new Reject({ transactionId, message: "Sync operation failed. Please retry." }),
+        ),
       );
     }
   }
@@ -244,6 +302,7 @@ export abstract class SyncDurableObject<
 
   #ensureReady(): Promise<void> {
     this.#ready ??= this.initializeSync().catch((error: unknown) => {
+      annotateOperation({ outcome: "unexpected_failure", failureStage: "initialization" });
       this.#ready = undefined;
       throw error;
     });
@@ -293,6 +352,7 @@ export abstract class SyncDurableObject<
     });
 
     yield* logServerSync("snapshot_read", {
+      snapshotBytes: new TextEncoder().encode(JSON.stringify(snapshot)).byteLength,
       collectionCount: snapshot.length,
       durationMs: Date.now() - startedAt,
       outcome: "success",
@@ -320,6 +380,7 @@ export abstract class SyncDurableObject<
       catch: () => new SyncProtocolError({ message: "Access check unavailable" }),
     }).pipe(Effect.catch(() => Effect.void));
     if (allowed === undefined) {
+      annotateOperation({ outcome: "unexpected_failure", failureStage: "authorization" });
       yield* this.#sendMessage(
         [ws],
         new Reject({
@@ -331,6 +392,7 @@ export abstract class SyncDurableObject<
       return;
     }
     if (!allowed) {
+      annotateOperation({ outcome: "expected_rejection", failureStage: "billing" });
       yield* this.#sendMessage(
         [ws],
         new Reject({

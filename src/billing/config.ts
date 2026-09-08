@@ -1,3 +1,5 @@
+import { HTTPClient } from "@polar-sh/sdk/lib/http";
+import { annotateOperation, observeOperation } from "~/telemetry/runtime";
 import { Polar } from "@polar-sh/sdk";
 import { env } from "~/env";
 
@@ -8,9 +10,35 @@ export function polarClient() {
     throw new BillingActionError("Polar billing is not configured.");
   }
   return new Polar({
+    httpClient: new HTTPClient({
+      fetcher: (input, init) =>
+        observeOperation(
+          "polar.request",
+          async () => {
+            const response = await fetch(input, init);
+            annotateOperation({
+              status: response.status,
+              outcome: getPolarOutcome(response.status),
+              upstreamRequestId: response.headers.get("x-request-id") ?? undefined,
+            });
+            return response;
+          },
+          { component: "billing", provider: "polar", category: "integration" },
+        ),
+    }),
     accessToken: env.POLAR_ACCESS_TOKEN,
     server: env.POLAR_SERVER,
   });
+}
+
+function getPolarOutcome(status: number) {
+  if (status >= 500 || status === 429) {
+    return "unexpected_failure";
+  }
+  if (status >= 400) {
+    return "expected_rejection";
+  }
+  return "success";
 }
 
 export function productInterval(id: string | null) {

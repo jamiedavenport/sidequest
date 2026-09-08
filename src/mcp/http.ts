@@ -1,4 +1,6 @@
+import { annotateOperation, captureTelemetryContext, observeOperation } from "~/telemetry/runtime";
 import { oauthProviderAuthServerMetadata } from "@better-auth/oauth-provider";
+import type { TelemetryContext } from "~/telemetry/schema";
 import { Predicate } from "effect";
 import { createAuth } from "~/auth/server";
 import { env as appEnv } from "~/env";
@@ -23,7 +25,12 @@ type McpBindings = {
   BOARD: {
     getByName(name: string): {
       bindOwner?(userId: string): Promise<void>;
-      callTool(clientId: string, name: ToolName, args: unknown): Promise<ToolReply>;
+      callTool(
+        clientId: string,
+        name: ToolName,
+        args: unknown,
+        telemetry?: TelemetryContext,
+      ): Promise<ToolReply>;
     };
   };
 };
@@ -73,7 +80,7 @@ export async function handleMcpRoutes(
         headers: {
           "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
           "Access-Control-Allow-Headers":
-            "Authorization, Content-Type, MCP-Protocol-Version, MCP-Session-Id",
+            "Authorization, Content-Type, MCP-Protocol-Version, MCP-Session-Id, traceparent, x-sidequest-operation-id",
           "Access-Control-Max-Age": "600",
         },
       }),
@@ -126,31 +133,61 @@ export async function handleMcpRoutes(
     );
   }
   // Return an HTTP scope challenge before dispatch; malformed JSON remains the SDK's responsibility.
-  if (!canWrite) {
-    let body: unknown;
-    try {
-      body = await request.clone().json();
-    } catch {
-      body = undefined;
-    }
-    if (
-      Predicate.isObject(body) &&
-      "method" in body &&
-      "params" in body &&
-      body.method === "tools/call" &&
-      Predicate.isObject(body.params) &&
-      "name" in body.params &&
-      typeof body.params.name === "string" &&
-      isToolName(body.params.name) &&
-      isWriteTool(body.params.name)
-    ) {
-      return cors(challenge(resource, 403, true));
-    }
+  if (!canWrite && (await isWriteToolRequest(request))) {
+    return cors(challenge(resource, 403, true));
   }
+  annotateOperation({ accountId: token.sub, component: "mcp" });
   const clientId = token.client_id;
   const board = env.BOARD.getByName(token.sub);
   await board.bindOwner?.(token.sub);
   return cors(
-    await serveMcp(request, canWrite, (name, args) => board.callTool(clientId, name, args)),
+    await serveMcp(request, canWrite, (name, args) => callBoardTool(board, clientId, name, args)),
+  );
+}
+
+async function isWriteToolRequest(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.clone().json();
+  } catch {
+    body = undefined;
+  }
+  if (
+    Predicate.isObject(body) &&
+    "method" in body &&
+    "params" in body &&
+    body.method === "tools/call" &&
+    Predicate.isObject(body.params) &&
+    "name" in body.params &&
+    typeof body.params.name === "string" &&
+    isToolName(body.params.name) &&
+    isWriteTool(body.params.name)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function callBoardTool(
+  board: ReturnType<McpBindings["BOARD"]["getByName"]>,
+  clientId: string,
+  name: ToolName,
+  args: unknown,
+) {
+  return observeOperation(
+    `mcp.${name}`,
+    async () => {
+      const reply = await board.callTool(clientId, name, args, captureTelemetryContext());
+      let outcome = "success";
+      if (!reply.ok) {
+        outcome = "expected_rejection";
+        if (reply.error.code === "internal_error") {
+          outcome = "unexpected_failure";
+        }
+      }
+      annotateOperation({ outcome });
+      return reply;
+    },
+    { component: "mcp", category: "domain" },
   );
 }

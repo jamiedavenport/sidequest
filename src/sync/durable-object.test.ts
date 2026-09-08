@@ -99,6 +99,8 @@ beforeEach(async () => {
   );
   sockets = [new Socket(), new Socket({ version: 2, userId: "a", sessionId: "two" })];
   ctx = {
+    id: { toString: () => "board-a" },
+    waitUntil: () => {},
     getWebSockets: () => sockets,
     setWebSocketAutoResponse: () => {},
   } as unknown as DurableObjectState;

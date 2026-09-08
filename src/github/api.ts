@@ -23,6 +23,11 @@ export class GitHubApi extends Context.Service<
         schema: Schema.Decoder<T>,
         body?: object,
       ) {
+        yield* Effect.annotateCurrentSpan({
+          component: "github",
+          category: "integration",
+          provider: "github",
+        });
         let httpRequest = HttpClientRequest.make(body ? "PATCH" : "GET")(
           `https://api.github.com${path}`,
         ).pipe(
@@ -37,6 +42,7 @@ export class GitHubApi extends Context.Service<
           httpRequest = httpRequest.pipe(HttpClientRequest.bodyJsonUnsafe(body));
         }
         const response = yield* client.execute(httpRequest).pipe(
+          Effect.provideService(HttpClient.TracerPropagationEnabled, false),
           Effect.timeout("30 seconds"),
           Effect.mapError(
             () =>
@@ -45,6 +51,11 @@ export class GitHubApi extends Context.Service<
               }),
           ),
         );
+        yield* Effect.annotateCurrentSpan({
+          status: response.status,
+          upstreamRequestId: response.headers["x-github-request-id"],
+          rateLimitRemaining: Number(response.headers["x-ratelimit-remaining"]),
+        });
         if (response.status < 200 || response.status >= 300) {
           return yield* getGithubResponseError(response.status, response.headers);
         }

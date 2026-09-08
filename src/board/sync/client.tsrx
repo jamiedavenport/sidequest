@@ -1,3 +1,4 @@
+import { reportBrowserEvent } from "~/telemetry/browser";
 import {
   BrowserCollectionCoordinator,
   createBrowserWASQLitePersistence,
@@ -81,7 +82,7 @@ function AccountSyncClient({ children, userId }: { children: ReactNode; userId: 
           if (controller.signal.aborted) {
             return;
           }
-          console.error("Board storage initialization failed");
+          reportBrowserEvent("storage_failed", { outcome: "unexpected_failure" });
           setFailed(true);
         }),
       ),
@@ -215,6 +216,8 @@ const createBoardClient = Effect.fn("createBoardClient")(function* (
     }),
     (executor) => Effect.sync(() => executor.dispose()),
   );
+  const stopObservingOutbox = startOutboxTelemetry(offline, () => active);
+  yield* Effect.addFinalizer(() => Effect.sync(stopObservingOutbox));
   yield* Effect.forEach(
     [lanes, tasks, notes, whiteboards],
     (collection) =>
@@ -250,6 +253,41 @@ const createBoardClient = Effect.fn("createBoardClient")(function* (
     transport,
   } satisfies BoardClient;
 });
+
+function startOutboxTelemetry(offline: BoardClient["offline"], isActive: () => boolean) {
+  let previousPending = 0;
+  let observingOutbox = false;
+  const observeOutbox = () => {
+    if (observingOutbox || !isActive()) {
+      return;
+    }
+    observingOutbox = true;
+    void offline
+      .peekOutbox()
+      .then((pending) => {
+        if (!isActive()) {
+          return;
+        }
+        const oldest = Math.min(Date.now(), ...pending.map((entry) => entry.createdAt.getTime()));
+        reportBrowserEvent("outbox_observation", {
+          pendingCount: pending.length,
+          pendingAgeMs: Date.now() - oldest,
+          retryAttempt: Math.max(0, ...pending.map((entry) => entry.retryCount)),
+        });
+        if (previousPending > 0 && pending.length === 0) {
+          reportBrowserEvent("outbox_drained", { outcome: "success" });
+        }
+        previousPending = pending.length;
+      })
+      .catch(() => reportBrowserEvent("storage_failed", { storage: "outbox" }))
+      .finally(() => {
+        observingOutbox = false;
+      });
+  };
+  const outboxTimer = setInterval(observeOutbox, 60_000);
+  observeOutbox();
+  return () => clearInterval(outboxTimer);
+}
 
 const validateBoardSession = Effect.fn("validateBoardSession")(function* (userId: string) {
   const result = yield* Effect.tryPromise({

@@ -47,7 +47,7 @@ it("seeds email OTP signup once and leaves subsequent sign-ins untouched", async
   const email = "otp@example.test";
   const otp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
   const signup = await auth.api.signInEmailOTP({ body: { email, otp } });
-  expect(mocks.seed).toHaveBeenCalledExactlyOnceWith(signup.user.id);
+  expect(mocks.seed).toHaveBeenCalledExactlyOnceWith(signup.user.id, undefined);
   const nextOtp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
   await auth.api.signInEmailOTP({ body: { email, otp: nextOtp } });
   expect(mocks.seed).toHaveBeenCalledTimes(1);
@@ -81,7 +81,7 @@ it("awaits onboarding on the OAuth creation path even for unverified email", asy
   expect(settled).toBe(false);
   finish?.(true);
   const result = await pending;
-  expect(mocks.seed).toHaveBeenCalledWith(result.user.id);
+  expect(mocks.seed).toHaveBeenCalledWith(result.user.id, undefined);
   expect(mocks.send).not.toHaveBeenCalled();
 });
 

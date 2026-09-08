@@ -1,3 +1,4 @@
+import { captureTelemetryContext } from "~/telemetry/runtime";
 import { assertBillingOrigin } from "~/billing/security";
 import { redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
@@ -40,10 +41,14 @@ export const createBillingCheckout = createServerFn({ method: "POST" })
   .validator(Interval)
   .handler(async ({ data }) => {
     const userId = await billingUser(true);
-    const result = await bindings.BOARD.getByName(userId).billing(userId, {
-      kind: "checkout",
-      interval: data.interval,
-    });
+    const result = await bindings.BOARD.getByName(userId).billing(
+      userId,
+      {
+        kind: "checkout",
+        interval: data.interval,
+      },
+      captureTelemetryContext(),
+    );
     return { url: result.url };
   });
 
@@ -51,21 +56,33 @@ export const scheduleBillingInterval = createServerFn({ method: "POST" })
   .validator(Interval)
   .handler(async ({ data }) => {
     const userId = await billingUser(true);
-    await bindings.BOARD.getByName(userId).billing(userId, {
-      kind: "interval",
-      interval: data.interval,
-    });
+    await bindings.BOARD.getByName(userId).billing(
+      userId,
+      {
+        kind: "interval",
+        interval: data.interval,
+      },
+      captureTelemetryContext(),
+    );
     return readBillingAccess(bindings.DB, userId);
   });
 
 export const createBillingPortal = createServerFn({ method: "POST" }).handler(async () => {
   const userId = await billingUser(true);
-  const result = await bindings.BOARD.getByName(userId).billing(userId, { kind: "portal" });
+  const result = await bindings.BOARD.getByName(userId).billing(
+    userId,
+    { kind: "portal" },
+    captureTelemetryContext(),
+  );
   return { url: result.url };
 });
 
 export const refreshBillingStatus = createServerFn({ method: "POST" }).handler(async () => {
   const userId = await billingUser(true);
-  await bindings.BOARD.getByName(userId).billing(userId, { kind: "reconcile" });
+  await bindings.BOARD.getByName(userId).billing(
+    userId,
+    { kind: "reconcile" },
+    captureTelemetryContext(),
+  );
   return readBillingAccess(bindings.DB, userId);
 });

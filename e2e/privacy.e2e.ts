@@ -58,7 +58,7 @@ test("consent saves only on confirmation and syncs withdrawal and deletion acros
     second.getByRole("heading", { name: "Your privacy choices", exact: true }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "Cookie settings", exact: true }).click();
-  await page.getByRole("switch", { name: "Analytics (OpenPanel)", exact: true }).click();
+  await page.getByRole("switch", { name: "Analytics and performance", exact: true }).click();
   expect(
     await page.evaluate(
       () => JSON.parse(localStorage.getItem("sidequest-consent") ?? "{}").decisions.analytics,
@@ -67,7 +67,7 @@ test("consent saves only on confirmation and syncs withdrawal and deletion acros
   await page.getByRole("button", { name: "Save preferences", exact: true }).click();
   await second.getByRole("button", { name: "Cookie settings", exact: true }).click();
   await expect(
-    second.getByRole("switch", { name: "Analytics (OpenPanel)", exact: true }),
+    second.getByRole("switch", { name: "Analytics and performance", exact: true }),
   ).not.toBeChecked();
   await second.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.evaluate(() => localStorage.removeItem("sidequest-consent"));
@@ -121,7 +121,7 @@ test("analytics requests use static paths and stop after withdrawal while board 
     await page.goto("/?email=private@example.com&state=secret#token");
     await page.getByRole("button", { name: "Application menu", exact: true }).click();
     await page.getByRole("menuitem", { name: "Cookie settings", exact: true }).click();
-    await page.getByRole("switch", { name: "Analytics (OpenPanel)", exact: true }).click();
+    await page.getByRole("switch", { name: "Analytics and performance", exact: true }).click();
     expect(events).toEqual([]);
     await page.getByRole("button", { name: "Save preferences", exact: true }).click();
     await expect.poll(() => events.length).toBe(1);
@@ -141,7 +141,7 @@ test("analytics requests use static paths and stop after withdrawal while board 
     await page.getByRole("button", { name: "Application menu", exact: true }).click();
     await page.getByRole("menuitem", { name: "Cookie settings", exact: true }).click();
     expect(events).toHaveLength(1);
-    await page.getByRole("switch", { name: "Analytics (OpenPanel)", exact: true }).click();
+    await page.getByRole("switch", { name: "Analytics and performance", exact: true }).click();
     await page.getByRole("button", { name: "Save preferences", exact: true }).click();
     await page.getByRole("link", { name: "Connected apps", exact: true }).click();
     await expect(page).toHaveURL(/\/connections$/);
@@ -150,13 +150,13 @@ test("analytics requests use static paths and stop after withdrawal while board 
     await expect(page.getByRole("heading", { name: "Sidequest task board" })).toBeAttached();
     await page.getByRole("button", { name: "Application menu", exact: true }).click();
     await page.getByRole("menuitem", { name: "Cookie settings", exact: true }).click();
-    await page.getByRole("switch", { name: "Analytics (OpenPanel)", exact: true }).click();
+    await page.getByRole("switch", { name: "Analytics and performance", exact: true }).click();
     await page.getByRole("button", { name: "Save preferences", exact: true }).click();
     await expect.poll(() => events.length).toBe(2);
     expect(events[1]).toEqual(events[0]);
     await page.getByRole("button", { name: "Application menu", exact: true }).click();
     await page.getByRole("menuitem", { name: "Cookie settings", exact: true }).click();
-    await page.getByRole("switch", { name: "Analytics (OpenPanel)", exact: true }).click();
+    await page.getByRole("switch", { name: "Analytics and performance", exact: true }).click();
     await page.getByRole("button", { name: "Save preferences", exact: true }).click();
     await context.setOffline(true);
     const input = page.getByRole("textbox", { name: "Add a task to Today" });
