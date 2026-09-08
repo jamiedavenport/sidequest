@@ -20,6 +20,8 @@ Task management, to-do list, personal productivity, nested tasks, keyboard short
 
 ## Images
 
-Upload in filename order: board, project lanes, notes, whiteboard. Each image is a 1440 × 900 PNG exported from Paper, using real demo screenshots with a decorative browser frame. Frames have 32px top and side padding and extend beyond the bottom edge.
+Upload `logo.png` in the logo field: a 512 × 512 PNG with the white Detour mark on black and 12.5% padding on every edge.
+
+Upload the screenshots in filename order: board, project lanes, notes, whiteboard. Each image is a 1440 × 900 PNG exported from Paper, using refreshed demo screenshots with the Detour app logo and a decorative browser frame. Frames have 32px top and side padding and extend beyond the bottom edge.
 
 [Editable Paper designs](https://app.paper.design/file/01M1YSHRQGS9BBY8N58CD75HNF/2-0).

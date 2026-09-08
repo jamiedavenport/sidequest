@@ -20,7 +20,9 @@ export const Route = createRootRoute({
       { href: "https://rsms.me", rel: "preconnect" },
       { href: "https://rsms.me/inter/inter.css", rel: "stylesheet" },
       { href: appStyles, rel: "stylesheet" },
-      { href: appIcon, rel: "icon", type: "image/svg+xml" },
+      { href: "/favicon.ico", rel: "icon", sizes: "16x16 32x32 48x48" },
+      { href: appIcon, rel: "icon", type: "image/svg+xml", sizes: "any" },
+      { href: "/apple-touch-icon.png", rel: "apple-touch-icon", sizes: "180x180" },
     ],
     meta: [
       { charSet: "utf-8" },

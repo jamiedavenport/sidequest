@@ -48,13 +48,13 @@ Upload `logo.png` in the logo field. Upload the four covers in this order:
 
 | File                | Dimensions     | Content                                    |
 | ------------------- | -------------- | ------------------------------------------ |
-| `logo.png`          | 500 × 500 px   | Existing SQ brand mark on white            |
+| `logo.png`          | 500 × 500 px   | White Detour mark on black, with padding   |
 | `01-board.png`      | 2880 × 1620 px | Today, Inbox, Launch, and Engineering      |
 | `02-projects.png`   | 2880 × 1620 px | Launch, Engineering, Learning, and Life    |
 | `03-notes.png`      | 2880 × 1620 px | Task notes with board context              |
 | `04-whiteboard.png` | 2880 × 1620 px | Release-process drawing with board context |
 
-The four covers are exported at 2× from 1440 × 810 Paper artboards, giving 2880 × 1620 PNGs in a 16:9 ratio. The logo remains a 500 × 500 PNG. Covers use the original 2784 × 1964 demo screenshots and the pastel browser framing from `promotion/alternativeto`. Frames have 32px top and side margins in the design (64px in the export) and intentionally extend beyond the bottom edge. Screenshot proportions are preserved, and source pixels are not upscaled.
+The four covers are exported at 2× from 1440 × 810 Paper artboards, giving 2880 × 1620 PNGs in a 16:9 ratio. The logo is a 500 × 500 PNG with 12.5% padding on every edge. Covers use refreshed 2784 × 1964 demo screenshots with the Detour app logo and the pastel browser framing from `promotion/alternativeto`. Frames have 32px top and side margins in the design (64px in the export) and intentionally extend beyond the bottom edge. Screenshot proportions are preserved, and source pixels are not upscaled.
 
 Peerlist's [Add Project form](https://peerlist.io/user/projects/add-project) recommends 1200 × 630, but the uploaded preview supplied on 8 September 2026 displayed a roughly 1944 × 1094 image area: 16:9. That cropped the previous covers' side margins. These revised covers match the observed viewer ratio and provide more pixels for large or high-density displays. All covers are below the form's 15 MB per-image limit. The replacement exports were checked locally in a matching 16:9 viewer; Peerlist's processing after re-upload has not been verified.
 

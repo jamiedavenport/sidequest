@@ -12,6 +12,7 @@ import {
 } from "~/components/ui/dropdown-menu.tsrx";
 import { CreditCardIcon, PlugIcon, MenuIcon, LogOutIcon } from "lucide-react";
 import logoUrl from "~/assets/logo.svg?url";
+import logoDarkUrl from "~/assets/logo-dark.svg?url";
 import { authClient } from "~/auth/client";
 import { Button, buttonVariants } from "~/components/ui/button.tsrx";
 
@@ -44,10 +45,17 @@ export function AppHeader() @{
     <a className="flex h-7 w-fit items-center text-foreground no-underline" href="/">
       <img
         alt="Sidequest"
-        className="h-3 w-auto dark:invert"
-        height={12}
+        className="h-5 w-auto dark:hidden"
+        height={104}
         src={logoUrl}
-        width={57}
+        width={435}
+      />
+      <img
+        alt="Sidequest"
+        className="h-5 w-auto not-dark:hidden"
+        height={104}
+        src={logoDarkUrl}
+        width={435}
       />
     </a>
 
