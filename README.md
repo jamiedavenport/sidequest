@@ -67,3 +67,14 @@ charging for hosted access requires separate permission.
 
 This is a summary; the [full license](LICENSE.md) governs use. Third-party
 components retain their own licenses.
+
+<!-- Edit the shared source in jamiedavenport/jamiedavenport.me: readme-snippets/more-by-jamie.md. -->
+<!-- md:include start path="more-by-jamie.md" required=true -->
+
+## More by Jamie
+
+- [PolicyStack](https://github.com/jamiedavenport/policystack) — Privacy policies and cookie consent driven by the same configuration.
+- [Sidequest](https://github.com/jamiedavenport/sidequest) — A personal task manager designed with ADHD in mind.
+- [Capd](https://github.com/jamiedavenport/capd) — A private Mac app for saving and finding links, notes, and images.
+
+<!-- md:include end -->
