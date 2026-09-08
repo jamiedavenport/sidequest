@@ -11,6 +11,8 @@ const todayDateLabel = "Today";
 
 const todayWrittenLabel = format(new Date(), "d MMM");
 
+const todayIsoLabel = format(new Date(), "yyyy-MM-dd");
+
 export function createDerivedBoardCollections(
   lanes: Collection<Lane, string>,
   tasks: SyncedTaskCollection,
@@ -29,7 +31,11 @@ export function createDerivedBoardCollections(
             or(isUndefined(task.laneId), eq(task.laneId, inboxLaneId)),
             or(
               isUndefined(task.date),
-              and(not(eq(task.date, todayDateLabel)), not(eq(task.date, todayWrittenLabel))),
+              and(
+                not(eq(task.date, todayDateLabel)),
+                not(eq(task.date, todayWrittenLabel)),
+                not(eq(task.date, todayIsoLabel)),
+              ),
             ),
           ),
         )
@@ -50,6 +56,7 @@ export function createDerivedBoardCollections(
             or(
               eq(task.date, todayDateLabel),
               eq(task.date, todayWrittenLabel),
+              eq(task.date, todayIsoLabel),
               eq(task.laneId, todayLaneId),
             ),
           ),

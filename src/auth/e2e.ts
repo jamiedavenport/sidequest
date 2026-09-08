@@ -1,3 +1,6 @@
+import { env as bindings } from "cloudflare:workers";
+import { isE2EEnabled } from "~/auth/e2e-guard";
+import { BoardSeedError, SeedOptions } from "~/board/seeds/schema";
 import { eq } from "drizzle-orm";
 import { Clock, Effect, Schema } from "effect";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
@@ -12,8 +15,6 @@ import { serverRuntime } from "~/server/runtime";
 
 const E2E_SECRET_HEADER = "x-sidequest-e2e-secret";
 
-const LOCAL_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
-
 const e2eAuth = betterAuth({
   baseURL: env.BETTER_AUTH_URL.href,
   database: drizzleAdapter(db, {
@@ -25,46 +26,72 @@ const e2eAuth = betterAuth({
 });
 
 function isEnabled(request: Request): boolean {
-  const sessionSecret = env.E2E_SESSION_SECRET;
-
-  return (
-    env.E2E_MODE === "1" &&
-    sessionSecret !== undefined &&
-    request.headers.get(E2E_SECRET_HEADER) === sessionSecret &&
-    LOCAL_HOSTS.has(env.BETTER_AUTH_URL.hostname) &&
-    LOCAL_HOSTS.has(new URL(request.url).hostname)
-  );
+  return isE2EEnabled(env, request.url, request.headers.get(E2E_SECRET_HEADER));
 }
 
 function disabledResponse(): Response {
   return new Response(null, { status: 404 });
 }
 
-export async function createE2ESession(request: Request): Promise<Response> {
-  if (!isEnabled(request)) {
-    return disabledResponse();
-  }
-
-  const { test } = await e2eAuth.$context;
-  const existingUserId = new URL(request.url).searchParams.get("userId");
+const createSession = Effect.fn("createSession")(function* (request: Request) {
+  const { test } = yield* Effect.tryPromise({
+    try: () => e2eAuth.$context,
+    catch: () => new E2ESessionError(),
+  });
+  const params = new URL(request.url).searchParams;
+  const existingUserId = params.get("userId");
   if (existingUserId !== null) {
-    const { cookies } = await test.login({ userId: existingUserId });
+    const { cookies } = yield* Effect.tryPromise({
+      try: () => test.login({ userId: existingUserId }),
+      catch: () => new E2ESessionError(),
+    });
     return Response.json({ cookies });
   }
+  const options = yield* Schema.decodeUnknownEffect(SeedOptions)({
+    ...(params.has("seed") ? { seed: params.get("seed") } : {}),
+    ...(params.has("anchorDate") ? { anchorDate: params.get("anchorDate") } : {}),
+  });
   const user = test.createUser({
     email: `e2e-${crypto.randomUUID()}@example.test`,
-    name: "Sidequest E2E User",
+    name: options.seed === "demo" ? "Sidequest Demo" : "Sidequest E2E User",
   });
-  const savedUser = await test.saveUser(user);
-  const { cookies } = await test.login({ userId: savedUser.id });
+  const savedUser = yield* Effect.tryPromise({
+    try: () => test.saveUser(user),
+    catch: () => new E2ESessionError(),
+  });
+  if (options.seed !== undefined && options.seed !== "empty") {
+    yield* Effect.tryPromise({
+      try: () =>
+        bindings.BOARD.getByName(savedUser.id).seedE2E(
+          savedUser.id,
+          options,
+          request.url,
+          request.headers.get(E2E_SECRET_HEADER),
+        ),
+      catch: () => new BoardSeedError({ message: "Could not create E2E board fixture." }),
+    });
+  }
+  const { cookies } = yield* Effect.tryPromise({
+    try: () => test.login({ userId: savedUser.id }),
+    catch: () => new E2ESessionError(),
+  });
+  return Response.json({ cookies, user: { email: savedUser.email, id: savedUser.id } });
+});
 
-  return Response.json({
-    cookies,
-    user: {
-      email: savedUser.email,
-      id: savedUser.id,
-    },
-  });
+export function createE2ESession(request: Request): Promise<Response> {
+  if (!isEnabled(request)) {
+    return Promise.resolve(disabledResponse());
+  }
+  return serverRuntime.runPromise(
+    createSession(request).pipe(
+      Effect.catchTags({
+        SchemaError: () =>
+          Effect.succeed(Response.json({ error: "Invalid seed options." }, { status: 400 })),
+        BoardSeedError: (error) =>
+          Effect.succeed(Response.json({ error: error.message }, { status: 500 })),
+      }),
+    ),
+  );
 }
 
 class E2ESessionError extends Schema.TaggedError<E2ESessionError>()("E2ESessionError", {}) {}

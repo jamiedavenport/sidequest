@@ -1,3 +1,4 @@
+import type { SeedOptions } from "../../src/board/seeds/schema";
 import { expect, type APIRequestContext, type BrowserContext } from "@playwright/test";
 
 const E2E_SESSION_SECRET = "sidequest-e2e-session-helper-secret";
@@ -39,8 +40,11 @@ function isE2ESession(value: unknown): value is E2ESession {
   );
 }
 
-export async function createSession(request: APIRequestContext): Promise<E2ESession> {
-  const response = await request.post("/api/e2e/session", {
+export async function createSession(
+  request: APIRequestContext,
+  options: SeedOptions = {},
+): Promise<E2ESession> {
+  const response = await request.post(`/api/e2e/session?${new URLSearchParams(options)}`, {
     headers: { [E2E_SECRET_HEADER]: E2E_SESSION_SECRET },
   });
 

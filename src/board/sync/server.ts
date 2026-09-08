@@ -1,3 +1,8 @@
+import { isE2EEnabled } from "~/auth/e2e-guard";
+import { createDemoSeed } from "~/board/seeds/demo";
+import { createOnboardingSeed } from "~/board/seeds/onboarding";
+import { persistBoardSeed } from "~/board/seeds/persist";
+import { BoardSeedError, SeedOptions, type BoardSeed } from "~/board/seeds/schema";
 import { env } from "~/env";
 import { GitHubBoard } from "~/github/board";
 import { GitHubError, GitHubSettings, fromGithubPromise, toGithubError } from "~/github/schema";
@@ -13,7 +18,7 @@ import { digest, normalizedInput, planCommand, queryBoard } from "~/mcp/domain";
 import { ToolError, ToolReply, isWriteTool, type ToolName } from "~/mcp/schema";
 import { createCloudflareDOSQLitePersistence } from "@tanstack/cloudflare-durable-objects-db-sqlite-persistence";
 import { createTransaction, type PendingMutation } from "@tanstack/db";
-import { Effect, Schema } from "effect";
+import { DateTime, Effect, Schema } from "effect";
 
 import {
   BoardMigrationError,
@@ -165,6 +170,53 @@ export class BoardObject extends SyncDurableObject<Env> {
     }
     await this.ctx.storage.put("billing:owner", userId);
   }
+
+  async seedOnboarding(userId: string) {
+    await this.bindOwner(userId);
+    return this.serialized(() => serverRuntime.runPromise(this.#seedBoard(createOnboardingSeed())));
+  }
+
+  async seedE2E(userId: string, options: SeedOptions, requestUrl: string, secret: string | null) {
+    if (!isE2EEnabled(env, requestUrl, secret)) {
+      throw new BoardSeedError({ message: "E2E board seeding is disabled." });
+    }
+    await this.bindOwner(userId);
+    const input = Schema.decodeUnknownSync(SeedOptions)(options);
+    if (input.seed === undefined || input.seed === "empty") {
+      return false;
+    }
+    const seed =
+      input.seed === "onboarding"
+        ? createOnboardingSeed()
+        : createDemoSeed({
+            anchorDate: input.anchorDate ?? DateTime.formatIsoDateUtc(DateTime.nowUnsafe()),
+          });
+    return this.serialized(() => serverRuntime.runPromise(this.#seedBoard(seed)));
+  }
+
+  #seedBoard = Effect.fn("BoardObject.seedBoard")(function* (this: BoardObject, seed: BoardSeed) {
+    const seeded = yield* persistBoardSeed(
+      {
+        lanes: this.lanes,
+        tasks: this.tasks,
+        notes: this.notes,
+        whiteboards: this.whiteboards,
+      },
+      seed,
+    );
+    if (seeded) {
+      this.#revision += 1;
+      yield* Effect.tryPromise({
+        try: () => this.ctx.storage.put("board:revision", this.#revision),
+        catch: () => new BoardSeedError({ message: "Could not save seed revision." }),
+      });
+      yield* Effect.tryPromise({
+        try: () => this.broadcastSyncSnapshot(),
+        catch: () => new BoardSeedError({ message: "Could not broadcast board seed." }),
+      });
+    }
+    return seeded;
+  });
 
   async billing(userId: string, action: BillingAction) {
     await this.bindOwner(userId);

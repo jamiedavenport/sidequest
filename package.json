@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply sidequest-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply sidequest-db --remote",
+    "demo": "playwright test --config playwright.demo.config.ts",
     "dev": "bun run cf-typegen && vite dev",
     "dev:tunnel": "cloudflared tunnel --config ~/.cloudflared/sidequest-dev.yml run sidequest-dev",
     "format": "oxfmt --check . && bun run scripts/declaration-spacing.ts --check",

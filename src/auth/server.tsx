@@ -1,3 +1,5 @@
+import { env as bindings } from "cloudflare:workers";
+import { BoardSeedError } from "~/board/seeds/schema";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { mcpTokenPlugin, oauthOptions } from "~/mcp/oauth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
@@ -45,6 +47,28 @@ function createWelcomeEmailText(): string {
 class WelcomeEmailError extends Schema.TaggedError<WelcomeEmailError>()("WelcomeEmailError", {
   message: Schema.String,
 }) {}
+
+const welcomeNewUser = Effect.fn("welcomeNewUser")(function* (user: {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+}) {
+  yield* Effect.tryPromise({
+    try: () => bindings.BOARD.getByName(user.id).seedOnboarding(user.id),
+    catch: () => new BoardSeedError({ message: "Onboarding board initialization failed." }),
+  }).pipe(
+    Effect.catchTag("BoardSeedError", (error) =>
+      Effect.logError("Could not seed onboarding board.", { message: error.message }),
+    ),
+  );
+  if (user.emailVerified) {
+    yield* sendWelcomeEmail(user.email).pipe(
+      Effect.catchTag("WelcomeEmailError", (error) =>
+        Effect.logError("Could not send welcome email.", { message: error.message }),
+      ),
+    );
+  }
+});
 
 const sendWelcomeEmail = Effect.fn("sendWelcomeEmail")(function* (
   email: string,
@@ -113,17 +137,8 @@ export function createAuth() {
     databaseHooks: {
       user: {
         create: {
-          async after(user) {
-            if (!user.emailVerified) {
-              return;
-            }
-            await serverRuntime.runPromise(
-              sendWelcomeEmail(user.email).pipe(
-                Effect.catchTag("WelcomeEmailError", (error) =>
-                  Effect.logError("Could not send welcome email.", { message: error.message }),
-                ),
-              ),
-            );
+          after(user) {
+            return serverRuntime.runPromise(welcomeNewUser(user));
           },
         },
       },

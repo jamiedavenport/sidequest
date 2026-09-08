@@ -1,0 +1,97 @@
+import { Effect } from "effect";
+import { beforeEach, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ seed: vi.fn(), send: vi.fn() }));
+
+vi.mock("cloudflare:workers", () => ({
+  env: { BOARD: { getByName: () => ({ seedOnboarding: mocks.seed }) } },
+}));
+vi.mock("~/db/client", () => ({ db: {} }));
+vi.mock("~/env", () => ({
+  env: {
+    BETTER_AUTH_URL: new URL("http://localhost:3000"),
+    BETTER_AUTH_SECRET: "test-only-secret-with-at-least-32-characters",
+    RESEND_API_KEY: "test",
+  },
+}));
+vi.mock("~/server/runtime", () => ({ serverRuntime: { runPromise: Effect.runPromise } }));
+vi.mock("resend", () => ({
+  Resend: class {
+    emails = { send: mocks.send };
+  },
+}));
+vi.mock("@better-auth/drizzle-adapter", async () => {
+  const { memoryAdapter } = await import("better-auth/adapters/memory");
+  return {
+    drizzleAdapter: () => memoryAdapter({ user: [], session: [], account: [], verification: [] }),
+  };
+});
+vi.mock("@better-auth/oauth-provider", () => ({ oauthProvider: () => ({ id: "oauth-test" }) }));
+vi.mock("~/mcp/oauth", () => ({
+  oauthOptions: () => ({}),
+  mcpTokenPlugin: () => ({ id: "mcp-test" }),
+}));
+vi.mock("better-auth/tanstack-start", () => ({
+  tanstackStartCookies: () => ({ id: "cookies-test" }),
+}));
+
+import { createAuth } from "~/auth/server";
+
+beforeEach(() => {
+  mocks.seed.mockReset().mockResolvedValue(true);
+  mocks.send.mockReset().mockResolvedValue({ error: null });
+});
+
+it("seeds email OTP signup once and leaves subsequent sign-ins untouched", async () => {
+  const auth = createAuth();
+  const email = "otp@example.test";
+  const otp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
+  const signup = await auth.api.signInEmailOTP({ body: { email, otp } });
+  expect(mocks.seed).toHaveBeenCalledExactlyOnceWith(signup.user.id);
+  const nextOtp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
+  await auth.api.signInEmailOTP({ body: { email, otp: nextOtp } });
+  expect(mocks.seed).toHaveBeenCalledTimes(1);
+});
+
+it("awaits onboarding on the OAuth creation path even for unverified email", async () => {
+  const auth = createAuth();
+  const context = await auth.$context;
+  let finish: ((value: boolean) => void) | undefined;
+  mocks.seed.mockImplementation(
+    () =>
+      new Promise<boolean>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  let settled = false;
+  const pending = context.internalAdapter
+    .createOAuthUser(
+      {
+        email: "oauth@example.test",
+        name: "OAuth",
+        emailVerified: false,
+      },
+      { providerId: "github", issuer: "https://github.com", accountId: "123" },
+    )
+    .then((result) => {
+      settled = true;
+      return result;
+    });
+  await vi.waitFor(() => expect(mocks.seed).toHaveBeenCalledTimes(1));
+  expect(settled).toBe(false);
+  finish?.(true);
+  const result = await pending;
+  expect(mocks.seed).toHaveBeenCalledWith(result.user.id);
+  expect(mocks.send).not.toHaveBeenCalled();
+});
+
+it("logs seed failures without failing registration or suppressing the welcome email", async () => {
+  mocks.seed.mockRejectedValue(new Error("fixture storage failure"));
+  const auth = createAuth();
+  const email = "failure@example.test";
+  const otp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
+  const signup = await auth.api.signInEmailOTP({ body: { email, otp } });
+  expect(signup.user.email).toBe(email);
+  expect(mocks.seed).toHaveBeenCalledTimes(1);
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+});
