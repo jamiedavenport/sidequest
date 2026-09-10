@@ -86,9 +86,16 @@ test("demo fixtures persist across reload and a second client, including notes a
       await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     }
     await page
-      .getByRole("button", { name: "Select Sketch the release process", exact: true })
-      .click();
-    await page.keyboard.press("w");
+      .getByRole("button", { name: "Open notes for Sketch the release process", exact: true })
+      .focus();
+    await page.keyboard.press("Tab");
+    await expect(
+      page.getByRole("button", {
+        name: "Open whiteboard for Sketch the release process",
+        exact: true,
+      }),
+    ).toBeFocused();
+    await page.keyboard.press("Enter");
     await expect(page.getByRole("toolbar", { name: "Whiteboard drawing tools" })).toBeVisible();
     await page.getByRole("button", { name: "Fit drawing to view" }).click();
     await page.screenshot({ path: ".playwright/demo-whiteboard.png" });

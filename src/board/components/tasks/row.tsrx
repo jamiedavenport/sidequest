@@ -18,7 +18,7 @@ import { useBoardClient } from "~/board/sync/client.tsrx";
 import { useBoardSelector } from "~/board/navigation/provider.tsrx";
 import { currentLaneId, selectedTaskId } from "~/board/navigation/model";
 import { TaskEdit } from "~/board/components/tasks/edit.tsrx";
-import { Badge } from "~/components/ui/badge.tsrx";
+import { TaskMetadata } from "~/board/components/tasks/metadata.tsrx";
 import type { BoardTask } from "~/board/types";
 import { hasActiveTaskChildren } from "~/board/views";
 
@@ -32,14 +32,6 @@ type TaskIndentStyle = CSSProperties & {
   "--task-indent": string;
   "--task-indent-sm": string;
 };
-
-function TaskMetadata({ task }: { task: BoardTask }) @{
-  @if (task.date !== undefined) {
-    <div className="flex flex-wrap items-center gap-1.5 pt-2 text-sm/5 sm:text-[0.625rem]/4">
-      <Badge variant={task.date === "Today" ? "today" : "secondary"}>{task.date}</Badge>
-    </div>;
-  }
-}
 
 export function TaskRow({ laneId, task }: { laneId: string; task: BoardTask }) @{
   const client = useBoardClient();
@@ -137,7 +129,7 @@ function TaskRowContent({
           <p className="[overflow-wrap:anywhere] whitespace-pre-wrap text-foreground/90">
             {task.title}
           </p>
-          <TaskMetadata task={task} />
+          <TaskMetadata laneId={laneId} task={task} />
           <TaskAttachments task={task} />
         </div>
         <div className="pointer-events-auto absolute top-0 right-0 flex h-6 items-center sm:h-4.25">
