@@ -12,6 +12,7 @@
       },
     ],
   },
+  "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "sidequest-attachments" }],
   "d1_databases": [
     {
       "binding": "DB",

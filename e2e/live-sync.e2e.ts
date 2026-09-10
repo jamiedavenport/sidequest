@@ -132,7 +132,7 @@ test("live task changes propagate between devices and into a fresh snapshot", as
             new Promise<unknown>((resolve, reject) => {
               const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
               const socket = new WebSocket(
-                `${protocol}//${window.location.host}/api/board?syncVersion=2&userId=${encodeURIComponent(accountId)}`,
+                `${protocol}//${window.location.host}/api/board?syncVersion=3&userId=${encodeURIComponent(accountId)}`,
               );
               socket.addEventListener("open", () => {
                 socket.send(JSON.stringify({ _tag: "Sync" }));
@@ -225,6 +225,11 @@ test("collapsed task subtrees sync and preserve nested collapse state", async ({
     await addTodayTask(pageA, rootTitle);
     await addTodayTask(pageA, childTitle);
     await pageA.getByRole("button", { name: `Select ${childTitle}` }).click();
+    await expect(
+      pageA
+        .getByRole("listitem")
+        .filter({ has: pageA.getByRole("button", { name: `Select ${childTitle}` }) }),
+    ).toHaveAttribute("aria-current", "true");
     await pageA.keyboard.press("Tab");
     await expect(pageA.getByRole("button", { name: `Collapse ${rootTitle}` })).toBeVisible();
 

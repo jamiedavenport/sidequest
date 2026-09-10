@@ -47,7 +47,7 @@ test("expiry rejects writes on an already connected socket while retaining reads
     await expect(page.getByRole("heading", { name: "Sidequest task board" })).toBeAttached();
     await page.evaluate(async (userId) => {
       const socket = new WebSocket(
-        `${location.origin.replace("http", "ws")}/api/board?syncVersion=2&userId=${encodeURIComponent(userId)}`,
+        `${location.origin.replace("http", "ws")}/api/board?syncVersion=3&userId=${encodeURIComponent(userId)}`,
       );
       await new Promise<void>((resolve) => socket.addEventListener("open", () => resolve()));
       Object.assign(window, { billingTestSocket: socket });

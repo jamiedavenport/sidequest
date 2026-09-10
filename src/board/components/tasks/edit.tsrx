@@ -1,20 +1,19 @@
+import { TaskComposerControls } from "~/board/components/tasks/composer/controls.tsrx";
+import { useAttachmentDraft } from "~/board/attachments/use-attachment-draft";
+import { AttachmentDraftList } from "~/board/components/tasks/attachments/draft-list.tsrx";
 // oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
 import { useForm } from "@tanstack/react-form";
-import { useHotkeys } from "@tanstack/react-hotkeys";
-import { Calendar as CalendarIcon, Check, X } from "lucide-react";
+import { useComposerHotkeys } from "~/board/components/tasks/composer/use-hotkeys";
+import { Check, X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
-import type { RefObject } from "react";
 
 import { formatTaskDate, parseTaskDate } from "~/board/date";
 import { updateTask } from "~/board/data/mutations";
 import { useBoardStore } from "~/board/navigation/provider.tsrx";
 import { BoardEvent } from "~/board/navigation/model";
 import { taskFormSchema } from "~/board/schema";
-import { dateHotkey, saveHotkey, ShortcutLabel } from "~/board/components/shortcut-keys.tsrx";
 import { useBoardClient } from "~/board/sync/client.tsrx";
 import type { Task } from "~/board/types";
-import { Button } from "~/components/ui/button.tsrx";
-import { Calendar } from "~/components/ui/calendar.tsrx";
 import { Field, FieldError, FieldLabel } from "~/components/ui/field.tsrx";
 import {
   InputGroup,
@@ -22,7 +21,6 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from "~/components/ui/input-group.tsrx";
-import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover.tsrx";
 
 function focusTask(laneId: string, taskId: string) {
   requestAnimationFrame(() => {
@@ -33,74 +31,10 @@ function focusTask(laneId: string, taskId: string) {
   });
 }
 
-function TaskDatePicker({
-  calendarOpen,
-  onChange,
-  setCalendarOpen,
-  titleRef,
-  value,
-}: {
-  calendarOpen: boolean;
-  onChange: (value: Date | undefined) => void;
-  setCalendarOpen: (open: boolean) => void;
-  titleRef: RefObject<HTMLTextAreaElement | null>;
-  value: Date | undefined;
-}) @{
-  <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-    <PopoverTrigger
-      render={<InputGroupButton type="button" variant="ghost" />}
-      aria-label={
-        value === undefined ? "Pick a due date" : `Change due date, ${formatTaskDate(value)}`
-      }
-    >
-      <CalendarIcon
-        className={value === undefined ? undefined : "text-primary"}
-        aria-hidden="true"
-      />
-      {value === undefined ? "No due date" : formatTaskDate(value)}
-      <ShortcutLabel hotkey={dateHotkey} />
-    </PopoverTrigger>
-    <PopoverContent
-      className="w-auto gap-0 p-0"
-      align="start"
-      initialFocus={false}
-      finalFocus={titleRef}
-    >
-      <Calendar
-        mode="single"
-        // oxlint-disable-next-line jsx-a11y/no-autofocus
-        autoFocus={calendarOpen}
-        defaultMonth={value}
-        selected={value}
-        onSelect={(next) => {
-          onChange(next);
-          setCalendarOpen(false);
-          titleRef.current?.focus();
-        }}
-      />
-      @if (value !== undefined) {
-        <div className="flex justify-end border-t border-border/50 p-2">
-          <Button
-            size="sm"
-            type="button"
-            variant="ghost"
-            onClick={() => {
-              onChange(undefined);
-              setCalendarOpen(false);
-              titleRef.current?.focus();
-            }}
-          >
-            Clear due date
-          </Button>
-        </div>;
-      }
-    </PopoverContent>
-  </Popover>;
-}
-
 export function TaskEdit({ laneId, task }: { laneId: string; task: Task }) @{
   const store = useBoardStore();
   const client = useBoardClient();
+  const attachments = useAttachmentDraft(task.id, task.attachments);
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [initialValues] = useState(() => ({
@@ -113,10 +47,15 @@ export function TaskEdit({ laneId, task }: { laneId: string; task: Task }) @{
       onSubmit: taskFormSchema,
     },
     onSubmit: ({ value }) => {
+      if (!attachments.ready) {
+        return;
+      }
       updateTask(client, task.id, {
         title: value.title,
+        attachments: attachments.attachments,
         date: value.date === undefined ? undefined : formatTaskDate(value.date),
       });
+      attachments.reset(true);
       store.send(BoardEvent.EditSave({}));
       focusTask(laneId, task.id);
     },
@@ -134,48 +73,19 @@ export function TaskEdit({ laneId, task }: { laneId: string; task: Task }) @{
   }, []);
 
   function cancel() {
+    attachments.reset();
     store.send(BoardEvent.EditCancel({}));
     focusTask(laneId, task.id);
   }
 
-  useHotkeys([
-    {
-      hotkey: saveHotkey,
-      callback: () => {
-        void form.handleSubmit();
-      },
-      options: {
-        enabled: !calendarOpen,
-        ignoreInputs: false,
-        meta: { name: "Save task" },
-      },
-    },
-    {
-      hotkey: dateHotkey,
-      callback: () => {
-        setCalendarOpen(true);
-      },
-      options: {
-        enabled: !calendarOpen,
-        ignoreInputs: false,
-        target: titleRef,
-        meta: { name: "Focus due date" },
-      },
-    },
-    {
-      hotkey: "Escape",
-      callback: () => {
-        if (calendarOpen) {
-          setCalendarOpen(false);
-          titleRef.current?.focus();
-          return;
-        }
-
-        cancel();
-      },
-      options: { ignoreInputs: false, meta: { name: "Cancel edit" } },
-    },
-  ]);
+  useComposerHotkeys({
+    mode: "edit",
+    calendarOpen,
+    setCalendarOpen,
+    titleRef,
+    onSubmit: () => form.handleSubmit(),
+    onCancel: cancel,
+  });
 
   <form
     className="pointer-events-auto min-w-0 flex-1 select-text"
@@ -193,7 +103,7 @@ export function TaskEdit({ laneId, task }: { laneId: string; task: Task }) @{
           <FieldLabel className="sr-only" htmlFor={`edit-${task.id}-title`}>
             Task title
           </FieldLabel>
-          <InputGroup className="bg-card">
+          <InputGroup className="@container/task-composer bg-card">
             <InputGroupTextarea
               ref={titleRef}
               className="text-base/6 sm:text-[0.8125rem]/4.25"
@@ -201,15 +111,18 @@ export function TaskEdit({ laneId, task }: { laneId: string; task: Task }) @{
               aria-invalid={isInvalid}
               id={`edit-${task.id}-title`}
               name={titleField.name}
+              onPaste={attachments.paste}
               onBlur={titleField.handleBlur}
               onChange={(event) => titleField.handleChange(event.target.value)}
               rows={3}
               value={titleField.state.value}
             />
+            <AttachmentDraftList draft={attachments} />
             <InputGroupAddon align="block-end" className="justify-between border-t">
               <form.Field name="date">
                 {(dateField) => @{
-                  <TaskDatePicker
+                  <TaskComposerControls
+                    draft={attachments}
                     calendarOpen={calendarOpen}
                     onChange={dateField.handleChange}
                     setCalendarOpen={setCalendarOpen}
@@ -231,6 +144,7 @@ export function TaskEdit({ laneId, task }: { laneId: string; task: Task }) @{
                 </InputGroupButton>
                 <InputGroupButton
                   size="icon-xs"
+                  disabled={!attachments.ready}
                   type="submit"
                   variant="default"
                   aria-label="Save task"

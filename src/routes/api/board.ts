@@ -14,7 +14,7 @@ export const Route = createFileRoute("/api/board")({
         }
 
         const url = new URL(request.url);
-        if (url.searchParams.get("syncVersion") !== "2") {
+        if (url.searchParams.get("syncVersion") !== "3") {
           return new Response("Reload to update board sync", { status: 400 });
         }
 

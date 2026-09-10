@@ -9,6 +9,8 @@ export const completeHotkey = "Enter";
 
 export const completeHotkeys = [completeHotkey];
 
+export const attachmentHotkey = "Mod+Shift+U";
+
 export const dateHotkey = "Mod+Shift+D";
 
 export const editHotkey = "E";

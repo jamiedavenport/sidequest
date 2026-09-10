@@ -3,7 +3,13 @@ import { isTaskInView, placementForCreate } from "~/board/views";
 
 export function planTaskCreate(
   tasks: ReadonlyArray<Task>,
-  input: { id: string; viewId: string; title: string; date?: string },
+  input: {
+    id: string;
+    viewId: string;
+    title: string;
+    date?: string;
+    attachments?: Task["attachments"];
+  },
   now = new Date(),
   today?: string,
 ): Task {
@@ -14,6 +20,7 @@ export function planTaskCreate(
       tasks
         .filter((task) => !task.completed && isTaskInView(task, input.viewId, now))
         .reduce((max, task) => Math.max(max, task.rank), -1) + 1,
+    ...(input.attachments === undefined ? {} : { attachments: input.attachments }),
     completed: false,
     collapsed: false,
     ...placementForCreate(input.viewId, input.date, now, today),
@@ -30,7 +37,9 @@ export function planTaskUpdate(task: Task, patch: { title?: string; date?: strin
       ? {}
       : {
           attachments:
-            task.attachments?.filter((attachment) => attachment.type === "github-issue") ?? [],
+            task.attachments?.filter(
+              (attachment) => attachment.type !== "link" || attachment.source === "manual",
+            ) ?? [],
         }),
   };
 }

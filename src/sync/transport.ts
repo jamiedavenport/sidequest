@@ -637,6 +637,27 @@ export function transactionMutations(
       type: mutation.type === "update" ? "update" : "insert",
       key: String(mutation.key),
       value: mutation.modified,
+      ...(collection === "tasks" && mutation.type === "update"
+        ? {
+            originalAttachmentIds: getAttachmentIds(mutation.original),
+          }
+        : {}),
     });
   });
+}
+
+function getAttachmentIds(value: unknown): string[] {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("attachments" in value) ||
+    !Array.isArray(value.attachments)
+  ) {
+    return [];
+  }
+  return value.attachments.flatMap((item: unknown) =>
+    typeof item === "object" && item !== null && "id" in item && typeof item.id === "string"
+      ? [item.id]
+      : [],
+  );
 }

@@ -24,11 +24,11 @@ const descriptions: Record<ToolName, string> = {
     "List synchronized tasks, active by default. parentId null selects roots. Today is date-based; UTC is the default timezone. Offline pending edits are not visible.",
   search_tasks:
     "Case-insensitive title search with view, parent, and completion filters. Defaults to active tasks and UTC.",
-  get_task: "Get task state, link attachment metadata, and ancestors, including completed tasks.",
+  get_task: "Get task state, attachment metadata, and ancestors, including completed tasks.",
   create_task:
     "Create a task in Inbox by default. Dates use YYYY-MM-DD. Today assigns today's date; parent placement is inherited. Requires a unique idempotencyKey.",
   update_task:
-    "Patch title or date. Omitted values are preserved; null clears date. Changing title resets link attachments for enrichment. Completed tasks cannot be edited. Requires idempotencyKey.",
+    "Patch title or date. Omitted values are preserved; null clears date. Changing title refreshes title-derived links and preserves manual attachments. Completed tasks cannot be edited. Requires idempotencyKey.",
   move_task:
     "Move an active task and active descendants. Append to a view or place before, after, or nest under a task. Inbox clears dates; Today assigns today's full date; custom lanes preserve dates. Nesting inherits parent placement. Requires idempotencyKey.",
   complete_task:

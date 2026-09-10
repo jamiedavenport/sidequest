@@ -14,7 +14,7 @@ async function readSnapshot(page: Page, userId: string) {
         collections: { collection: string; values: { id?: string; completed?: boolean }[] }[];
       }>((resolve, reject) => {
         const socket = new WebSocket(
-          `ws://${window.location.host}/api/board?syncVersion=2&userId=${encodeURIComponent(id)}`,
+          `ws://${window.location.host}/api/board?syncVersion=3&userId=${encodeURIComponent(id)}`,
         );
         socket.addEventListener("open", () => socket.send(JSON.stringify({ _tag: "Sync" })));
         socket.addEventListener("message", (event) => {
@@ -95,12 +95,12 @@ test("demo fixtures persist across reload and a second client, including notes a
     await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     await page.reload();
     await expect(page.getByRole("heading", { name: "Launch", exact: true })).toBeVisible();
-    expect(await readSnapshot(page, session.user.id)).toEqual(snapshot);
+    expect((await readSnapshot(page, session.user.id)).collections).toEqual(snapshot.collections);
     const other = await second.newPage();
     await other.clock.setFixedTime(new Date(`${anchorDate}T12:00:00`));
     await other.goto("/");
     await expect(other.getByRole("heading", { name: "Launch", exact: true })).toBeVisible();
-    expect(await readSnapshot(other, session.user.id)).toEqual(snapshot);
+    expect((await readSnapshot(other, session.user.id)).collections).toEqual(snapshot.collections);
     expect(errors).toEqual([]);
   } finally {
     await first.close();

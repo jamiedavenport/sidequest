@@ -19,6 +19,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ApiBoardRouteImport } from './routes/api/board'
 import { Route as ApiTelemetryRouteImport } from './routes/api/telemetry'
+import { Route as ApiAttachmentsIdRouteImport } from './routes/api/attachments/$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiBillingWebhookRouteImport } from './routes/api/billing/webhook'
 import { Route as ApiE2eSessionRouteImport } from './routes/api/e2e/session'
@@ -74,6 +75,11 @@ const ApiTelemetryRoute = ApiTelemetryRouteImport.update({
   path: '/api/telemetry',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAttachmentsIdRoute = ApiAttachmentsIdRouteImport.update({
+  id: '/api/attachments/$id',
+  path: '/api/attachments/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/api/board': typeof ApiBoardRoute
   '/api/telemetry': typeof ApiTelemetryRoute
+  '/api/attachments/$id': typeof ApiAttachmentsIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
   '/api/e2e/session': typeof ApiE2eSessionRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/api/board': typeof ApiBoardRoute
   '/api/telemetry': typeof ApiTelemetryRoute
+  '/api/attachments/$id': typeof ApiAttachmentsIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
   '/api/e2e/session': typeof ApiE2eSessionRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/api/board': typeof ApiBoardRoute
   '/api/telemetry': typeof ApiTelemetryRoute
+  '/api/attachments/$id': typeof ApiAttachmentsIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
   '/api/e2e/session': typeof ApiE2eSessionRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/api/board'
     | '/api/telemetry'
+    | '/api/attachments/$id'
     | '/api/auth/$'
     | '/api/billing/webhook'
     | '/api/e2e/session'
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/api/board'
     | '/api/telemetry'
+    | '/api/attachments/$id'
     | '/api/auth/$'
     | '/api/billing/webhook'
     | '/api/e2e/session'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/api/board'
     | '/api/telemetry'
+    | '/api/attachments/$id'
     | '/api/auth/$'
     | '/api/billing/webhook'
     | '/api/e2e/session'
@@ -206,6 +218,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   ApiBoardRoute: typeof ApiBoardRoute
   ApiTelemetryRoute: typeof ApiTelemetryRoute
+  ApiAttachmentsIdRoute: typeof ApiAttachmentsIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiBillingWebhookRoute: typeof ApiBillingWebhookRoute
   ApiE2eSessionRoute: typeof ApiE2eSessionRoute
@@ -284,6 +297,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTelemetryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/attachments/$id': {
+      id: '/api/attachments/$id'
+      path: '/api/attachments/$id'
+      fullPath: '/api/attachments/$id'
+      preLoaderRoute: typeof ApiAttachmentsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -326,6 +346,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   ApiBoardRoute: ApiBoardRoute,
   ApiTelemetryRoute: ApiTelemetryRoute,
+  ApiAttachmentsIdRoute: ApiAttachmentsIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiBillingWebhookRoute: ApiBillingWebhookRoute,
   ApiE2eSessionRoute: ApiE2eSessionRoute,

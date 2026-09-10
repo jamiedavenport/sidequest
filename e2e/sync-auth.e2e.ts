@@ -9,7 +9,7 @@ async function openSocket(page: Page, accountId: string, socketName: string) {
   await page.evaluate(
     async ({ userId, name }) => {
       const socket = new WebSocket(
-        `${location.origin.replace("http", "ws")}/api/board?syncVersion=2&userId=${encodeURIComponent(userId)}`,
+        `${location.origin.replace("http", "ws")}/api/board?syncVersion=3&userId=${encodeURIComponent(userId)}`,
       );
       const state = { socket, messages: [] as { _tag: string }[], code: 0 };
       Reflect.set(window, name, state);
@@ -177,8 +177,8 @@ test("upgrade rejects legacy clients and wrong accounts despite forged internal 
         [
           ["", 400],
           ["?syncVersion=1", 400],
-          ["?syncVersion=2", 403],
-          ["?syncVersion=2&userId=wrong", 403],
+          ["?syncVersion=3", 403],
+          ["?syncVersion=3&userId=wrong", 403],
         ] as const
       ).map(async ([query, status]) => {
         const response = await context.request.get(`/api/board${query}`, {

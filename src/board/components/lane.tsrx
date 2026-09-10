@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 import { useLaneChrome } from "~/board/components/lane-chrome.tsrx";
 import { LaneSymbol } from "~/board/components/lane/symbol.tsrx";
-import { QuickAdd } from "~/board/components/quick-add.tsrx";
+import { QuickAdd } from "~/board/components/tasks/composer/quick-add.tsrx";
 import {
   addLaneHotkeys,
   moveLaneLeftHotkeys,
@@ -23,7 +23,7 @@ import {
   renameLaneHotkeys,
   ShortcutKeys,
 } from "~/board/components/shortcut-keys.tsrx";
-import { TaskRow } from "~/board/components/task-row.tsrx";
+import { TaskRow } from "~/board/components/tasks/row.tsrx";
 import { addLane, moveLane, requestRemoveLane, updateLane } from "~/board/data/mutations";
 import { useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
 import { BoardEvent, currentLaneId, selectedTaskId } from "~/board/navigation/model";

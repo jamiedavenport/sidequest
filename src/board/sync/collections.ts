@@ -150,3 +150,10 @@ export function createSyncedWhiteboardCollection(
   });
   return createCollection({ ...options, schema: whiteboardSchema });
 }
+
+export type BoardCollections = {
+  lanes: ReturnType<typeof createLaneCollection>;
+  tasks: ReturnType<typeof createTaskCollection>;
+  notes: ReturnType<typeof createNoteCollection>;
+  whiteboards: ReturnType<typeof createWhiteboardCollection>;
+};

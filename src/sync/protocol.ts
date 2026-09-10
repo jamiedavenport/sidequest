@@ -1,5 +1,7 @@
 import { Effect, Schema } from "effect";
 
+export const syncProtocolVersion = 3;
+
 const MutationType = Schema.Literals(["insert", "update", "delete"]);
 
 export class SyncProtocolError extends Schema.TaggedError<SyncProtocolError>()(
@@ -14,6 +16,7 @@ export class Mutation extends Schema.Class<Mutation>("Mutation")({
   type: MutationType,
   key: Schema.String,
   value: Schema.optionalKey(Schema.Unknown),
+  originalAttachmentIds: Schema.optionalKey(Schema.Array(Schema.String)),
 }) {}
 
 export class Sync extends Schema.TaggedClass<Sync>()("Sync", {

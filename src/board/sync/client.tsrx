@@ -305,5 +305,5 @@ const validateBoardSession = Effect.fn("validateBoardSession")(function* (userId
 
 function boardSocketUrl(userId: string): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}/api/board?syncVersion=2&userId=${encodeURIComponent(userId)}`;
+  return `${protocol}//${window.location.host}/api/board?syncVersion=3&userId=${encodeURIComponent(userId)}`;
 }

@@ -1,3 +1,4 @@
+import { planTaskUpdate } from "~/board/data/task-planning";
 import { describe, expect, it } from "vitest";
 import type { Task } from "~/board/schema";
 import {
@@ -198,4 +199,31 @@ describe("MCP task domain", () => {
       ),
     );
   });
+});
+
+it("preserves uploaded media and manually attached links when changing a task title", () => {
+  const attachments = [
+    {
+      id: "photo",
+      type: "image" as const,
+      filename: "photo.png",
+      mimeType: "image/png",
+      size: 100,
+    },
+    {
+      id: "manual",
+      type: "link" as const,
+      source: "manual" as const,
+      href: "https://example.com/",
+      label: "Example",
+      meta: "Example",
+      mark: "E",
+    },
+  ];
+  expect(
+    planTaskUpdate(
+      { id: "task", title: "Old", rank: 0, completed: false, collapsed: false, attachments },
+      { title: "New" },
+    ).attachments,
+  ).toEqual(attachments);
 });

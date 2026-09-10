@@ -295,7 +295,13 @@ export function requestRemoveLane(
 
 export function addTask(
   client: BoardClient,
-  input: { id: string; laneId: string; title: string; date?: string },
+  input: {
+    id: string;
+    laneId: string;
+    title: string;
+    date?: string;
+    attachments?: Task["attachments"];
+  },
 ) {
   const title = input.title.trim();
   if (title === "") {
@@ -309,10 +315,21 @@ export function addTask(
   });
 }
 
+export function deleteTaskAttachment(client: BoardClient, taskId: string, attachmentId: string) {
+  if (!client.tasks.has(taskId)) {
+    return;
+  }
+  mutateBoard(client, () => {
+    client.tasks.update(taskId, (draft) => {
+      draft.attachments = draft.attachments?.filter((attachment) => attachment.id !== attachmentId);
+    });
+  });
+}
+
 export function updateTask(
   client: BoardClient,
   taskId: string,
-  input: { title: string; date?: string },
+  input: { title: string; date?: string; attachments?: Task["attachments"] },
 ) {
   const task = client.tasks.get(taskId);
   const title = input.title.trim();
@@ -321,13 +338,17 @@ export function updateTask(
   }
 
   const titleChanged = task.title !== title;
-  if (!titleChanged && task.date === input.date) {
+  if (!titleChanged && task.date === input.date && input.attachments === undefined) {
     return;
   }
 
   mutateBoard(client, () => {
     client.tasks.update(taskId, (draft) => {
-      Object.assign(draft, planTaskUpdate(task, { title, date: input.date ?? null }));
+      const next = planTaskUpdate(
+        { ...task, attachments: input.attachments ?? task.attachments },
+        { title, date: input.date ?? null },
+      );
+      Object.assign(draft, next);
     });
   });
 }

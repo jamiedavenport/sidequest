@@ -1,11 +1,15 @@
+import { syncProtocolVersion } from "~/sync/protocol";
 import { and, eq, inArray } from "drizzle-orm";
 import { Array, Clock, Effect, Schema } from "effect";
 
 import { createDatabase } from "~/db/database";
 import { session } from "~/db/schema/auth";
 
+// Leave room for the owner parameter within D1's bound-parameter limit.
+const sessionQueryBatchSize = 90;
+
 export const SocketSession = Schema.Struct({
-  version: Schema.Literal(2),
+  version: Schema.Literal(syncProtocolVersion),
   userId: Schema.NonEmptyString,
   sessionId: Schema.NonEmptyString,
 });
@@ -20,15 +24,17 @@ export const getValidSessions = Effect.fn("getValidSessions")(function* (
 ) {
   yield* Effect.annotateCurrentSpan({ component: "d1", category: "storage", accountId: userId });
   const db = createDatabase(binding);
-  const rows = yield* Effect.forEach(Array.chunksOf([...new Set(sessionIds)], 90), (ids) =>
-    Effect.tryPromise({
-      try: () =>
-        db
-          .select({ id: session.id, expiresAt: session.expiresAt })
-          .from(session)
-          .where(and(eq(session.userId, userId), inArray(session.id, ids))),
-      catch: () => new SessionCheckError(),
-    }),
+  const rows = yield* Effect.forEach(
+    Array.chunksOf([...new Set(sessionIds)], sessionQueryBatchSize),
+    (ids) =>
+      Effect.tryPromise({
+        try: () =>
+          db
+            .select({ id: session.id, expiresAt: session.expiresAt })
+            .from(session)
+            .where(and(eq(session.userId, userId), inArray(session.id, ids))),
+        catch: () => new SessionCheckError(),
+      }),
   );
   yield* Effect.annotateCurrentSpan({ rowCount: rows.flat().length });
   const now = yield* Clock.currentTimeMillis;

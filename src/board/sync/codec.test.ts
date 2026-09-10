@@ -1,3 +1,4 @@
+import { planTaskCreate } from "~/board/data/task-planning";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -61,4 +62,43 @@ it("preserves server-owned GitHub identity through offline title edits and rejec
   expect(
     Effect.runSync(decodeTaskMutation({ ...existing, attachments: [forged] })).attachments,
   ).toEqual([]);
+});
+
+it("preserves manual attachments on legacy replay and applies only known removals", () => {
+  const photo = {
+    id: "photo",
+    type: "image" as const,
+    filename: "photo.png",
+    mimeType: "image/png",
+    size: 100,
+  };
+  const link = {
+    id: "manual",
+    type: "link" as const,
+    source: "manual" as const,
+    href: "https://example.com/",
+    label: "Example",
+    meta: "Example",
+    mark: "E",
+  };
+  const task = { ...existing, attachments: [photo, link] };
+  expect(
+    Effect.runSync(decodeTaskMutation({ ...existing, attachments: [] }, task, [])).attachments,
+  ).toEqual([photo, link]);
+  expect(
+    Effect.runSync(decodeTaskMutation({ ...existing, attachments: [] }, task, [photo.id]))
+      .attachments,
+  ).toEqual([link]);
+  expect(
+    Effect.runSync(decodeTaskMutation(task, existing, [photo.id, link.id])).attachments,
+  ).toEqual([]);
+});
+
+it("accepts tasks planned for MCP without attachments before JSON serialization", () => {
+  const planned = planTaskCreate([], { id: "mcp-task", viewId: "inbox", title: "Task" });
+  expect(planned).not.toHaveProperty("attachments");
+  expect(Effect.runSync(decodeTaskMutation(planned))).toMatchObject({
+    id: "mcp-task",
+    title: "Task",
+  });
 });

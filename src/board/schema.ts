@@ -10,6 +10,7 @@ export type LaneSymbolShape = typeof LaneSymbolShape.Type;
 const LinkAttachment = Schema.Struct({
   id: Schema.String,
   type: Schema.Literal("link"),
+  source: Schema.optionalKey(Schema.Literals(["manual", "title"])),
   label: Schema.String,
   meta: Schema.String,
   href: Schema.String,
@@ -29,7 +30,16 @@ const GitHubIssueAttachment = Schema.Struct({
   href: Schema.String,
 });
 
-export const Attachment = Schema.Union([LinkAttachment, GitHubIssueAttachment]);
+export const MediaAttachment = Schema.Struct({
+  id: Schema.NonEmptyString,
+  type: Schema.Literals(["image", "video"]),
+  filename: Schema.NonEmptyString,
+  mimeType: Schema.NonEmptyString,
+  size: Schema.Int.check(Schema.isGreaterThan(0)),
+});
+export type MediaAttachment = typeof MediaAttachment.Type;
+
+export const Attachment = Schema.Union([LinkAttachment, GitHubIssueAttachment, MediaAttachment]);
 export type Attachment = typeof Attachment.Type;
 
 export const Lane = Schema.Struct({

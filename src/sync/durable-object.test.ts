@@ -22,7 +22,7 @@ vi.mock("~/server/runtime", () => ({ serverRuntime: { runPromise: Effect.runProm
 class Socket {
   sent: unknown[] = [];
   code: number | undefined;
-  constructor(readonly attachment: unknown = { version: 2, userId: "a", sessionId: "one" }) {}
+  constructor(readonly attachment: unknown = { version: 3, userId: "a", sessionId: "one" }) {}
   deserializeAttachment() {
     return this.attachment;
   }
@@ -97,7 +97,7 @@ beforeEach(async () => {
       updatedAt: new Date(),
     })),
   );
-  sockets = [new Socket(), new Socket({ version: 2, userId: "a", sessionId: "two" })];
+  sockets = [new Socket(), new Socket({ version: 3, userId: "a", sessionId: "two" })];
   ctx = {
     id: { toString: () => "board-a" },
     waitUntil: () => {},
@@ -132,7 +132,7 @@ it.each(["snapshot", "changes"] as const)(
       new Socket(),
       new Socket(null),
       new Socket({ version: 1, userId: "a", sessionId: "two" }),
-      new Socket({ version: 2, userId: "b", sessionId: "two" }),
+      new Socket({ version: 3, userId: "b", sessionId: "two" }),
     );
     await database.db.delete(session).where(eq(session.id, "one"));
     board = new Board(ctx, { DB: database.DB });

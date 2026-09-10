@@ -1,3 +1,4 @@
+import { syncProtocolVersion } from "~/sync/protocol";
 import {
   annotateOperation,
   captureTelemetryContext,
@@ -223,7 +224,7 @@ export abstract class SyncDurableObject<
     }
 
     const identity = Schema.decodeUnknownOption(SocketSession)({
-      version: 2,
+      version: syncProtocolVersion,
       userId: request.headers.get("x-sidequest-user-id"),
       sessionId: request.headers.get("x-sidequest-session-id"),
     });
@@ -252,7 +253,7 @@ export abstract class SyncDurableObject<
       "sync.message",
       () => this.#receiveMessage(ws, message),
       context,
-      { component: "sync-server", category: "domain", protocolVersion: 2 },
+      { component: "sync-server", category: "domain", protocolVersion: syncProtocolVersion },
     );
   }
 

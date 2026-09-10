@@ -1,3 +1,4 @@
+import { mergeTaskAttachments } from "~/board/attachments/merge";
 import { WhiteboardWrite } from "~/board/whiteboard-document";
 import { Effect, Predicate, Schema } from "effect";
 
@@ -14,15 +15,14 @@ const decodeTask = Effect.fn("decodeTask")(function* (input: unknown) {
 export const decodeTaskMutation = Effect.fn("decodeTaskMutation")(function* (
   input: unknown,
   existing?: Task,
+  originalAttachmentIds?: ReadonlyArray<string>,
 ) {
   const task = yield* decodeTask(input);
-  // The client can neither create nor replace the server's GitHub identity.
-  const attachments = [
-    ...(task.attachments ?? existing?.attachments ?? []).filter(
-      (attachment) => attachment.type === "link",
-    ),
-    ...(existing?.attachments ?? []).filter((attachment) => attachment.type === "github-issue"),
-  ];
+  const attachments = mergeTaskAttachments(
+    task.attachments ?? existing?.attachments ?? [],
+    existing?.attachments ?? [],
+    originalAttachmentIds ?? [],
+  );
   return {
     ...task,
     ...(attachments.length > 0 || task.attachments !== undefined ? { attachments } : {}),
