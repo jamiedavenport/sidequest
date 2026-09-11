@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 
+import { systemLanes } from "~/board/views";
 import type { Lane, Note, Task, Whiteboard } from "~/board/schema";
 import { BoardSeedError, validateBoardSeed } from "~/board/seeds/schema";
 
@@ -9,7 +10,7 @@ type SeedCollection<T> = {
 };
 
 type SeedCollections = {
-  lanes: SeedCollection<Lane>;
+  lanes: SeedCollection<Lane> & { has: (id: string) => boolean };
   tasks: SeedCollection<Task>;
   notes: SeedCollection<Note>;
   whiteboards: SeedCollection<Whiteboard>;
@@ -22,11 +23,16 @@ export const persistBoardSeed = Effect.fn("persistBoardSeed")(function* (
   input: unknown,
 ) {
   const seed = yield* validateBoardSeed(input);
-  if (Object.values(collections).some((collection) => collection.size !== 0)) {
+  const { lanes, tasks, notes, whiteboards } = collections;
+  const defaultLaneCount = systemLanes.filter((lane) => lanes.has(lane.id)).length;
+  if (
+    lanes.size !== defaultLaneCount ||
+    [tasks, notes, whiteboards].some((collection) => collection.size !== 0)
+  ) {
     return false;
   }
   const writes = [
-    () => collections.lanes.insert([...seed.lanes]).isPersisted.promise,
+    () => lanes.insert([...seed.lanes]).isPersisted.promise,
     () => collections.tasks.insert([...seed.tasks]).isPersisted.promise,
     () => collections.notes.insert([...seed.notes]).isPersisted.promise,
     ...(seed.whiteboards.length === 0

@@ -1,4 +1,9 @@
+import { useLanePrivacy } from "./lane/privacy-provider.tsrx";
+import { useBoardSelector } from "~/board/navigation/provider.tsrx";
+import { currentLaneId } from "~/board/navigation/model";
 import {
+  privacyHotkeys,
+  navigateLaneHotkeys,
   addHotkeys,
   addLaneHotkeys,
   completeHotkeys,
@@ -18,59 +23,70 @@ import {
 } from "~/board/components/shortcut-keys.tsrx";
 
 export function ShortcutFooter() @{
+  const { hiddenLaneIds } = useLanePrivacy();
+  const laneId = useBoardSelector(currentLaneId);
+  const hidden = hiddenLaneIds.includes(laneId);
   <footer className="hidden min-w-0 items-center gap-4 overflow-x-auto border-t border-border bg-background/90 px-4 text-[0.625rem] whitespace-nowrap text-muted-foreground sm:flex [&>span]:shrink-0">
     <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={navigateHotkeys} />
+      <ShortcutKeys hotkeys={hidden ? navigateLaneHotkeys : navigateHotkeys} />
       Navigate
     </span>
     <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={addHotkeys} />
-      Create
+      <ShortcutKeys hotkeys={privacyHotkeys} />
+      {hidden ? "Show lane" : "Hide lane"}
     </span>
-    <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={addLaneHotkeys} />
-      Lane
-    </span>
-    <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={renameLaneHotkeys} />
-      Rename
-    </span>
-    <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={completeHotkeys} />
-      Complete
-    </span>
-    <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={editHotkeys} />
-      Edit
-    </span>
-    <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={notesHotkeys} />
-      Notes
-    </span>
-    <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={whiteboardHotkeys} />
-      Whiteboard
-    </span>
-    <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={nestHotkeys} />
-      Nest
-    </span>
-    <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={moveTaskHotkeys} />
-      Move
-    </span>
-    <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={moveAcrossHotkeys} />
-      Move across
-    </span>
-    <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={moveLaneHotkeys} />
-      Move lane
-    </span>
-    <span className="flex items-center gap-1">
-      <ShortcutKeys hotkeys={removeLaneHotkeys} />
-      Remove lane
-    </span>
+    @if (!hidden) {
+      <>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={addHotkeys} />
+          Create
+        </span>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={addLaneHotkeys} />
+          Lane
+        </span>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={renameLaneHotkeys} />
+          Rename
+        </span>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={completeHotkeys} />
+          Complete
+        </span>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={editHotkeys} />
+          Edit
+        </span>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={notesHotkeys} />
+          Notes
+        </span>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={whiteboardHotkeys} />
+          Whiteboard
+        </span>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={nestHotkeys} />
+          Nest
+        </span>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={moveTaskHotkeys} />
+          Move
+        </span>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={moveAcrossHotkeys} />
+          Move across
+        </span>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={moveLaneHotkeys} />
+          Move lane
+        </span>
+        <span className="flex items-center gap-1">
+          <ShortcutKeys hotkeys={removeLaneHotkeys} />
+          Remove lane
+        </span>
+      </>;
+    }
     <span className="flex items-center gap-1">
       <ShortcutKeys hotkeys={inboxHotkeys} />
       Inbox

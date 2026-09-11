@@ -1,43 +1,35 @@
 import { useLiveQuery } from "@tanstack/react-db";
 
 import type { BoardClient } from "~/board/sync/client-types";
-import type { BoardLane, Task } from "~/board/schema";
-import { inboxLaneId, projectTasksForView, systemLanes, todayLaneId } from "~/board/views";
+import { boardViewIds, isTaskInView, projectTasksForView } from "~/board/views";
 
-function viewLane(id: typeof inboxLaneId | typeof todayLaneId): BoardLane {
-  const lane = systemLanes.find((candidate) => candidate.id === id);
-  if (lane === undefined) {
-    throw new Error(`Missing system lane ${id}`);
-  }
-
-  return { ...lane, tasks: [] };
-}
-
-export function useBoardLanes(client: BoardClient): {
-  lanes: BoardLane[];
-  tasks: readonly Task[];
-  isReady: boolean;
-} {
-  const inboxQuery = useLiveQuery(client.inbox);
-  const todayQuery = useLiveQuery(client.today);
-  const projectsQuery = useLiveQuery(client.projects);
+export function useBoardLanes(client: BoardClient) {
+  const lanesQuery = useLiveQuery((q) => q.from({ lane: client.lanes }));
   const tasksQuery = useLiveQuery((q) => q.from({ task: client.tasks }));
-  const inbox = inboxQuery.data ?? [];
-  const today = todayQuery.data ?? [];
-  const projects = projectsQuery.data ?? [];
-  const allTasks = tasksQuery.data ?? [];
+  const storedLanes = lanesQuery.data ?? [];
+  const tasks = tasksQuery.data ?? [];
+  const byId = new Map(storedLanes.map((lane) => [lane.id, lane]));
+  const now = new Date();
+  const lanes = boardViewIds(storedLanes).flatMap((id) => {
+    const lane = byId.get(id);
+    if (lane === undefined) {
+      return [];
+    }
+    return [
+      {
+        ...lane,
+        tasks: projectTasksForView(
+          tasks.filter((task) => !task.completed && isTaskInView(task, id, now)),
+          tasks,
+        ),
+      },
+    ];
+  });
 
   return {
-    tasks: allTasks,
-    isReady:
-      inboxQuery.isReady && todayQuery.isReady && projectsQuery.isReady && tasksQuery.isReady,
-    lanes: [
-      { ...viewLane(todayLaneId), tasks: projectTasksForView(today, allTasks) },
-      { ...viewLane(inboxLaneId), tasks: projectTasksForView(inbox, allTasks) },
-      ...projects.map((lane) => ({
-        ...lane,
-        tasks: projectTasksForView(lane.tasks, allTasks),
-      })),
-    ],
+    lanes,
+    tasks,
+    hiddenLaneIds: lanes.filter((lane) => lane.hidden).map((lane) => lane.id),
+    isReady: lanesQuery.isReady && tasksQuery.isReady,
   };
 }

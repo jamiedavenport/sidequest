@@ -147,7 +147,7 @@ function linkVisibleTasks(
   // Rendered order is authoritative, including rows arriving ahead of canonical data.
   for (const lane of lanes) {
     const laneNode = indexes.laneNodes.get(lane.id);
-    if (!laneNode) {
+    if (!laneNode || laneNode.lane.hidden) {
       continue;
     }
     let previousTask: MutableTaskNode | undefined;
@@ -251,4 +251,8 @@ export function buildBoardGraph(
     linkChildren(nodes);
   }
   return freezeBoardGraph(indexes);
+}
+
+export function isLaneHidden(graph: BoardGraph, viewId: string): boolean {
+  return Option.getOrUndefined(graph.lane(viewId))?.lane.hidden === true;
 }

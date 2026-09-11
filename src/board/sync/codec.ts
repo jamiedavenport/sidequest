@@ -4,8 +4,15 @@ import { Effect, Predicate, Schema } from "effect";
 
 import { Lane, Note, Task, Whiteboard } from "~/board/schema";
 
-export const decodeLane = Effect.fn("decodeLane")(function* (input: unknown) {
-  return yield* Schema.decodeUnknownEffect(Lane)(input);
+export const decodeLaneMutation = Effect.fn("decodeLaneMutation")(function* (
+  input: unknown,
+  existing: Lane | undefined,
+) {
+  const lane = yield* Schema.decodeUnknownEffect(Lane)(input);
+  return {
+    ...lane,
+    hidden: Predicate.hasProperty(input, "hidden") ? lane.hidden : (existing?.hidden ?? false),
+  };
 });
 
 const decodeTask = Effect.fn("decodeTask")(function* (input: unknown) {

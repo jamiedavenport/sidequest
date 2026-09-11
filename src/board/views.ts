@@ -20,6 +20,7 @@ export const systemLanes: ReadonlyArray<Lane> = [
     colour: "amber",
     shape: "circle",
     rank: 0,
+    hidden: false,
   },
   {
     id: inboxLaneId,
@@ -27,6 +28,7 @@ export const systemLanes: ReadonlyArray<Lane> = [
     colour: "green",
     shape: "square",
     rank: 1,
+    hidden: false,
   },
 ];
 
@@ -47,7 +49,7 @@ export function isSystemLane(lane: Pick<Lane, "id">): boolean {
   return isSystemLaneId(lane.id);
 }
 
-function isPersistedLane(lane: Lane): boolean {
+function isProjectLane(lane: Lane): boolean {
   return !isSystemLane(lane);
 }
 
@@ -83,8 +85,8 @@ export function randomLaneSymbol(): {
   };
 }
 
-function persistedLanes(lanes: ReadonlyArray<Lane>): Lane[] {
-  return lanes.filter(isPersistedLane).toSorted((left, right) => left.rank - right.rank);
+function projectLanes(lanes: ReadonlyArray<Lane>): Lane[] {
+  return lanes.filter(isProjectLane).toSorted((left, right) => left.rank - right.rank);
 }
 
 export type LaneDestination = { laneId: string; edge: "before" | "after" };
@@ -108,16 +110,19 @@ export function planLaneMove(
   laneId: string,
   direction: HorizontalDirection | LaneDestination,
 ): ReadonlyArray<LaneRankSwap> | undefined {
-  const ordered = persistedLanes(lanes);
+  const ordered = projectLanes(lanes);
   const index = ordered.findIndex((lane) => lane.id === laneId);
+  const current = ordered[index];
+  if (current === undefined || current.hidden) {
+    return undefined;
+  }
   if (typeof direction !== "string") {
-    if (index < 0 || direction.laneId === laneId || isSystemLane({ id: direction.laneId })) {
+    if (direction.laneId === laneId || isSystemLane({ id: direction.laneId })) {
       return undefined;
     }
     const remaining = ordered.filter((lane) => lane.id !== laneId);
     const target = remaining.findIndex((lane) => lane.id === direction.laneId);
-    const current = ordered[index];
-    if (target < 0 || current === undefined) {
+    if (target < 0 || remaining[target]?.hidden) {
       return undefined;
     }
     remaining.splice(target + (direction.edge === "after" ? 1 : 0), 0, current);
@@ -129,8 +134,7 @@ export function planLaneMove(
     );
   }
   const neighbor = ordered[direction === "left" ? index - 1 : index + 1];
-  const current = ordered[index];
-  if (index < 0 || current === undefined || neighbor === undefined) {
+  if (neighbor === undefined) {
     return undefined;
   }
 
@@ -342,14 +346,8 @@ export function normalizeTask(task: Task, now = new Date()): Task {
   return task;
 }
 
-export function boardViewIds(persisted: ReadonlyArray<Lane>): string[] {
-  return [
-    ...systemLanes.map((lane) => lane.id),
-    ...persisted
-      .filter(isPersistedLane)
-      .toSorted((left, right) => left.rank - right.rank)
-      .map((lane) => lane.id),
-  ];
+export function boardViewIds(lanes: ReadonlyArray<Lane>): string[] {
+  return [...systemLanes.map((lane) => lane.id), ...projectLanes(lanes).map((lane) => lane.id)];
 }
 
 function visualTaskDepth(
@@ -758,12 +756,7 @@ export function applySubtreeNest(
   }
 }
 
-function migrateLegacySystemLanes(input: {
-  lanes: {
-    toArray: ReadonlyArray<Lane>;
-    has: (id: string) => boolean;
-    delete: (id: string) => void;
-  };
+function migrateLegacyTaskAssignments(input: {
   tasks: {
     toArray: ReadonlyArray<Task>;
     update: (id: string, updater: (draft: WritableTaskDraft) => void) => void;
@@ -791,21 +784,12 @@ function migrateLegacySystemLanes(input: {
     }
   }
 
-  for (const lane of input.lanes.toArray) {
-    if (isSystemLane(lane) && input.lanes.has(lane.id)) {
-      input.lanes.delete(lane.id);
-      changed = true;
-    }
-  }
-
   return changed;
 }
 
 export function normalizeStoredBoard(input: {
   lanes: {
     toArray: ReadonlyArray<Lane>;
-    has: (id: string) => boolean;
-    delete: (id: string) => void;
   };
   tasks: {
     toArray: ReadonlyArray<Task>;
@@ -814,7 +798,7 @@ export function normalizeStoredBoard(input: {
   };
   now?: Date;
 }): boolean {
-  const migrated = migrateLegacySystemLanes(input);
+  const migrated = migrateLegacyTaskAssignments(input);
   const orphans = repairOrphanLaneAssignments(input);
   const repaired = repairSubtreePlacements(input.tasks);
   return migrated || orphans || repaired;
@@ -825,7 +809,6 @@ export function boardNeedsNormalize(
   tasks: ReadonlyArray<Task>,
 ): boolean {
   return (
-    lanes.some(isSystemLane) ||
     tasks.some((task) => task.laneId === inboxLaneId || task.laneId === todayLaneId) ||
     hasOrphanLaneAssignment(lanes, tasks) ||
     hasDivergentSubtreePlacement(tasks)

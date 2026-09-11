@@ -3,7 +3,13 @@ import { useEffect, useState } from "react";
 
 import { Kbd, KbdGroup } from "~/components/ui/kbd.tsrx";
 
+export const navigateLaneHotkeys = ["ArrowLeft", "ArrowRight"];
+
 export const navigateHotkeys = ["ArrowUp", "ArrowDown"];
+
+export const privacyHotkey = "P";
+
+export const privacyHotkeys = [privacyHotkey];
 
 export const completeHotkey = "Enter";
 

@@ -1,3 +1,4 @@
+import { isHiddenLaneEvent } from "./privacy";
 import { Effect } from "effect";
 import {
   finishDrag,
@@ -43,6 +44,9 @@ export const transition = Effect.fn("transition")(function* (
   if (event._tag === "BoardSync") {
     return yield* syncBoard(context, event);
   }
+  if (isHiddenLaneEvent(context, event)) {
+    return context;
+  }
   const previous = context.interaction;
   if (!allowedEvents[previous._tag].includes(event._tag)) {
     return context;
@@ -50,12 +54,12 @@ export const transition = Effect.fn("transition")(function* (
   const exit = () => Effect.succeed(Interaction.Navigating({ selection: selectionOf(previous) }));
   const interaction = yield* BoardEvent.match(event, {
     BoardSync: () => Effect.succeed(previous),
-    Navigate: ({ direction }) =>
-      previous._tag === "Adding"
-        ? direction === "up"
-          ? leaveAdding(context)
-          : Effect.succeed(previous)
-        : navigate(context, direction),
+    Navigate: ({ direction }) => {
+      if (previous._tag === "Adding") {
+        return direction === "up" ? leaveAdding(context) : Effect.succeed(previous);
+      }
+      return navigate(context, direction);
+    },
     LaneSelect: ({ viewId }) =>
       Effect.map(selectLane(context, viewId), (selection) => Interaction.Navigating({ selection })),
     TaskSelect: ({ target }) =>

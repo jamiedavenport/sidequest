@@ -150,7 +150,12 @@ export abstract class SyncDurableObject<
     const sent = yield* Effect.forEach(authorized, (socket) =>
       Effect.try({
         try: () => {
-          // Keep the origin's acknowledgement and changes together after one fresh batch check.
+          socket.send(
+            JSON.stringify(
+              Object.assign(Object.create(null), message, { telemetry: captureTelemetryContext() }),
+            ),
+          );
+          // Queue authoritative writes before releasing the origin's optimistic transaction.
           if (acknowledgement?.socket === socket) {
             socket.send(
               JSON.stringify(
@@ -161,11 +166,6 @@ export abstract class SyncDurableObject<
               ),
             );
           }
-          socket.send(
-            JSON.stringify(
-              Object.assign(Object.create(null), message, { telemetry: captureTelemetryContext() }),
-            ),
-          );
           return true;
         },
         catch: () => new SyncProtocolError({ message: "Sync delivery failed" }),

@@ -31,7 +31,6 @@ import {
   decodeTaskSync,
   decodeWhiteboardSync,
 } from "~/board/sync/codec";
-import { createDerivedBoardCollections } from "~/board/sync/live";
 import type { BoardClient } from "./client-types.ts";
 import { boardNeedsNormalize, normalizeStoredBoard } from "~/board/views";
 import {
@@ -239,16 +238,11 @@ const createBoardClient = Effect.fn("createBoardClient")(function* (
     void transaction.commit();
   }
 
-  const { inbox, today, projects } = createDerivedBoardCollections(lanes, tasks);
-
   return {
     lanes,
     tasks,
     notes,
     whiteboards,
-    inbox,
-    today,
-    projects,
     offline,
     transport,
   } satisfies BoardClient;

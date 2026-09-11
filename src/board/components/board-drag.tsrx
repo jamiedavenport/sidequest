@@ -26,6 +26,8 @@ import {
   type RefObject,
 } from "react";
 
+import { useLanePrivacy } from "./lane/privacy-provider.tsrx";
+import { isLanePrivate } from "../data/privacy";
 import { useLaneChrome } from "./lane-chrome.tsrx";
 import {
   DragSource,
@@ -99,19 +101,32 @@ const collisionDetector: NonNullable<UseDroppableInput["collisionDetector"]> = (
   return { id: droppable.id, priority: 1, type: 2, value: 1 };
 };
 
+function taskDropEdge(y: number, rect: DOMRect): "before" | "after" | "nest" {
+  const edgeZone = rect.height / 4;
+  if (y < rect.top + edgeZone) {
+    return "before";
+  }
+  if (y > rect.bottom - edgeZone) {
+    return "after";
+  }
+  return "nest";
+}
+
 export function useTaskDrag(
   viewId: string,
   taskId: string,
   element: RefObject<HTMLLIElement | null>,
 ) {
   const { enabled, target } = useBoardDrag();
+  const { hiddenLaneIds } = useLanePrivacy();
+  const hidden = hiddenLaneIds.includes(viewId);
   const lane = useBoardSelector(
     (snapshot) => Option.getOrUndefined(snapshot.graph.lane(viewId))?.lane,
   );
   const id = taskDragId(viewId, taskId);
   const data = useMemo(() => ({ kind: "task", taskId, viewId }), [taskId, viewId]);
-  useDraggable({ id, data, element, disabled: !enabled });
-  useDroppable({ id, data, element, collisionDetector });
+  useDraggable({ id, data, element, disabled: !enabled || hidden });
+  useDroppable({ id, data, element, collisionDetector, disabled: hidden });
   if (target?.kind !== "task" || target.viewId !== viewId) {
     return undefined;
   }
@@ -128,10 +143,17 @@ export function useLaneDrag(
   header: RefObject<HTMLDivElement | null>,
 ) {
   const { enabled, target } = useBoardDrag();
+  const { hiddenLaneIds } = useLanePrivacy();
+  const hidden = hiddenLaneIds.includes(viewId);
   const id = laneDragId(viewId);
   const data = useMemo(() => ({ kind: "lane", viewId }), [viewId]);
-  useDraggable({ id, data, element: header, disabled: !enabled || isSystemLane({ id: viewId }) });
-  useDroppable({ id, data, element, collisionDetector });
+  useDraggable({
+    id,
+    data,
+    element: header,
+    disabled: !enabled || hidden || isSystemLane({ id: viewId }),
+  });
+  useDroppable({ id, data, element, collisionDetector, disabled: hidden });
   return target?.viewId === viewId && target.kind !== "task" ? target.edge : undefined;
 }
 
@@ -139,6 +161,7 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
   const client = useBoardClient();
   const store = useBoardStore();
   const mode = useBoardSelector((snapshot) => snapshot.interaction._tag);
+  const { hiddenLaneIds } = useLanePrivacy();
   const { editingLaneId, removingLaneId, githubLaneId } = useLaneChrome();
   const [target, setTarget] = useState<BoardDropTarget | null>(null);
   const [label, setLabel] = useState("");
@@ -200,6 +223,20 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
     }
   }, [mode]);
 
+  useEffect(() => {
+    const manager = managerRef.current;
+    const source = manager?.dragOperation.source?.data;
+    if (
+      manager?.dragOperation.status.dragging &&
+      Schema.is(DragSource)(source) &&
+      (hiddenLaneIds.includes(source.viewId) ||
+        (target !== null && hiddenLaneIds.includes(target.viewId)))
+    ) {
+      manager.actions.stop({ canceled: true });
+      setTarget(null);
+    }
+  }, [hiddenLaneIds, target]);
+
   function resolveTarget(
     operation: DragEndEvent["operation"],
     coordinates = operation.position.current,
@@ -222,7 +259,9 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
       !Schema.is(DragSource)(surface) ||
       element === undefined ||
       !hit ||
-      !element.contains(hit)
+      !element.contains(hit) ||
+      isLanePrivate(client, source.viewId) ||
+      isLanePrivate(client, surface.viewId)
     ) {
       return null;
     }
@@ -246,12 +285,7 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
         ? { kind: "view", viewId: surface.viewId, edge: "append" }
         : {
             ...surface,
-            edge:
-              y < rect.top + rect.height / 4
-                ? "before"
-                : y > rect.bottom - rect.height / 4
-                  ? "after"
-                  : "nest",
+            edge: taskDropEdge(y, rect),
           };
     return planTaskDestination(client.tasks.toArray, source.taskId, source.viewId, next) ===
       undefined
@@ -297,7 +331,8 @@ export function BoardDragProvider({ children }: { children: ReactNode }) @{
         if (
           !enabled ||
           !(store.getSnapshot().interaction._tag === "Navigating") ||
-          !Schema.is(DragSource)(source)
+          !Schema.is(DragSource)(source) ||
+          isLanePrivate(client, source.viewId)
         ) {
           event.preventDefault();
           return;

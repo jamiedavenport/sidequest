@@ -594,7 +594,8 @@ export function collectionSync<T extends object>(
     rowUpdateMode: "full",
     sync: (params) =>
       transport.subscribe(name, decode, {
-        begin: params.begin,
+        // Apply server state beneath optimistic writes before acknowledgements remove them.
+        begin: () => params.begin({ immediate: true }),
         write: (message) => {
           // The generic transport erases the collection type between the protocol and this callback.
           // oxlint-disable-next-line typescript/no-unsafe-type-assertion

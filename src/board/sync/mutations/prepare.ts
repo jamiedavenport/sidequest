@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { Mutation, SyncProtocolError } from "~/sync/protocol";
 import type { AttachmentStore } from "~/board/attachments/store";
-import type { Task } from "~/board/schema";
+import type { Lane, Task } from "~/board/schema";
 import {
   laneCollectionId,
   taskCollectionId,
@@ -17,10 +17,11 @@ import type { GetTask, PreparedMutation } from "./schema";
 const prepareDocumentMutation = Effect.fn("prepareDocumentMutation")(function* (
   mutation: Mutation,
   getTask: GetTask,
+  getLane: (id: string) => Lane | undefined,
 ) {
   switch (mutation.collection) {
     case laneCollectionId:
-      return yield* prepareLaneMutation(mutation);
+      return yield* prepareLaneMutation(mutation, getLane(mutation.key));
     case noteCollectionId:
       return yield* prepareNoteMutation(mutation, getTask);
     case whiteboardCollectionId:
@@ -37,6 +38,7 @@ export const prepareMutations = Effect.fn("prepareMutations")(
     mutations: ReadonlyArray<Mutation>,
     getTask: GetTask,
     validateAttachments: OmitThisParameter<AttachmentStore["validateAttachments"]>,
+    getLane: (id: string) => Lane | undefined,
   ) {
     const startedAt = Date.now();
     yield* Effect.annotateCurrentSpan(mutationTelemetry(mutations));
@@ -58,13 +60,23 @@ export const prepareMutations = Effect.fn("prepareMutations")(
     );
     const getPendingTask: GetTask = (id) =>
       pendingTasks.has(id) ? pendingTasks.get(id) : getTask(id);
-    const applied = yield* Effect.forEach(mutations, (mutation, index) => {
-      const task = prepared.get(index);
-      if (task) {
-        return Effect.succeed(task);
-      }
-      return prepareDocumentMutation(mutation, getPendingTask);
-    });
+    const pendingLanes = new Map<string, Lane | undefined>();
+    const getPendingLane = (id: string) =>
+      pendingLanes.has(id) ? pendingLanes.get(id) : getLane(id);
+    const applied = yield* Effect.forEach(
+      mutations,
+      Effect.fn(function* (mutation, index) {
+        const task = prepared.get(index);
+        if (task) {
+          return task;
+        }
+        const document = yield* prepareDocumentMutation(mutation, getPendingTask, getPendingLane);
+        if (document.collection === laneCollectionId) {
+          pendingLanes.set(mutation.key, document.value);
+        }
+        return document;
+      }),
+    );
     yield* logBoardSync("mutations_prepared", {
       durationMs: Date.now() - startedAt,
       outcome: "success",

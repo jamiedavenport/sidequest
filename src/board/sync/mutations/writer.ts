@@ -28,6 +28,7 @@ export class BoardMutationWriter {
       mutations,
       (id) => this.collections.tasks.get(id),
       this.validateAttachments,
+      (id) => this.collections.lanes.get(id),
     );
   }
 

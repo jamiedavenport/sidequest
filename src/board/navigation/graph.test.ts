@@ -19,7 +19,7 @@ function task(id: string, fields: Partial<Task> = {}): BoardTask {
 }
 
 function lane(id: string, tasks: readonly BoardTask[]): BoardLane {
-  return { id, title: id, rank: 0, colour: "green", shape: "square", tasks };
+  return { id, title: id, rank: 0, colour: "green", shape: "square", hidden: false, tasks };
 }
 
 describe("BoardGraph", () => {

@@ -65,6 +65,7 @@ function testClient(initialTasks: ReadonlyArray<TaskFixture>): BoardClient {
     title: id,
     colour: "green" as const,
     shape: "square" as const,
+    hidden: false,
     rank,
   }));
 
@@ -73,6 +74,7 @@ function testClient(initialTasks: ReadonlyArray<TaskFixture>): BoardClient {
   return {
     lanes: {
       toArray: lanes,
+      get: (id: string) => lanes.find((lane) => lane.id === id),
       update: (id: string, updater: (draft: (typeof lanes)[number]) => void) => {
         const draft = lanes.find((item) => item.id === id);
         if (draft !== undefined) {
@@ -432,7 +434,7 @@ describe("explicit board moves", () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it("does not transact for unchanged ordering or fixed system lanes", () => {
+  it("does not transact for unchanged ordering, fixed system lanes or hidden lanes", () => {
     const client = testClient([task("moving"), task("target")]);
     const transaction = vi.spyOn(client.offline, "createOfflineTransaction");
     Effect.runSync(
@@ -445,6 +447,12 @@ describe("explicit board moves", () => {
     );
     Effect.runSync(moveLane(client, "today", { laneId: "lane", edge: "after" }));
     Effect.runSync(moveLane(client, "lane", { laneId: "inbox", edge: "before" }));
+    client.lanes.update("lane", (draft) => {
+      draft.hidden = true;
+    });
+    Effect.runSync(moveLane(client, "lane", "left"));
+    Effect.runSync(moveLane(client, "lane-left", "right"));
+    Effect.runSync(moveLane(client, "lane-right", { laneId: "lane", edge: "before" }));
     expect(transaction).not.toHaveBeenCalled();
   });
 

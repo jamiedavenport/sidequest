@@ -127,6 +127,8 @@ export function createSyncedTaskCollection(
   return collection;
 }
 
+export type SyncedLaneCollection = ReturnType<typeof createSyncedLaneCollection>;
+
 export type SyncedTaskCollection = ReturnType<typeof createSyncedTaskCollection>;
 
 export function createSyncedNoteCollection(

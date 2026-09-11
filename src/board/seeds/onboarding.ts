@@ -69,7 +69,16 @@ export function createOnboardingSeed(): BoardSeed {
   return {
     profile: "onboarding",
     version: 1,
-    lanes: [{ id: laneId, title: "Getting started", colour: "blue", shape: "circle", rank: 2 }],
+    lanes: [
+      {
+        id: laneId,
+        title: "Getting started",
+        colour: "blue",
+        shape: "circle",
+        hidden: false,
+        rank: 2,
+      },
+    ],
     tasks,
     notes: tasks.map((task) => ({
       taskId: task.id,

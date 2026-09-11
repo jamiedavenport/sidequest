@@ -7,7 +7,6 @@ import {
   currentViewId,
   isTaskInView,
   planTaskDestination,
-  systemLanes,
 } from "~/board/views";
 import {
   ToolError,
@@ -187,12 +186,11 @@ export async function queryBoard(
   if (name === "list_lanes") {
     const input = decodeInput(name, raw);
     const search = input.search?.toLowerCase() ?? "";
-    const lanes = [
-      ...systemLanes,
-      ...state.lanes
-        .filter((l) => !systemLanes.some((s) => s.id === l.id))
-        .toSorted((a, b) => a.rank - b.rank || a.id.localeCompare(b.id)),
-    ].filter((l) => l.title.toLowerCase().includes(search));
+    const byId = new Map(state.lanes.map((lane) => [lane.id, lane]));
+    const lanes = boardViewIds(state.lanes).flatMap((id) => {
+      const lane = byId.get(id);
+      return lane?.title.toLowerCase().includes(search) ? [lane] : [];
+    });
     const { rows, ...rest } = await paginate(
       lanes,
       { search, limit: input.limit ?? 50, revision: state.revision },

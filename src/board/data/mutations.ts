@@ -1,3 +1,4 @@
+import { isLanePrivate } from "./privacy";
 import { WhiteboardWrite } from "~/board/whiteboard-document";
 import { planTaskCreate, planTaskUpdate } from "~/board/data/task-planning";
 import { emptyNoteDocument, Note, type Lane } from "~/board/schema";
@@ -159,6 +160,7 @@ export function addLane(client: BoardClient, title = "New lane"): string {
       colour: symbol.colour,
       shape: symbol.shape,
       rank,
+      hidden: false,
     });
   });
   return id;
@@ -397,6 +399,9 @@ export const nestTask = Effect.fn("nestTask")(function* (
     return undefined;
   }
   const sourceViewId = viewId ?? currentViewId(task);
+  if (isLanePrivate(client, sourceViewId)) {
+    return undefined;
+  }
   const update = planNest(laneTasks(client, sourceViewId), taskId, delta, client.tasks.toArray);
   if (update === undefined) {
     return undefined;
@@ -418,6 +423,10 @@ export const moveTaskInLane = Effect.fn("moveTaskInLane")(function* (
     return undefined;
   }
   const sourceViewId = viewId ?? currentViewId(task);
+  const destinationViewId = typeof direction === "string" ? sourceViewId : direction.viewId;
+  if (isLanePrivate(client, sourceViewId) || isLanePrivate(client, destinationViewId)) {
+    return undefined;
+  }
   if (
     typeof direction !== "string" &&
     !boardViewIds(client.lanes.toArray).includes(direction.viewId)

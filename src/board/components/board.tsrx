@@ -1,3 +1,4 @@
+import { LanePrivacyProvider, useLanePrivacy } from "./lane/privacy-provider.tsrx";
 import { GitHubDialog } from "~/github/dialog.tsrx";
 import { BoardDragProvider, useBoardDrag } from "~/board/components/board-drag.tsrx";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -32,6 +33,7 @@ import { LaneChromeProvider, useLaneChrome } from "~/board/components/lane-chrom
 import { AddLaneButton, TaskLane } from "~/board/components/lane.tsrx";
 import { LaneRemoveDialog } from "~/board/components/lane-remove-dialog.tsrx";
 import {
+  privacyHotkey,
   collapseHotkey,
   completeHotkey,
   editHotkey,
@@ -47,9 +49,19 @@ function useBoardHotkeys() {
   const mode = useBoardSelector((snapshot) => snapshot.interaction._tag);
   const taskIdSelected = useBoardSelector(selectedTaskId);
   const { runMove } = useBoardDrag();
+  const { hiddenLaneIds, canToggle, toggleLanePrivacy } = useLanePrivacy();
+  const selectedLaneId = useBoardSelector(currentLaneId);
+  const hidden = hiddenLaneIds.includes(selectedLaneId);
   const navigating = mode === "Navigating" && githubLaneId === null;
-  const laneCommandsEnabled = navigating && editingLaneId === null && removingLaneId === null;
+  const boardCommandsEnabled = navigating && editingLaneId === null && removingLaneId === null;
+  const laneCommandsEnabled = boardCommandsEnabled && !hidden;
   const taskEditEnabled = laneCommandsEnabled && taskIdSelected !== null;
+
+  useHotkey(privacyHotkey, () => toggleLanePrivacy(currentLaneId(store.getSnapshot())), {
+    enabled: canToggle,
+    ignoreInputs: true,
+    meta: { name: "Toggle lane privacy" },
+  });
 
   useHotkey(
     "ArrowUp",
@@ -98,7 +110,7 @@ function useBoardHotkeys() {
     () => {
       store.send(BoardEvent.AddStart({ viewId: currentLaneId(store.getSnapshot()) }));
     },
-    { enabled: navigating, ignoreInputs: true, meta: { name: "Create" } },
+    { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Create" } },
   );
   useHotkey(
     notesHotkey,
@@ -138,7 +150,7 @@ function useBoardHotkeys() {
         runMove(moveTaskInLane(client, target.taskId, "up", target.viewId));
       }
     },
-    { enabled: navigating, ignoreInputs: true, meta: { name: "Move up" } },
+    { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Move up" } },
   );
   useHotkey(
     "Mod+Shift+ArrowDown",
@@ -148,7 +160,7 @@ function useBoardHotkeys() {
         runMove(moveTaskInLane(client, target.taskId, "down", target.viewId));
       }
     },
-    { enabled: navigating, ignoreInputs: true, meta: { name: "Move down" } },
+    { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Move down" } },
   );
   useHotkey(
     "Mod+Shift+ArrowLeft",
@@ -163,7 +175,7 @@ function useBoardHotkeys() {
         });
       }
     },
-    { enabled: navigating, ignoreInputs: true, meta: { name: "Move across left" } },
+    { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Move across left" } },
   );
   useHotkey(
     "Mod+Shift+ArrowRight",
@@ -178,7 +190,7 @@ function useBoardHotkeys() {
         });
       }
     },
-    { enabled: navigating, ignoreInputs: true, meta: { name: "Move across right" } },
+    { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "Move across right" } },
   );
   useHotkey(
     "L",
@@ -187,7 +199,7 @@ function useBoardHotkeys() {
       store.send(BoardEvent.LaneSelect({ viewId: laneId }));
       startRename(laneId);
     },
-    { enabled: laneCommandsEnabled, ignoreInputs: true, meta: { name: "New lane" } },
+    { enabled: boardCommandsEnabled, ignoreInputs: true, meta: { name: "New lane" } },
   );
   useHotkey(
     "R",
@@ -228,7 +240,7 @@ function useBoardHotkeys() {
         completeTask(client, taskId);
       }
     },
-    { ignoreInputs: true, enabled: navigating, meta: { name: "Complete" } },
+    { ignoreInputs: true, enabled: laneCommandsEnabled, meta: { name: "Complete" } },
   );
   useHotkey(
     "Tab",
@@ -238,7 +250,7 @@ function useBoardHotkeys() {
         runMove(nestTask(client, target.taskId, 1, target.viewId));
       }
     },
-    { ignoreInputs: true, enabled: navigating, meta: { name: "Nest" } },
+    { ignoreInputs: true, enabled: laneCommandsEnabled, meta: { name: "Nest" } },
   );
   useHotkey(
     "Shift+Tab",
@@ -248,7 +260,7 @@ function useBoardHotkeys() {
         runMove(nestTask(client, target.taskId, -1, target.viewId));
       }
     },
-    { ignoreInputs: true, enabled: navigating, meta: { name: "Unnest" } },
+    { ignoreInputs: true, enabled: laneCommandsEnabled, meta: { name: "Unnest" } },
   );
   useHotkey(
     collapseHotkey,
@@ -307,18 +319,26 @@ function BoardCanvas({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
   </>;
 }
 
-function BoardShell({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
+function BoardShell({
+  lanes,
+  hiddenLaneIds,
+}: {
+  lanes: ReadonlyArray<BoardLane>;
+  hiddenLaneIds: readonly string[];
+}) @{
   <LaneChromeProvider>
-    <BoardDragProvider>
-      <BoardCanvas lanes={lanes} />
-    </BoardDragProvider>
+    <LanePrivacyProvider hiddenLaneIds={hiddenLaneIds}>
+      <BoardDragProvider>
+        <BoardCanvas lanes={lanes} />
+      </BoardDragProvider>
+    </LanePrivacyProvider>
   </LaneChromeProvider>;
 }
 
 function SyncedBoard() @{
   const client = useBoardClient();
   const store = useBoardStore();
-  const { isReady, lanes, tasks } = useBoardLanes(client);
+  const { isReady, lanes, tasks, hiddenLaneIds } = useBoardLanes(client);
 
   useEffect(() => {
     if (isReady) {
@@ -329,7 +349,7 @@ function SyncedBoard() @{
   @if (!isReady) {
     <BoardBooting />;
   } @else {
-    <BoardShell lanes={lanes} />;
+    <BoardShell lanes={lanes} hiddenLaneIds={hiddenLaneIds} />;
   }
 }
 

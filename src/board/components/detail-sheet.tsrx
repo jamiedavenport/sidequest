@@ -1,7 +1,8 @@
 // oxlint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop
+import { useLanePrivacy } from "./lane/privacy-provider.tsrx";
 import { Option } from "effect";
 import { ClientOnly } from "@tanstack/react-router";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { EditorSaveStatus } from "~/board/components/editor-save-status";
 import { NoteEditor } from "~/board/components/note-editor.tsrx";
@@ -36,16 +37,14 @@ type OpenDetailTask = {
 };
 
 function SaveStatusLabel({ status }: { status: EditorSaveStatus }) @{
-  const label =
-    status === "dirty"
-      ? "Unsaved changes"
-      : status === "saving"
-        ? "Saving…"
-        : status === "saved"
-          ? "Saved"
-          : status === "error"
-            ? "Couldn’t save"
-            : "Ready";
+  const labels = {
+    dirty: "Unsaved changes",
+    saving: "Saving…",
+    saved: "Saved",
+    error: "Couldn’t save",
+    idle: "Ready",
+  };
+  const label = labels[status];
 
   <output className="text-[0.6875rem] text-muted-foreground" aria-live="polite">
     {label}
@@ -81,12 +80,20 @@ export function DetailSheet() @{
         : undefined,
     [details, node],
   );
-  const openTask = currentOpenTask ?? lastTaskRef.current;
+  const { hiddenLaneIds } = useLanePrivacy();
+  const candidate = currentOpenTask ?? lastTaskRef.current;
+  const openTask =
+    candidate !== undefined && !hiddenLaneIds.includes(candidate.laneId) ? candidate : undefined;
   const open = mode === "Details" && openTask !== undefined;
   const detailTab = details?.tab ?? openTask?.tab ?? "notes";
   const activeStatus = detailTab === "notes" ? noteSaveStatus : whiteboardSaveStatus;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (candidate !== undefined && hiddenLaneIds.includes(candidate.laneId)) {
+      lastTaskRef.current = undefined;
+      store.send(BoardEvent.DetailsClose({}));
+      return;
+    }
     if (currentOpenTask !== undefined) {
       const taskChanged = lastTaskRef.current?.task.id !== currentOpenTask.task.id;
       lastTaskRef.current = currentOpenTask;
@@ -95,7 +102,7 @@ export function DetailSheet() @{
         setWhiteboardSaveStatus("idle");
       }
     }
-  }, [currentOpenTask]);
+  }, [currentOpenTask, candidate, hiddenLaneIds, store]);
 
   <Sheet
     open={open}

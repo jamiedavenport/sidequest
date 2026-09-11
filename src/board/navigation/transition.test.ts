@@ -20,6 +20,7 @@ function lane(tasks: BoardLane["tasks"]): BoardLane {
     title: "Lane",
     colour: "green",
     shape: "square",
+    hidden: false,
     rank: 0,
     tasks,
   };
@@ -53,6 +54,20 @@ describe("board transitions", () => {
 });
 
 describe("syncBoard", () => {
+  it("accepts cached lanes from before privacy without changing saved privacy", () => {
+    const cached = lane([]);
+    Reflect.deleteProperty(cached, "hidden");
+    const hidden = { ...lane([]), id: "private", hidden: true };
+    const store = createBoardStore();
+
+    store.send(BoardEvent.BoardSync({ lanes: [cached, hidden], tasks: [] }));
+
+    const graph = store.getSnapshot().graph;
+    expect(Option.getOrThrow(graph.lane(cached.id)).lane.hidden).toBe(false);
+    expect(Option.getOrThrow(graph.lane(hidden.id)).lane.hidden).toBe(true);
+    expect(Object.hasOwn(cached, "hidden")).toBe(false);
+  });
+
   it("selects the nearest visible ancestor when collapse hides the selected task", () => {
     const root = boardTask("root");
     const parent = { ...boardTask("parent", "root"), visualDepth: 1 };

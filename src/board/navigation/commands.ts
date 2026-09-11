@@ -1,6 +1,6 @@
 import { Effect, Option } from "effect";
 import { emptySystemBoardLanes, isSystemLane, todayLaneId } from "~/board/views";
-import { buildBoardGraph, type BoardGraph, type LaneNode } from "./graph";
+import { isLaneHidden, buildBoardGraph, type BoardGraph, type LaneNode } from "./graph";
 import {
   Interaction,
   Selection,
@@ -60,7 +60,7 @@ function reconcile(context: BoardContext, graph: BoardGraph): Selection {
 function sourceExists(graph: BoardGraph, source: DragSource): boolean {
   return source._tag === "Task"
     ? Option.isSome(graph.visibleTask(source.target))
-    : Option.isSome(graph.lane(source.viewId));
+    : Option.isSome(graph.lane(source.viewId)) && !isLaneHidden(graph, source.viewId);
 }
 
 export const syncBoard = Effect.fn("syncBoard")(
@@ -70,6 +70,14 @@ export const syncBoard = Effect.fn("syncBoard")(
   ): Effect.Effect<BoardContext> =>
     Effect.sync(() => {
       const graph = buildBoardGraph(event.lanes, event.tasks);
+      if (isLaneHidden(graph, currentLaneId(context))) {
+        return {
+          graph,
+          interaction: Interaction.Navigating({
+            selection: Selection.Lane({ viewId: currentLaneId(context) }),
+          }),
+        };
+      }
       const selection = reconcile(context, graph);
       const previous = context.interaction;
       const interaction = Interaction.match<Interaction>(previous, {
@@ -152,6 +160,9 @@ export const navigate = Effect.fn("navigate")(
         return destination
           ? Interaction.Navigating({ selection: onLane(destination) })
           : context.interaction;
+      }
+      if (lane.lane.hidden) {
+        return context.interaction;
       }
       const node =
         selection._tag === "Task"

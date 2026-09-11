@@ -350,10 +350,17 @@ export function createDemoSeed({ anchorDate }: { anchorDate: string }): BoardSee
     profile: "demo",
     version: 1,
     lanes: [
-      { id: launch, title: "Launch", colour: "blue", shape: "circle", rank: 2 },
-      { id: engineering, title: "Engineering", colour: "violet", shape: "diamond", rank: 3 },
-      { id: learning, title: "Learning", colour: "green", shape: "square", rank: 4 },
-      { id: life, title: "Life", colour: "amber", shape: "circle", rank: 5 },
+      { id: launch, title: "Launch", colour: "blue", shape: "circle", hidden: false, rank: 2 },
+      {
+        id: engineering,
+        title: "Engineering",
+        colour: "violet",
+        shape: "diamond",
+        hidden: false,
+        rank: 3,
+      },
+      { id: learning, title: "Learning", colour: "green", shape: "square", hidden: false, rank: 4 },
+      { id: life, title: "Life", colour: "amber", shape: "circle", hidden: false, rank: 5 },
     ],
     tasks: tasks.map((task) => ({
       completed: false,

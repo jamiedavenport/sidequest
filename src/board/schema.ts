@@ -48,6 +48,10 @@ export const Lane = Schema.Struct({
   colour: LaneSymbolColour,
   shape: LaneSymbolShape,
   rank: Schema.Number,
+  hidden: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(false)),
+    Schema.withConstructorDefault(Effect.succeed(false)),
+  ),
 });
 export type Lane = typeof Lane.Type;
 
@@ -184,7 +188,7 @@ export type BoardLane = Lane & {
   tasks: ReadonlyArray<BoardTask>;
 };
 
-export const laneSchema: StandardSchemaV1<Lane, Lane> = Schema.toStandardSchemaV1(Lane);
+export const laneSchema = Schema.toStandardSchemaV1(Lane);
 
 export const taskSchema = Schema.toStandardSchemaV1(Task);
 

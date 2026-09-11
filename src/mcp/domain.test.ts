@@ -1,5 +1,6 @@
 import { planTaskUpdate } from "~/board/data/task-planning";
 import { describe, expect, it } from "vitest";
+import { systemLanes } from "~/board/views";
 import type { Task } from "~/board/schema";
 import {
   dateContext,
@@ -23,7 +24,10 @@ const task = (id: string, patch: Partial<Task> = {}): Task => ({
 });
 
 const state = (tasks: Task[] = []): BoardState => ({
-  lanes: [{ id: "work", title: "Work", rank: 0, colour: "blue", shape: "circle" }],
+  lanes: [
+    ...systemLanes,
+    { id: "work", title: "Work", rank: 0, colour: "blue", shape: "circle", hidden: false },
+  ],
   tasks,
 });
 

@@ -168,6 +168,14 @@ it("uses current expiry and account ownership without caching across operations"
   expect(board.commits).toBe(0);
 });
 
+it("sends authoritative changes before releasing the optimistic transaction", async () => {
+  await board.receive(sockets[0]!, "Mutate");
+  expect(sockets[0]!.sent).toEqual([
+    expect.objectContaining({ _tag: "Changes" }),
+    expect.objectContaining({ _tag: "Ack" }),
+  ]);
+});
+
 it("rechecks acknowledgement delivery after an authorized operation finishes", async () => {
   board.beforeCommit = async () => {
     await database.db.delete(session).where(eq(session.id, "one"));

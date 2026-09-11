@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 import { createDemoSeed } from "~/board/seeds/demo";
 import { createOnboardingSeed } from "~/board/seeds/onboarding";
 import { BoardSeed, validateBoardSeed } from "~/board/seeds/schema";
-import { boardNeedsNormalize, projectTasksForView } from "~/board/views";
+import { boardNeedsNormalize, projectTasksForView, systemLanes } from "~/board/views";
 
 it("builds fresh deterministic fixtures with valid counts, notes, whiteboards and nested placement", () => {
   const demo = createDemoSeed({ anchorDate: "2026-12-30" });
@@ -22,7 +22,7 @@ it("builds fresh deterministic fixtures with valid counts, notes, whiteboards an
   expect(onboarding.tasks.every((task) => !task.completed)).toBe(true);
   for (const seed of [demo, onboarding]) {
     expect(Schema.is(BoardSeed)(seed)).toBe(true);
-    expect(boardNeedsNormalize(seed.lanes, seed.tasks)).toBe(false);
+    expect(boardNeedsNormalize([...systemLanes, ...seed.lanes], seed.tasks)).toBe(false);
     expect(seed.notes).toHaveLength(seed.tasks.length);
   }
   expect(
@@ -39,6 +39,7 @@ it("rejects malformed fixtures before persistence", () => {
   const seed = createOnboardingSeed();
   const first = seed.tasks[0]!;
   for (const invalid of [
+    { ...seed, lanes: [...systemLanes, ...seed.lanes] },
     { ...seed, tasks: [...seed.tasks, first] },
     { ...seed, tasks: [{ ...first, laneId: "today" }, ...seed.tasks.slice(1)] },
     { ...seed, tasks: [{ ...first, parentId: first.id }, ...seed.tasks.slice(1)] },

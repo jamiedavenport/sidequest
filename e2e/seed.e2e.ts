@@ -51,7 +51,7 @@ test("demo fixtures persist across reload and a second client, including notes a
     ).toHaveLength(40);
     expect(
       snapshot.collections.find((collection) => collection.collection === "lanes")?.values,
-    ).toHaveLength(4);
+    ).toHaveLength(6);
     expect(
       snapshot.collections.find((collection) => collection.collection === "notes")?.values,
     ).toHaveLength(32);
@@ -140,6 +140,12 @@ test("starter edits and lane deletion persist through login without recreation",
     await expect(page.getByRole("heading", { name: "Getting started", exact: true })).toHaveCount(
       0,
     );
+    await expect
+      .poll(async () => {
+        const snapshot = await readSnapshot(page, session.user.id);
+        return snapshot.collections.find((collection) => collection.collection === "lanes")?.values;
+      })
+      .toHaveLength(2);
     const login = await request.post(`/api/e2e/session?userId=${session.user.id}&seed=demo`, {
       headers: secret,
     });
@@ -151,7 +157,7 @@ test("starter edits and lane deletion persist through login without recreation",
     const snapshot = await readSnapshot(page, session.user.id);
     expect(
       snapshot.collections.find((collection) => collection.collection === "lanes")?.values,
-    ).toHaveLength(0);
+    ).toHaveLength(2);
     expect(
       snapshot.collections.find((collection) => collection.collection === "tasks")?.values,
     ).toHaveLength(1);
@@ -184,7 +190,9 @@ test("E2E defaults remain empty, existing accounts ignore seed selection, and un
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Sidequest task board" })).toBeVisible();
     const snapshot = await readSnapshot(page, session.user.id);
-    expect(snapshot.collections.every((collection) => collection.values.length === 0)).toBe(true);
+    for (const collection of snapshot.collections) {
+      expect(collection.values).toHaveLength(collection.collection === "lanes" ? 2 : 0);
+    }
   } finally {
     await deleteUser(request, session.user.id);
   }

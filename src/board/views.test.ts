@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { initializeLanes } from "~/board/data/lanes";
 import type { Task } from "~/board/types";
-import { projectTasksForView } from "~/board/views";
+import {
+  boardNeedsNormalize,
+  normalizeStoredBoard,
+  projectTasksForView,
+  systemLanes,
+} from "~/board/views";
 
 function task(id: string, rank: number, input: Partial<Task> = {}): Task {
   return {
@@ -58,4 +64,40 @@ describe("projectTasksForView", () => {
       "unrelated",
     ]);
   });
+});
+
+it("persists missing default lanes without deleting their privacy or resetting existing lanes", () => {
+  const today = { ...systemLanes[0]!, hidden: true };
+  const project = { ...systemLanes[1]!, id: "project" };
+  Reflect.deleteProperty(project, "hidden");
+  const lanes = [today, project];
+  const tasks = [task("legacy-inbox-task", 0, { laneId: "inbox" })];
+  const collections = {
+    lanes: {
+      toArray: lanes,
+      has: (id: string) => lanes.some((lane) => lane.id === id),
+      insert: (lane: typeof today) => {
+        lanes.push({ ...lane });
+      },
+      update: (id: string, update: (draft: typeof today) => void) => {
+        update(lanes.find((lane) => lane.id === id)!);
+      },
+    },
+    tasks: {
+      toArray: tasks,
+      get: (id: string) => tasks.find((item) => item.id === id),
+      update: (id: string, update: (draft: Task) => void) => {
+        update(tasks.find((item) => item.id === id)!);
+      },
+    },
+  };
+  expect(boardNeedsNormalize(lanes, tasks)).toBe(true);
+  expect(initializeLanes(collections.lanes)).toBe(true);
+  expect(normalizeStoredBoard(collections)).toBe(true);
+  expect(lanes).toEqual([today, { ...project, hidden: false }, systemLanes[1]]);
+  expect(today.hidden).toBe(true);
+  expect(tasks[0]?.laneId).toBeUndefined();
+  expect(boardNeedsNormalize(lanes, tasks)).toBe(false);
+  expect(normalizeStoredBoard(collections)).toBe(false);
+  expect(initializeLanes(collections.lanes)).toBe(false);
 });

@@ -1,8 +1,10 @@
+import { initializeLanes } from "~/board/data/lanes";
 import { emptyNoteDocument } from "~/board/schema";
 import { normalizeStoredBoard } from "~/board/views";
 import type { BoardCollections } from "../collections";
 
 export function normalizeBoardCollections(collections: BoardCollections) {
+  initializeLanes(collections.lanes);
   normalizeStoredBoard({ lanes: collections.lanes, tasks: collections.tasks });
   for (const task of collections.tasks.toArray) {
     if (!collections.notes.has(task.id)) {
