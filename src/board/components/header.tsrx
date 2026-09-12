@@ -10,7 +10,15 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "~/components/ui/dropdown-menu.tsrx";
-import { SettingsIcon, CreditCardIcon, PlugIcon, MenuIcon, LogOutIcon } from "lucide-react";
+import {
+  SearchIcon,
+  SettingsIcon,
+  CreditCardIcon,
+  PlugIcon,
+  MenuIcon,
+  LogOutIcon,
+} from "lucide-react";
+import { ShortcutLabel } from "./shortcut-keys.tsrx";
 import logoUrl from "~/assets/logo.svg?url";
 import logoDarkUrl from "~/assets/logo-dark.svg?url";
 import { authClient } from "~/auth/client";
@@ -20,7 +28,13 @@ class SignOutError extends Schema.TaggedError<SignOutError>()("SignOutError", {
   cause: Schema.Defect(),
 }) {}
 
-export function AppHeader() @{
+export function AppHeader({
+  onSearch,
+  searchDisabled,
+}: {
+  onSearch: () => void;
+  searchDisabled: boolean;
+}) @{
   const { setRoute } = useConsent();
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -60,6 +74,16 @@ export function AppHeader() @{
     </a>
 
     <div className="flex items-center justify-end gap-2">
+      <Button
+        variant="ghost"
+        className="min-h-11 min-w-11 gap-2 text-muted-foreground"
+        aria-label="Search tasks, lanes, and actions"
+        onClick={onSearch}
+        disabled={searchDisabled}
+      >
+        <SearchIcon aria-hidden="true" />
+        <ShortcutLabel hotkey="Mod+K" />
+      </Button>
       @if (signOutError !== null) {
         <p className="text-xs text-destructive" role="alert">
           {signOutError}

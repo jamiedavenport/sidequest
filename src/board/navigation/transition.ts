@@ -17,6 +17,7 @@ const allowedEvents: Record<Interaction["_tag"], readonly BoardEvent["_tag"][]> 
   Navigating: [
     "Navigate",
     "LaneSelect",
+    "LaneFocus",
     "TaskSelect",
     "EditStart",
     "DetailsOpen",
@@ -62,6 +63,8 @@ export const transition = Effect.fn("transition")(function* (
     },
     LaneSelect: ({ viewId }) =>
       Effect.map(selectLane(context, viewId), (selection) => Interaction.Navigating({ selection })),
+    LaneFocus: ({ viewId }) =>
+      Effect.succeed(Interaction.Navigating({ selection: Selection.Lane({ viewId }) })),
     TaskSelect: ({ target }) =>
       Effect.succeed(Interaction.Navigating({ selection: Selection.Task({ target }) })),
     TaskCreated: ({ target }) =>

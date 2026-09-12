@@ -1,3 +1,6 @@
+import { CommandMenu } from "./command-menu/dialog.tsrx";
+import { useCommandDialog } from "./command-menu/use-dialog";
+import { Route } from "~/routes/index";
 import { LanePrivacyProvider, useLanePrivacy } from "./lane/privacy-provider.tsrx";
 import { GitHubDialog } from "~/github/dialog.tsrx";
 import { BoardDragProvider, useBoardDrag } from "~/board/components/board-drag.tsrx";
@@ -40,9 +43,9 @@ import {
   notesHotkey,
   whiteboardHotkey,
 } from "~/board/components/shortcut-keys.tsrx";
-import type { BoardLane } from "~/board/types";
+import type { BoardLane, Task } from "~/board/types";
 
-function useBoardHotkeys() {
+function useBoardHotkeys(commandOpen: boolean) {
   const store = useBoardStore();
   const client = useBoardClient();
   const { editingLaneId, removingLaneId, githubLaneId, startRename, startRemove } = useLaneChrome();
@@ -52,13 +55,13 @@ function useBoardHotkeys() {
   const { hiddenLaneIds, canToggle, toggleLanePrivacy } = useLanePrivacy();
   const selectedLaneId = useBoardSelector(currentLaneId);
   const hidden = hiddenLaneIds.includes(selectedLaneId);
-  const navigating = mode === "Navigating" && githubLaneId === null;
+  const navigating = mode === "Navigating" && githubLaneId === null && !commandOpen;
   const boardCommandsEnabled = navigating && editingLaneId === null && removingLaneId === null;
   const laneCommandsEnabled = boardCommandsEnabled && !hidden;
   const taskEditEnabled = laneCommandsEnabled && taskIdSelected !== null;
 
   useHotkey(privacyHotkey, () => toggleLanePrivacy(currentLaneId(store.getSnapshot())), {
-    enabled: canToggle,
+    enabled: canToggle && !commandOpen,
     ignoreInputs: true,
     meta: { name: "Toggle lane privacy" },
   });
@@ -279,12 +282,20 @@ function useBoardHotkeys() {
   );
 }
 
-function BoardCanvas({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
+function BoardCanvas({
+  lanes,
+  tasks,
+}: {
+  lanes: ReadonlyArray<BoardLane>;
+  tasks: readonly Task[];
+}) @{
+  const session = Route.useLoaderData();
+  const commands = useCommandDialog();
   const mode = useBoardSelector((snapshot) => snapshot.interaction._tag);
   const listboxRef = useRef<HTMLDivElement>(null);
   const wasAdding = useRef(false);
 
-  useBoardHotkeys();
+  useBoardHotkeys(commands.open);
 
   useEffect(() => {
     if (wasAdding.current && mode === "Navigating") {
@@ -297,7 +308,7 @@ function BoardCanvas({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
   <>
     <main className="isolate grid h-dvh min-w-80 grid-cols-1 grid-rows-[3.5rem_minmax(0,1fr)] overflow-hidden bg-background sm:grid-rows-[3.375rem_minmax(0,1fr)_2.375rem]">
       <h1 className="sr-only">Sidequest task board</h1>
-      <AppHeader />
+      <AppHeader onSearch={commands.openCommandMenu} searchDisabled={!commands.available} />
       <section className="min-h-0 min-w-0 overflow-hidden" aria-label="Task lanes">
         <div
           ref={listboxRef}
@@ -316,20 +327,31 @@ function BoardCanvas({ lanes }: { lanes: ReadonlyArray<BoardLane> }) @{
     <LaneRemoveDialog lanes={lanes} />
     <GitHubDialog lanes={lanes} />
     <DetailSheet />
+    <CommandMenu
+      open={commands.open}
+      onOpenChange={commands.changeOpen}
+      onDismiss={commands.restoreFocus}
+      selection={commands.selection}
+      lanes={lanes}
+      tasks={tasks}
+      userId={session.user.id}
+    />
   </>;
 }
 
 function BoardShell({
   lanes,
   hiddenLaneIds,
+  tasks,
 }: {
   lanes: ReadonlyArray<BoardLane>;
   hiddenLaneIds: readonly string[];
+  tasks: readonly Task[];
 }) @{
   <LaneChromeProvider>
     <LanePrivacyProvider hiddenLaneIds={hiddenLaneIds}>
       <BoardDragProvider>
-        <BoardCanvas lanes={lanes} />
+        <BoardCanvas lanes={lanes} tasks={tasks} />
       </BoardDragProvider>
     </LanePrivacyProvider>
   </LaneChromeProvider>;
@@ -349,7 +371,7 @@ function SyncedBoard() @{
   @if (!isReady) {
     <BoardBooting />;
   } @else {
-    <BoardShell lanes={lanes} hiddenLaneIds={hiddenLaneIds} />;
+    <BoardShell lanes={lanes} tasks={tasks} hiddenLaneIds={hiddenLaneIds} />;
   }
 }
 
