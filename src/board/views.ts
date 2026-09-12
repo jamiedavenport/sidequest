@@ -1,4 +1,4 @@
-import { formatTaskDate, isTaskDateToday } from "~/board/date";
+import { serializeTaskDate, isTaskDateToday } from "~/board/date";
 import type {
   BoardLane,
   BoardTask,
@@ -253,7 +253,7 @@ export function placementForCreate(
   viewId: string,
   date?: string,
   now = new Date(),
-  today = formatTaskDate(now, now),
+  today = serializeTaskDate(now),
 ): TaskPlacement {
   if (viewId === inboxLaneId) {
     if (date !== undefined && date !== "" && !isTaskDateToday(date, now)) {
@@ -277,7 +277,7 @@ function placementForMove(
   viewId: string,
   current: Pick<Task, "date">,
   now = new Date(),
-  today = formatTaskDate(now, now),
+  today = serializeTaskDate(now),
 ): TaskPlacement {
   if (viewId === inboxLaneId) {
     return {};
@@ -339,7 +339,7 @@ export function normalizeTask(task: Task, now = new Date()): Task {
     const { laneId: _laneId, ...rest } = task;
     return {
       ...rest,
-      date: task.date ?? formatTaskDate(now, now),
+      date: task.date ?? serializeTaskDate(now),
     };
   }
 
@@ -533,7 +533,7 @@ export function planTaskDestination(
   sourceViewId: string,
   destination: TaskDestination,
   now = new Date(),
-  today = formatTaskDate(now, now),
+  today = serializeTaskDate(now),
 ): ReadonlyArray<TaskMoveUpdate> | undefined {
   const task = allTasks.find((item) => item.id === taskId);
   if (task === undefined || task.completed || !isTaskInView(task, sourceViewId, now)) {
@@ -778,7 +778,7 @@ function migrateLegacyTaskAssignments(input: {
     if (task.laneId === todayLaneId) {
       input.tasks.update(task.id, (draft) => {
         clearOptional(draft, "laneId");
-        draft.date = draft.date ?? formatTaskDate(now, now);
+        draft.date = draft.date ?? serializeTaskDate(now);
       });
       changed = true;
     }

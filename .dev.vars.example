@@ -5,6 +5,10 @@ BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_SECRET=
 RESEND_API_KEY=
 
+# Google OAuth web client. See docs/google.md.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
 # One GitHub App per environment. See docs/github.md.
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=

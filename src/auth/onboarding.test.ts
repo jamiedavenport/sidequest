@@ -12,6 +12,8 @@ vi.mock("~/env", () => ({
     BETTER_AUTH_URL: new URL("http://localhost:3000"),
     BETTER_AUTH_SECRET: "test-only-secret-with-at-least-32-characters",
     RESEND_API_KEY: "test",
+    GOOGLE_CLIENT_ID: "google-test-client",
+    GOOGLE_CLIENT_SECRET: "google-test-secret",
   },
 }));
 vi.mock("~/server/runtime", () => ({ serverRuntime: { runPromise: Effect.runPromise } }));
@@ -94,4 +96,41 @@ it("logs seed failures without failing registration or suppressing the welcome e
   expect(signup.user.email).toBe(email);
   expect(mocks.seed).toHaveBeenCalledTimes(1);
   expect(mocks.send).toHaveBeenCalledTimes(1);
+});
+
+it("requests only identity on Google login and incremental offline consent when linking from email", async () => {
+  const auth = createAuth();
+  const login = await auth.api.signInSocial({ body: { provider: "google", callbackURL: "/" } });
+  const loginUrl = new URL(login.url!);
+  expect(loginUrl.searchParams.get("scope")?.split(" ").toSorted()).toEqual([
+    "email",
+    "openid",
+    "profile",
+  ]);
+  expect(loginUrl.searchParams.get("access_type")).toBe("online");
+
+  const email = "calendar@example.test";
+  const otp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
+  const signedIn = await auth.api.signInEmailOTP({ body: { email, otp }, asResponse: true });
+  const cookie = signedIn.headers.get("set-cookie")!.split(";")[0]!;
+  const consent = await auth.api.linkSocialAccount({
+    headers: new Headers({ cookie }),
+    body: {
+      provider: "google",
+      scopes: ["https://www.googleapis.com/auth/calendar.app.created"],
+      callbackURL: "/settings?calendar=connected",
+      errorCallbackURL: "/settings?calendar=cancelled",
+      additionalParams: {
+        access_type: "offline",
+        prompt: "consent",
+        include_granted_scopes: "true",
+      },
+    },
+  });
+  const consentUrl = new URL(consent.url);
+  expect(consentUrl.searchParams.get("scope")).toContain(
+    "https://www.googleapis.com/auth/calendar.app.created",
+  );
+  expect(consentUrl.searchParams.get("access_type")).toBe("offline");
+  expect(consentUrl.searchParams.get("prompt")).toBe("consent");
 });

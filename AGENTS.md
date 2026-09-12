@@ -23,5 +23,5 @@
 
 ## Validation
 
-- Run the relevant existing tests and the repository's `format`, `lint`, and `typecheck` commands. For changes to Durable Object behavior or browser interactions, run the relevant existing E2E scenarios when available.
+- Run the relevant existing tests and the repository's `format`, `lint`, `knip` and `typecheck` commands. For changes to Durable Object behavior or browser interactions, run the relevant existing E2E scenarios when available.
 - Report exactly which checks passed and which could not run. Preserve the behavior and unrelated edits already present in the working tree. Do not create commits unless requested.

@@ -1,3 +1,4 @@
+import { isTaskDateToday, taskDateLabel } from "~/board/date";
 // oxlint-disable react-perf/jsx-no-new-function-as-prop
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { PanelsTopLeft, StickyNote } from "lucide-react";
@@ -31,7 +32,9 @@ export function TaskMetadata({ laneId, task }: { laneId: string; task: Task }) @
   @if (task.date !== undefined || hasNotes || hasWhiteboard) {
     <div className="flex flex-wrap items-center gap-1.5 pt-2 text-sm/5 sm:text-[0.625rem]/4">
       @if (task.date !== undefined) {
-        <Badge variant={task.date === "Today" ? "today" : "secondary"}>{task.date}</Badge>;
+        <Badge variant={isTaskDateToday(task.date) ? "today" : "secondary"}>
+          {taskDateLabel(task.date)}
+        </Badge>;
       }
       @if (hasNotes) {
         <TaskContentButton laneId={laneId} taskId={task.id} title={task.title} tab="notes" />;

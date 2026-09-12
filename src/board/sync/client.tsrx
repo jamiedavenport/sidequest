@@ -1,4 +1,6 @@
-import { reportBrowserEvent } from "~/telemetry/browser";
+import { migrateBoardDueDates } from "~/google/functions";
+import { serializeTaskDate } from "~/board/date";
+import { errorFingerprint, reportBrowserEvent } from "~/telemetry/browser";
 import {
   BrowserCollectionCoordinator,
   createBrowserWASQLitePersistence,
@@ -57,6 +59,14 @@ function AccountSyncClient({ children, userId }: { children: ReactNode; userId: 
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    void Effect.runPromise(
+      Effect.tryPromise(() =>
+        migrateBoardDueDates({ data: { referenceDate: serializeTaskDate(new Date()) } }),
+      ).pipe(Effect.ignore),
+    );
+  }, [userId]);
+
+  useEffect(() => {
     const controller = new AbortController();
     const onAuthenticationLost = () => {
       if (controller.signal.aborted) {
@@ -76,12 +86,19 @@ function AccountSyncClient({ children, userId }: { children: ReactNode; userId: 
       ),
       Effect.andThen(Effect.never),
       Effect.scoped,
-      Effect.catch(() =>
+      Effect.catch((error) =>
         Effect.sync(() => {
           if (controller.signal.aborted) {
             return;
           }
-          reportBrowserEvent("storage_failed", { outcome: "unexpected_failure" });
+          reportBrowserEvent("storage_failed", {
+            outcome: "unexpected_failure",
+            failureStage: error.stage,
+            fingerprint: errorFingerprint(error.cause),
+          });
+          if (import.meta.env.DEV) {
+            console.error(`Board initialization failed (${error.stage})`, error.cause);
+          }
           setFailed(true);
         }),
       ),
@@ -99,7 +116,7 @@ function AccountSyncClient({ children, userId }: { children: ReactNode; userId: 
     return (
       <main className="grid h-dvh place-items-center">
         <div role="alert" className="flex flex-col items-center gap-4">
-          <p>Unable to open your saved board. Allow browser storage and try again.</p>
+          <p>Unable to open your saved board. Please try again.</p>
           <Button onClick={retry}>Retry</Button>
         </div>
       </main>
@@ -130,7 +147,7 @@ const createBoardClient = Effect.fn("createBoardClient")(function* (
   const database = yield* Effect.acquireRelease(
     Effect.tryPromise({
       try: () => openBrowserWASQLiteOPFSDatabase({ databaseName: `${databaseNamespace}.sqlite` }),
-      catch: () => new BoardStorageError(),
+      catch: (cause) => new BoardStorageError({ stage: "database", cause }),
     }),
     (opened) => Effect.promise(() => opened.close?.() ?? Promise.resolve()),
   );
@@ -209,7 +226,7 @@ const createBoardClient = Effect.fn("createBoardClient")(function* (
       });
       yield* Effect.tryPromise({
         try: () => executor.waitForInit(),
-        catch: () => new BoardStorageError(),
+        catch: (cause) => new BoardStorageError({ stage: "executor", cause }),
       }).pipe(Effect.onError(() => Effect.sync(() => executor.dispose())));
       return executor;
     }),
@@ -222,7 +239,7 @@ const createBoardClient = Effect.fn("createBoardClient")(function* (
     (collection) =>
       Effect.tryPromise({
         try: () => collection.preload(),
-        catch: () => new BoardStorageError(),
+        catch: (cause) => new BoardStorageError({ stage: "collections", cause }),
       }),
     { concurrency: "unbounded", discard: true },
   );

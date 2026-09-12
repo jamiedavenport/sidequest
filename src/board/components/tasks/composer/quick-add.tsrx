@@ -7,7 +7,7 @@ import { useComposerHotkeys } from "~/board/components/tasks/composer/use-hotkey
 import { useLayoutEffect, useRef, useState } from "react";
 
 import { useBoardClient } from "~/board/sync/client.tsrx";
-import { formatTaskDate } from "~/board/date";
+import { serializeTaskDate } from "~/board/date";
 import { useBoardStore, useBoardSelector } from "~/board/navigation/provider.tsrx";
 import { BoardEvent, currentLaneId } from "~/board/navigation/model";
 import { addTask } from "~/board/data/mutations";
@@ -53,7 +53,7 @@ export function QuickAdd({ className, lane }: { className?: string; lane: BoardL
         laneId: lane.id,
         title: value.title,
         attachments: attachments.attachments,
-        date: value.date === undefined ? undefined : formatTaskDate(value.date),
+        date: value.date === undefined ? undefined : serializeTaskDate(value.date),
       });
       store.send(BoardEvent.TaskCreated({ target: { viewId: lane.id, taskId: id } }));
       attachments.reset(true);

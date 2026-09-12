@@ -5,6 +5,8 @@ const standard = Schema.toStandardSchemaV1;
 
 export const env = createEnv({
   server: {
+    GOOGLE_CLIENT_ID: standard(Schema.optional(Schema.NonEmptyString)),
+    GOOGLE_CLIENT_SECRET: standard(Schema.optional(Schema.NonEmptyString)),
     GITHUB_CLIENT_ID: standard(Schema.optional(Schema.NonEmptyString)),
     GITHUB_CLIENT_SECRET: standard(Schema.optional(Schema.NonEmptyString)),
     GITHUB_APP_SLUG: standard(
@@ -29,6 +31,8 @@ export const env = createEnv({
   clientPrefix: "VITE_",
   client: {},
   runtimeEnvStrict: {
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
     GITHUB_APP_SLUG: process.env.GITHUB_APP_SLUG,

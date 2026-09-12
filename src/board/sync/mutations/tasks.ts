@@ -1,4 +1,5 @@
-import { Effect } from "effect";
+import { TaskDate } from "~/board/date";
+import { Effect, Schema } from "effect";
 import { Mutation, SyncProtocolError } from "~/sync/protocol";
 import type { AttachmentStore } from "~/board/attachments/store";
 import { normalizeTask } from "~/board/views";
@@ -31,6 +32,14 @@ export const prepareTaskMutation = Effect.fn("prepareTaskMutation")(function* (
       mutation.originalAttachmentIds,
     ),
   );
+  if (
+    task.date !== undefined &&
+    (mutation.type === "insert" || task.date !== getTask(mutation.key)?.date)
+  ) {
+    yield* Schema.decodeUnknownEffect(TaskDate)(task.date).pipe(
+      Effect.mapError(() => new SyncProtocolError({ message: "Use a valid YYYY-MM-DD due date." })),
+    );
+  }
   yield* validateAttachments(task).pipe(
     Effect.mapError((error) => new SyncProtocolError({ message: error.message })),
   );

@@ -86,6 +86,9 @@
   "trustedDependencies": [
     "lefthook",
   ],
+  "patchedDependencies": {
+    "@tanstack/browser-db-sqlite-persistence@0.2.19": "patches/@tanstack%2Fbrowser-db-sqlite-persistence@0.2.19.patch",
+  },
   "packages": {
     "@antfu/install-pkg": ["@antfu/install-pkg@2.0.1", "", { "dependencies": { "package-manager-detector": "^1.7.0", "tinyexec": "^1.2.4" } }, "sha512-iCKVQcIC0e3oDxEfs3SHQGW+ovhBMZmS1TE+bTk50rVyMCBmCfClv7Qi3HQKlumYwvjb/iIMeWCW2i67q6kFfQ=="],
 

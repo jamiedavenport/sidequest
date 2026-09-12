@@ -46,10 +46,6 @@ function fromGithubRpc<A>(run: () => PromiseLike<A>) {
 
 const LaneInput = Schema.toStandardSchemaV1(Schema.Struct({ laneId: Schema.NonEmptyString }));
 
-export const isGithubEnabled = createServerFn({ method: "GET" }).handler(
-  () => !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
-);
-
 export const getGithubLaneConnections = createServerFn({ method: "GET" }).handler(() =>
   runGithub(
     Effect.gen(function* () {

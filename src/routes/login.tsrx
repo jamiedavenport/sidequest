@@ -1,68 +1,22 @@
-import { Effect } from "effect";
-import { fromGithubPromise, GitHubError } from "~/github/schema";
-import { authClient } from "~/auth/client";
-import { isGithubEnabled } from "~/github/functions";
-import { GitHubIcon } from "~/github/icon.tsrx";
+import { SocialLogin } from "~/auth/components/social-login.tsrx";
 import { oauthQueryFromSearch } from "~/auth/oauth-continuation";
 // oxlint-disable react-perf/jsx-no-new-function-as-prop
 import { useForm } from "@tanstack/react-form";
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { PrivacyNavigation } from "~/privacy/consent.tsrx";
 import { LoginShell } from "~/auth/components/login-shell.tsrx";
 import { sendSignInCode } from "~/auth/middleware";
 import { loginFormSchema } from "~/auth/schema";
 import { Button } from "~/components/ui/button.tsrx";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldSeparator,
-} from "~/components/ui/field.tsrx";
+import { Field, FieldError, FieldGroup, FieldLabel } from "~/components/ui/field.tsrx";
 import { Input } from "~/components/ui/input.tsrx";
 
 export function Component() @{
   const navigate = useNavigate();
   const oauthQuery = oauthQueryFromSearch(useLocation().searchStr);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [githubAvailable, setGithubAvailable] = useState(false);
-  const [githubBusy, setGithubBusy] = useState(false);
-  useEffect(() => {
-    void Effect.runPromise(
-      fromGithubPromise(() => isGithubEnabled()).pipe(
-        Effect.tap((enabled) => Effect.sync(() => setGithubAvailable(enabled))),
-        Effect.ignore,
-      ),
-    );
-    if (new URLSearchParams(window.location.search).has("error")) {
-      setSubmitError("GitHub sign-in was cancelled or could not be completed. Please try again.");
-    }
-  }, []);
-
-  const signInWithGithub = Effect.fn("signInWithGithub")(
-    function* () {
-      setGithubBusy(true);
-      setSubmitError(null);
-      const continuation = oauthQuery ? `/login?${new URLSearchParams({ oauthQuery })}` : "/";
-      const result = yield* fromGithubPromise(() =>
-        authClient.signIn.social({
-          provider: "github",
-          callbackURL: continuation,
-          errorCallbackURL: oauthQuery ? continuation : "/login",
-        }),
-      );
-      if (result.error) {
-        return yield* new GitHubError({ message: "GitHub sign-in could not be started." });
-      }
-    },
-    Effect.catch(() =>
-      Effect.sync(() => setSubmitError("GitHub sign-in could not be started. Please try again.")),
-    ),
-    Effect.ensuring(Effect.sync(() => setGithubBusy(false))),
-  );
-
   const form = useForm({
     defaultValues: {
       email: "",
@@ -146,23 +100,7 @@ export function Component() @{
         }}
       </form.Subscribe>
     </form>
-    @if (githubAvailable) {
-      <>
-        <FieldSeparator className="text-center text-xs sm:text-xs">
-          or continue with
-        </FieldSeparator>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-9 w-full gap-2 text-sm"
-          disabled={githubBusy}
-          onClick={() => Effect.runPromise(signInWithGithub())}
-        >
-          <GitHubIcon />
-          {githubBusy ? "Connecting…" : "Continue with GitHub"}
-        </Button>
-      </>;
-    }
+    <SocialLogin oauthQuery={oauthQuery} onError={setSubmitError} />
     <PrivacyNavigation />
   </LoginShell>;
 }

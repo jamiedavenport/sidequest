@@ -1,11 +1,10 @@
+import { TaskDate } from "~/board/date";
 import { Schema } from "effect";
 import { Lane, Task } from "~/board/schema";
 
 const Id = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200));
 
 const Title = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(10000));
-
-const DateString = Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/));
 
 const page = {
   cursor: Schema.optionalKey(Schema.String.check(Schema.isMaxLength(4000))),
@@ -40,13 +39,13 @@ export const toolInputs = {
     title: Title,
     viewId: Schema.optionalKey(Id),
     parentId: Schema.optionalKey(Id),
-    date: Schema.optionalKey(DateString),
+    date: Schema.optionalKey(TaskDate),
   }),
   update_task: Schema.Struct({
     ...write,
     taskId: Id,
     title: Schema.optionalKey(Title),
-    date: Schema.optionalKey(Schema.NullOr(DateString)),
+    date: Schema.optionalKey(Schema.NullOr(TaskDate)),
   }),
   move_task: Schema.Struct({
     ...write,

@@ -98,6 +98,7 @@ function errorTag(exit: Exit.Exit<unknown, unknown>) {
   ) {
     const tags = [
       "GitHubError",
+      "GoogleCalendarError",
       "SyncProtocolError",
       "BoardSeedError",
       "ToolError",

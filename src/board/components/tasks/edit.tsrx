@@ -7,7 +7,7 @@ import { useComposerHotkeys } from "~/board/components/tasks/composer/use-hotkey
 import { Check, X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 
-import { formatTaskDate, parseTaskDate } from "~/board/date";
+import { serializeTaskDate, parseTaskDate } from "~/board/date";
 import { updateTask } from "~/board/data/mutations";
 import { useBoardStore } from "~/board/navigation/provider.tsrx";
 import { BoardEvent } from "~/board/navigation/model";
@@ -53,7 +53,7 @@ export function TaskEdit({ laneId, task }: { laneId: string; task: Task }) @{
       updateTask(client, task.id, {
         title: value.title,
         attachments: attachments.attachments,
-        date: value.date === undefined ? undefined : formatTaskDate(value.date),
+        date: value.date === undefined ? undefined : serializeTaskDate(value.date),
       });
       attachments.reset(true);
       store.send(BoardEvent.EditSave({}));

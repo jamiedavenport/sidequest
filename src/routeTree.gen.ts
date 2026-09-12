@@ -17,6 +17,7 @@ import { Route as ConsentRouteImport } from './routes/consent'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ApiBoardRouteImport } from './routes/api/board'
 import { Route as ApiTelemetryRouteImport } from './routes/api/telemetry'
 import { Route as ApiAttachmentsIdRouteImport } from './routes/api/attachments/$id'
@@ -65,6 +66,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiBoardRoute = ApiBoardRouteImport.update({
   id: '/api/board',
   path: '/api/board',
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/cookies': typeof CookiesRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/settings': typeof SettingsRoute
   '/api/board': typeof ApiBoardRoute
   '/api/telemetry': typeof ApiTelemetryRoute
   '/api/attachments/$id': typeof ApiAttachmentsIdRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByTo {
   '/cookies': typeof CookiesRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/settings': typeof SettingsRoute
   '/api/board': typeof ApiBoardRoute
   '/api/telemetry': typeof ApiTelemetryRoute
   '/api/attachments/$id': typeof ApiAttachmentsIdRoute
@@ -145,6 +153,7 @@ export interface FileRoutesById {
   '/cookies': typeof CookiesRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
+  '/settings': typeof SettingsRoute
   '/api/board': typeof ApiBoardRoute
   '/api/telemetry': typeof ApiTelemetryRoute
   '/api/attachments/$id': typeof ApiAttachmentsIdRoute
@@ -164,6 +173,7 @@ export interface FileRouteTypes {
     | '/cookies'
     | '/login'
     | '/privacy'
+    | '/settings'
     | '/api/board'
     | '/api/telemetry'
     | '/api/attachments/$id'
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/cookies'
     | '/login'
     | '/privacy'
+    | '/settings'
     | '/api/board'
     | '/api/telemetry'
     | '/api/attachments/$id'
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/cookies'
     | '/login'
     | '/privacy'
+    | '/settings'
     | '/api/board'
     | '/api/telemetry'
     | '/api/attachments/$id'
@@ -216,6 +228,7 @@ export interface RootRouteChildren {
   CookiesRoute: typeof CookiesRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
+  SettingsRoute: typeof SettingsRoute
   ApiBoardRoute: typeof ApiBoardRoute
   ApiTelemetryRoute: typeof ApiTelemetryRoute
   ApiAttachmentsIdRoute: typeof ApiAttachmentsIdRoute
@@ -283,6 +296,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/board': {
       id: '/api/board'
       path: '/api/board'
@@ -344,6 +364,7 @@ const rootRouteChildren: RootRouteChildren = {
   CookiesRoute: CookiesRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
+  SettingsRoute: SettingsRoute,
   ApiBoardRoute: ApiBoardRoute,
   ApiTelemetryRoute: ApiTelemetryRoute,
   ApiAttachmentsIdRoute: ApiAttachmentsIdRoute,

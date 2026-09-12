@@ -1,3 +1,4 @@
+import { serializeTaskDate } from "~/board/date";
 import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
 
@@ -377,7 +378,7 @@ describe("explicit board moves", () => {
     Effect.runSync(dropBoardEntity(client, source, { kind: "view", viewId, edge: "append" }));
     for (const item of client.tasks.toArray) {
       expect(item.laneId).toBeUndefined();
-      expect(item.date).toBe(viewId === "today" ? "Today" : undefined);
+      expect(item.date).toBe(viewId === "today" ? serializeTaskDate(new Date()) : undefined);
     }
   });
 

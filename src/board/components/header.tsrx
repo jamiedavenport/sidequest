@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "~/components/ui/dropdown-menu.tsrx";
-import { CreditCardIcon, PlugIcon, MenuIcon, LogOutIcon } from "lucide-react";
+import { SettingsIcon, CreditCardIcon, PlugIcon, MenuIcon, LogOutIcon } from "lucide-react";
 import logoUrl from "~/assets/logo.svg?url";
 import logoDarkUrl from "~/assets/logo-dark.svg?url";
 import { authClient } from "~/auth/client";
@@ -65,6 +65,18 @@ export function AppHeader() @{
           {signOutError}
         </p>;
       }
+      <Link
+        to="/settings"
+        aria-label="Settings"
+        title="Settings"
+        className={buttonVariants({
+          variant: "ghost",
+          size: "icon",
+          className: "text-muted-foreground",
+        })}
+      >
+        <SettingsIcon aria-hidden="true" />
+      </Link>
       <a
         href="/billing"
         aria-label="Billing"

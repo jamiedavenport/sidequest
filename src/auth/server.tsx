@@ -156,8 +156,8 @@ export function createAuth() {
       encryptOAuthTokens: true,
       accountLinking: { allowDifferentEmails: true, requireLocalEmailVerified: true },
     },
-    socialProviders:
-      env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
+    socialProviders: {
+      ...(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
         ? {
             github: {
               clientId: env.GITHUB_CLIENT_ID,
@@ -165,7 +165,17 @@ export function createAuth() {
               disableDefaultScope: true,
             },
           }
-        : {},
+        : {}),
+      ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+        ? {
+            google: {
+              clientId: env.GOOGLE_CLIENT_ID,
+              clientSecret: env.GOOGLE_CLIENT_SECRET,
+              accessType: "online",
+            },
+          }
+        : {}),
+    },
     plugins: [
       oauthProvider(providerOptions),
       mcpTokenPlugin(providerOptions),

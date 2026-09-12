@@ -1,3 +1,9 @@
+import { migrateTaskDates, taskDateMigrationKey } from "~/board/data/date-migration";
+import { calendarClient } from "~/google/api";
+import { getGoogleCalendarAccount, getGoogleCalendarToken } from "~/google/access";
+import { calendarError } from "~/google/schema";
+import { CalendarStore } from "~/google/store";
+import { GoogleCalendarSync } from "~/google/sync";
 import { applyTaskLinks, type TaskLinkUpdate } from "./enrichment/apply";
 import {
   getCompletedGithubTasks,
@@ -75,6 +81,7 @@ export class BoardObject extends SyncDurableObject<Env> {
     this: BoardObject,
     mutations: ReadonlyArray<PendingMutation>,
   ) {
+    this.#enqueueCalendarSync(mutations);
     yield* this.#attachments
       .reconcileUploads()
       .pipe(Effect.catch(() => Effect.logWarning("Attachment cleanup will retry.")));
@@ -135,6 +142,84 @@ export class BoardObject extends SyncDurableObject<Env> {
 
   override async alarm() {
     await this.serialized(() => serverRuntime.runPromise(this.#attachments.reconcileUploads()));
+  }
+
+  #calendar = new GoogleCalendarSync({
+    store: new CalendarStore(this.ctx.storage),
+    client: calendarClient,
+    getAccount: getGoogleCalendarAccount,
+    getToken: getGoogleCalendarToken,
+    readBoard: () =>
+      Effect.tryPromise({
+        try: () =>
+          this.serialized(async () => ({
+            tasks: this.#board.tasks.toArray,
+            lanes: this.#board.lanes.toArray,
+          })),
+        catch: () => calendarError("Could not read tasks for Calendar sync."),
+      }),
+    datesMigrated: () =>
+      Effect.tryPromise({
+        try: async () => !!(await this.ctx.storage.get<boolean>(taskDateMigrationKey)),
+        catch: () => calendarError("Could not read due date migration status."),
+      }),
+  });
+
+  #enqueueCalendarSync(mutations: ReadonlyArray<PendingMutation>) {
+    if (!mutations.some((mutation) => ["tasks", "lanes"].includes(mutation.collection.id))) {
+      return;
+    }
+    this.ctx.waitUntil(
+      observeBackground("google.reconcileCalendar", async () => {
+        const userId = await this.ctx.storage.get<string>("billing:owner");
+        if (userId) {
+          await serverRuntime.runPromise(this.#calendar.reconcile(userId));
+        }
+      }),
+    );
+  }
+
+  async migrateDueDates(userId: string, referenceDate: string, telemetry?: TelemetryContext) {
+    return this.#invoke(
+      "migrateDueDates",
+      userId,
+      () =>
+        this.serialized(async () => {
+          const changed = await serverRuntime.runPromise(
+            migrateTaskDates(this.ctx.storage, this.#board, referenceDate),
+          );
+          if (changed) {
+            await this.broadcastSyncSnapshot();
+          }
+        }),
+      telemetry,
+    );
+  }
+
+  async getGoogleCalendarStatus(userId: string, telemetry?: TelemetryContext) {
+    return this.#invoke(
+      "getGoogleCalendarStatus",
+      userId,
+      async () => {
+        const status = await serverRuntime.runPromise(this.#calendar.getStatus());
+        this.ctx.waitUntil(
+          observeBackground("google.reconcileCalendar", () =>
+            serverRuntime.runPromise(this.#calendar.reconcile(userId)),
+          ),
+        );
+        return status;
+      },
+      telemetry,
+    );
+  }
+
+  async setGoogleCalendarEnabled(userId: string, enabled: boolean, telemetry?: TelemetryContext) {
+    return this.#invoke(
+      "setGoogleCalendarEnabled",
+      userId,
+      () => serverRuntime.runPromise(this.#calendar.setEnabled(userId, enabled)),
+      telemetry,
+    );
   }
 
   #github: GitHubBoard = new GitHubBoard({

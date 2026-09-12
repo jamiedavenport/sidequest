@@ -1,0 +1,39 @@
+diff --git a/dist/assets/opfs-worker-uyjx5Rus.js b/dist/assets/opfs-worker-uyjx5Rus.js
+index 00e65b7d530620f8ed226083c652bde9a2d4b093..8456ceab8de95caf3f2ecb26b5386b4e90012ed0 100644
+--- a/dist/assets/opfs-worker-uyjx5Rus.js
++++ b/dist/assets/opfs-worker-uyjx5Rus.js
+@@ -5199,6 +5199,17 @@
+     constructor(name, module) {
+       super(name, module);
+     }
++    close() {
++      // sqlite3.close releases database handles before closing the VFS.
++      for (const handle of this.boundAccessHandles.values()) handle.close();
++      for (const handle of this.unboundAccessHandles) handle.close();
++      this.boundAccessHandles.clear();
++      this.unboundAccessHandles.clear();
++      for (const file of this.persistentFiles.values()) file.handleRequestChannel.close();
++      this.persistentFiles.clear();
++      this.releaser?.();
++      this.releaser = null;
++    }
+     async #initialize(nTemporaryFiles) {
+       const root = await navigator.storage.getDirectory();
+       for await (const entry of root.values()) {
+@@ -5206,7 +5217,15 @@
+           await navigator.locks.request(entry.name, { ifAvailable: true }, async (lock) => {
+             if (lock) {
+               this.log?.(`Deleting temporary directory ${entry.name}`);
+-              await root.removeEntry(entry.name, { recursive: true });
++              try {
++                await root.removeEntry(entry.name, { recursive: true });
++              } catch (error) {
++                // Browser access handles can outlive their advisory Web Lock.
++                // Cleanup is best effort; leave locked temporary files intact.
++                if (error?.name !== "NoModificationAllowedError" && error?.name !== "NotFoundError") {
++                  throw error;
++                }
++              }
+             } else {
+               this.log?.(`Temporary directory ${entry.name} is in use`);
+             }
