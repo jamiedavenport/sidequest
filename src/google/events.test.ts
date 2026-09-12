@@ -21,16 +21,17 @@ const task = (id: string, patch: Partial<Task> = {}): Task => ({
   ...patch,
 });
 
-it("groups own dates, including past and completed tasks, with sorted full paths", () => {
+it("groups incomplete tasks by their own dates, including past dates, with sorted full paths", () => {
   const tasks = [
     task("website", { title: "Website", date: "2025-12-31" }),
     task("pricing", {
       title: "Update pricing",
       parentId: "website",
       date: "2025-12-31",
-      completed: true,
     }),
     task("ship", { title: "Ship Google Integration", date: "2025-12-31" }),
+    task("completed", { date: "2025-12-31", completed: true }),
+    task("completed-only-date", { date: "2026-09-12", completed: true }),
     task("undated", { parentId: "website" }),
     task("unknown", { date: "Today" }),
     task("inbox", { laneId: undefined, date: "2028-02-29" }),
@@ -53,8 +54,8 @@ it("groups own dates, including past and completed tasks, with sorted full paths
   expect(
     buildCalendarEvents({
       lanes: [lane],
-      tasks: tasks.map((t) => ({ ...t, completed: !t.completed })),
-    }),
-  ).toEqual(events);
+      tasks: tasks.map((t) => ({ ...t, completed: true })),
+    }).size,
+  ).toBe(0);
   expect(buildCalendarEvents({ lanes: [lane], tasks: [...tasks].toReversed() })).toEqual(events);
 });

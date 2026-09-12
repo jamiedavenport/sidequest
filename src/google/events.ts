@@ -34,7 +34,7 @@ export function buildCalendarEvents(board: CalendarBoard): Map<string, CalendarE
   const lanes = new Map(board.lanes.map((lane) => [lane.id, lane]));
   const dates = new Map<string, { id: string; path: string }[]>();
   for (const task of board.tasks) {
-    if (task.date === undefined || !isCanonicalTaskDate(task.date)) {
+    if (task.completed || task.date === undefined || !isCanonicalTaskDate(task.date)) {
       continue;
     }
     const group = dates.get(task.date) ?? [];

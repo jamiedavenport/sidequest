@@ -28,8 +28,8 @@ export function Component() @{
           />
         </div>
         <FieldDescription id="calendar-description">
-          Add dated tasks to a dedicated Sidequest calendar, grouped by day. Completed tasks stay
-          listed. Turning sync off deletes this calendar and its events.
+          Add dated tasks to a dedicated Sidequest calendar, grouped by day. Completed tasks are
+          excluded. Turning sync off deletes this calendar and its events.
         </FieldDescription>
       </Field>
       @if (pending) {

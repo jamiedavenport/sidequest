@@ -87,15 +87,12 @@ function fixture() {
   return { data, events, store, sync: createSync(), createSync };
 }
 
-it("enables, updates renamed paths, ignores completion, reschedules and removes empty dates", async () => {
+it("enables, updates renamed paths, reschedules and removes empty dates", async () => {
   const { data, events, sync } = fixture();
   expect((await run(sync.getStatus())).enabled).toBe(false);
   await run(sync.setEnabled("user", true));
   expect(data.created).toBe(1);
   expect(events.size).toBe(1);
-  data.tasks = data.tasks.map((task) => ({ ...task, completed: true }));
-  await run(sync.reconcile("user"));
-  expect(data.updated).toBe(0);
   data.tasks = data.tasks.map((task) => ({ ...task, title: "Renamed" }));
   await run(sync.reconcile("user"));
   expect(data.updated).toBe(1);
@@ -107,6 +104,33 @@ it("enables, updates renamed paths, ignores completion, reschedules and removes 
   data.tasks = [];
   await run(sync.reconcile("user"));
   expect(events.size).toBe(0);
+});
+
+it("removes completed tasks, deletes empty day events and restores reopened tasks", async () => {
+  const { data, events, store, sync } = fixture();
+  data.tasks.push({
+    id: "b",
+    title: "Other task",
+    date: "2026-09-12",
+    rank: 1,
+    collapsed: false,
+    completed: false,
+  });
+  await run(sync.setEnabled("user", true));
+  const [eventId] = events.keys();
+  data.tasks = data.tasks.map((task) => ({ ...task, completed: task.id === "b" }));
+  await run(sync.reconcile("user"));
+  expect(data.updated).toBe(1);
+  expect([...events.keys()]).toEqual([eventId]);
+  expect([...events.values()][0]?.description).toBe("• Inbox > Task");
+  data.tasks = data.tasks.map((task) => ({ ...task, completed: true }));
+  await run(sync.reconcile("user"));
+  expect(events.size).toBe(0);
+  expect((await run(store.read()))?.events).toEqual({});
+  data.tasks = data.tasks.map((task) => ({ ...task, completed: task.id === "b" }));
+  await run(sync.reconcile("user"));
+  expect(events.size).toBe(1);
+  expect([...events.values()][0]?.description).toBe("• Inbox > Task");
 });
 
 it("persists calendar and pending event IDs and retries after restart without duplicates", async () => {
