@@ -3,7 +3,7 @@ import type { BoardClient } from "~/board/sync/client-types";
 
 type PrivacyClient = Pick<BoardClient, "lanes" | "offline">;
 
-export class LanePrivacyError extends Schema.TaggedError<LanePrivacyError>()("LanePrivacyError", {
+class LanePrivacyError extends Schema.TaggedError<LanePrivacyError>()("LanePrivacyError", {
   cause: Schema.Defect(),
 }) {}
 
